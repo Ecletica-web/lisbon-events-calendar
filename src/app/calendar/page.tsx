@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
@@ -1103,5 +1103,17 @@ export default function CalendarPage() {
       {/* Event Modal */}
       <EventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
     </div>
+  )
+}
+
+export default function CalendarPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white/95 backdrop-blur-sm flex items-center justify-center">
+        <div className="text-gray-500">Loading calendar...</div>
+      </div>
+    }>
+      <CalendarPageContent />
+    </Suspense>
   )
 }
