@@ -46,36 +46,51 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      if (!user.email) return false
-      
-      // Find or create user in database
-      let dbUser = getUserByEmail(user.email)
-      if (!dbUser) {
-        dbUser = createUser(user.email, user.name || undefined)
+      try {
+        if (!user.email) return false
+        
+        // Find or create user in database
+        let dbUser = getUserByEmail(user.email)
+        if (!dbUser) {
+          dbUser = createUser(user.email, user.name || undefined)
+        }
+        
+        return true
+      } catch (error) {
+        console.error('SignIn callback error:', error)
+        return false
       }
-      
-      return true
     },
     async session({ session, token }) {
-      // Add user ID to session
-      if (session.user?.email) {
-        const dbUser = getUserByEmail(session.user.email)
-        if (dbUser) {
-          (session.user as any).id = dbUser.id
-          session.user.name = dbUser.name || session.user.name
+      try {
+        // Add user ID to session
+        if (session.user?.email) {
+          const dbUser = getUserByEmail(session.user.email)
+          if (dbUser) {
+            (session.user as any).id = dbUser.id
+            session.user.name = dbUser.name || session.user.name
+          }
         }
+        return session
+      } catch (error) {
+        console.error('Session callback error:', error)
+        return session
       }
-      return session
     },
     async jwt({ token, user, account }) {
-      if (user) {
-        token.id = (user as any).id
+      try {
+        if (user) {
+          token.id = (user as any).id
+        }
+        return token
+      } catch (error) {
+        console.error('JWT callback error:', error)
+        return token
       }
-      return token
     },
   },
   pages: {
     signIn: '/login',
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || 'fallback-secret-for-development-only-change-in-production',
 }

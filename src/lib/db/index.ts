@@ -17,29 +17,67 @@ const DB_FILES = {
 
 // Ensure data directory exists
 if (typeof window === 'undefined') {
-  if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true })
-  }
-  
-  // Initialize empty files if they don't exist
-  Object.values(DB_FILES).forEach((file) => {
-    if (!fs.existsSync(file)) {
-      fs.writeFileSync(file, JSON.stringify([], null, 2))
+  try {
+    if (!fs.existsSync(DB_DIR)) {
+      fs.mkdirSync(DB_DIR, { recursive: true })
     }
-  })
+    
+    // Initialize empty files if they don't exist
+    Object.values(DB_FILES).forEach((file) => {
+      try {
+        if (!fs.existsSync(file)) {
+          fs.writeFileSync(file, JSON.stringify([], null, 2), 'utf-8')
+        } else {
+          // Verify file is valid JSON, if not, reset it
+          try {
+            const content = fs.readFileSync(file, 'utf-8')
+            if (content.trim() === '') {
+              fs.writeFileSync(file, JSON.stringify([], null, 2), 'utf-8')
+            } else {
+              JSON.parse(content) // Validate JSON
+            }
+          } catch {
+            // File is corrupted, reset it
+            fs.writeFileSync(file, JSON.stringify([], null, 2), 'utf-8')
+          }
+        }
+      } catch (fileError) {
+        console.error(`Error initializing database file ${file}:`, fileError)
+      }
+    })
+  } catch (error) {
+    console.error('Error initializing database:', error)
+  }
 }
 
 function readFile<T>(file: string): T[] {
   try {
+    if (!fs.existsSync(file)) {
+      return []
+    }
     const content = fs.readFileSync(file, 'utf-8')
+    if (!content || content.trim() === '') {
+      return []
+    }
     return JSON.parse(content) as T[]
-  } catch {
+  } catch (error) {
+    console.error(`Error reading file ${file}:`, error)
     return []
   }
 }
 
 function writeFile<T>(file: string, data: T[]): void {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2))
+  try {
+    // Ensure directory exists
+    const dir = path.dirname(file)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    fs.writeFileSync(file, JSON.stringify(data, null, 2))
+  } catch (error) {
+    console.error(`Error writing file ${file}:`, error)
+    throw error
+  }
 }
 
 // Users

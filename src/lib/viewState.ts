@@ -2,7 +2,7 @@
  * View state represents the complete filter and view configuration
  */
 export interface ViewState {
-  viewMode: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek'
+  viewMode: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay'
   dateFocus: string // ISO date string (YYYY-MM-DD)
   searchQuery: string
   selectedCategories: string[]
@@ -77,7 +77,7 @@ export function deserializeViewStateFromURL(
   const state: Partial<ViewState> = {}
   
   const viewMode = searchParams.get('v')
-  if (viewMode && ['dayGridMonth', 'timeGridWeek', 'timeGridDay', 'listWeek'].includes(viewMode)) {
+  if (viewMode && ['dayGridMonth', 'timeGridWeek', 'timeGridDay'].includes(viewMode)) {
     state.viewMode = viewMode as ViewState['viewMode']
   }
   
