@@ -922,23 +922,6 @@ function CalendarPageContent() {
       <div className="flex flex-col md:flex-row">
         {/* Left Sidebar */}
         <div className={`relative transition-all duration-300 ${sidebarMinimized ? 'w-0 md:w-12' : 'w-64 md:w-72'} border-r-0 md:border-r border-b md:border-b-0 border-slate-700/50 bg-slate-800/60 backdrop-blur-xl ${sidebarMinimized ? 'overflow-visible md:overflow-visible' : 'p-3 md:p-6 max-h-[50vh] md:max-h-none md:min-h-[calc(100vh-120px)] overflow-y-auto'} flex-shrink-0 ${!sidebarMinimized ? 'z-50 md:z-auto fixed md:relative inset-y-0 left-0' : ''}`}>
-          {/* Mobile Filter Icon Button - Only visible when sidebar is minimized on mobile */}
-          {sidebarMinimized && (
-            <button
-              onClick={() => setSidebarMinimized(false)}
-              className="md:hidden fixed top-20 left-4 z-[100] p-3 rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all shadow-lg hover:shadow-xl flex items-center justify-center backdrop-blur-sm"
-              aria-label="Open filters"
-            >
-              <svg 
-                className="w-5 h-5 text-slate-300" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-            </button>
-          )}
 
           {/* Minimize/Expand Button - Desktop only */}
           <button
@@ -1334,6 +1317,24 @@ function CalendarPageContent() {
         <div className="flex-1 p-4 md:p-6 min-w-0">
           {/* Mobile: Show Day Sliders */}
           <div className="md:hidden">
+            {/* Mobile Filter Icon Button - Above first slider */}
+            {sidebarMinimized && (
+              <button
+                onClick={() => setSidebarMinimized(false)}
+                className="mb-4 p-3 rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all shadow-lg hover:shadow-xl flex items-center justify-center backdrop-blur-sm"
+                aria-label="Open filters"
+              >
+                <svg 
+                  className="w-5 h-5 text-slate-300" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+              </button>
+            )}
+            
             {loading ? (
               <div className="flex items-center justify-center h-96">
                 <div className="text-slate-400">Loading events...</div>

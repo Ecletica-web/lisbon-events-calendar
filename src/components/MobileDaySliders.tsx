@@ -54,7 +54,6 @@ export default function MobileDaySliders({
         start: dayStart,
         end: dayEnd,
         label: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : formatDate(day, 'EEE, MMM d'),
-        shortLabel: i === 0 ? 'T+0' : `T+${i}`,
       }
     })
   }, [])
@@ -102,21 +101,60 @@ export default function MobileDaySliders({
     })
   }, [events, days, selectedCategories, selectedTags, freeOnly, excludeExhibitions, excludeContinuous])
 
+  const handleRemoveTag = (tag: string) => {
+    if (onTagsChange) {
+      const newTags = selectedTags.filter(t => t !== tag)
+      onTagsChange(newTags)
+    }
+  }
+
   return (
     <div className="w-full space-y-6 pb-6">
       {days.map((day, index) => (
         <div key={index} className="w-full">
           {/* Day Header */}
-          <div className="flex items-center justify-between mb-3 px-4">
-            <div className="flex items-center gap-3">
+          <div className="mb-3 px-4">
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-bold text-white">
                 {day.label}
               </h3>
-              <span className="text-xs text-slate-400 font-mono">{day.shortLabel}</span>
+              <span className="text-sm text-slate-400">
+                {eventsByDay[index].length} event{eventsByDay[index].length !== 1 ? 's' : ''}
+              </span>
             </div>
-            <span className="text-sm text-slate-400">
-              {eventsByDay[index].length} event{eventsByDay[index].length !== 1 ? 's' : ''}
-            </span>
+            
+            {/* Selected Tags for this day */}
+            {selectedTags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {selectedTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-gradient-to-r from-indigo-600/80 to-purple-600/80 text-white border border-indigo-500/50"
+                  >
+                    {tag}
+                    <button
+                      onClick={() => handleRemoveTag(tag)}
+                      className="hover:bg-indigo-500/50 rounded-full p-0.5 transition-colors flex items-center justify-center"
+                      aria-label={`Remove ${tag}`}
+                    >
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Day Slider */}
