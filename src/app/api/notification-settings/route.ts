@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth-config'
 import {
   getNotificationSettings,
@@ -9,7 +9,7 @@ import {
 // Get notification settings
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions as any)
     const userId = (session?.user as any)?.id
     
     if (!userId) {
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 // Update notification settings
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions as any)
     const userId = (session?.user as any)?.id
     
     if (!userId) {

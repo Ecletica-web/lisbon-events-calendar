@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth-config'
 import {
   getSavedViewsByUserId,
@@ -13,7 +13,7 @@ import { ViewState } from '@/lib/viewState'
 // Get all saved views for user
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions as any)
     const userId = (session?.user as any)?.id
     
     if (!userId) {
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 // Create a new saved view
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions as any)
     const userId = (session?.user as any)?.id
     
     if (!userId) {
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 // Update a saved view
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions as any)
     const userId = (session?.user as any)?.id
     
     if (!userId) {
@@ -96,7 +96,7 @@ export async function PATCH(request: NextRequest) {
 // Delete a saved view
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions as any)
     const userId = (session?.user as any)?.id
     
     if (!userId) {

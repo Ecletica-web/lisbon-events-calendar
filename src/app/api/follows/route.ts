@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
+import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth-config'
 import { getFollowsByUserId, createFollow, deleteFollow } from '@/lib/db'
 
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 // Create a new follow
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions as any)
     const userId = (session?.user as any)?.id
     
     if (!userId) {
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 // Delete a follow
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions as any)
     const userId = (session?.user as any)?.id
     
     if (!userId) {
