@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -13,7 +14,26 @@ import {
   type NormalizedEvent,
 } from '@/lib/eventsAdapter'
 import { getCategoryColor, generateColorFromString } from '@/lib/categoryColors'
+import { generateColorShade } from '@/lib/colorShades'
 import { useDebounce } from '@/lib/useDebounce'
+import {
+  ViewState,
+  DEFAULT_VIEW_STATE,
+  serializeViewStateToURL,
+  deserializeViewStateFromURL,
+  mergeViewState,
+} from '@/lib/viewState'
+import {
+  getSavedViews,
+  saveView,
+  updateView,
+  deleteView,
+  setViewAsDefault,
+  getDefaultView,
+  type SavedView,
+} from '@/lib/savedViews'
+import { useSession } from 'next-auth/react'
+import { loadSavedViewsFromDB, saveViewToDB } from '@/lib/savedViewsSync'
 
 interface EventModalProps {
   event: NormalizedEvent | null
@@ -62,7 +82,7 @@ function EventModal({ event, onClose }: EventModalProps) {
           />
         )}
         
-        <h2 className="text-2xl font-bold mb-4">{event.title}</h2>
+        <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">{event.title}</h2>
         
         <div className="space-y-3 mb-4">
           <div>
@@ -186,7 +206,7 @@ function EventModal({ event, onClose }: EventModalProps) {
 
         <button
           onClick={onClose}
-          className="w-full bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded"
+          className="w-full bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 px-6 py-3 rounded-xl font-medium text-gray-800 transition-all shadow-md hover:shadow-lg mt-6"
         >
           Close
         </button>
@@ -204,8 +224,21 @@ export default function CalendarPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [freeOnly, setFreeOnly] = useState(false)
   const [excludeExhibitions, setExcludeExhibitions] = useState(false)
-  const [excludeContinuous, setExcludeContinuous] = useState(false)
+  const [excludeContinuous, setExcludeContinuous] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState<NormalizedEvent | null>(null)
+  
+  // View state
+  const [calendarView, setCalendarView] = useState<ViewState['viewMode']>('dayGridMonth')
+  const [dateFocus, setDateFocus] = useState<string>(DEFAULT_VIEW_STATE.dateFocus)
+  const [savedViews, setSavedViews] = useState<SavedView[]>([])
+  const [showSavedViewsMenu, setShowSavedViewsMenu] = useState(false)
+  const [editingViewId, setEditingViewId] = useState<string | null>(null)
+  const [editingViewName, setEditingViewName] = useState('')
+  
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const calendarRef = useRef<FullCalendar>(null)
+  const { data: session } = useSession()
 
   // Debounce search for performance
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
@@ -231,6 +264,94 @@ export default function CalendarPage() {
     loadEvents()
   }, [])
 
+  // Hydrate from URL on mount and load saved views
+  useEffect(() => {
+    const urlState = deserializeViewStateFromURL(searchParams)
+    if (Object.keys(urlState).length > 0) {
+      const merged = mergeViewState(urlState)
+      setSearchQuery(merged.searchQuery)
+      setSelectedCategories(merged.selectedCategories)
+      setSelectedTags(merged.selectedTags)
+      setFreeOnly(merged.toggles.freeOnly)
+      setExcludeExhibitions(merged.toggles.excludeExhibitions)
+      setExcludeContinuous(merged.toggles.excludeContinuous)
+      setCalendarView(merged.viewMode)
+      setDateFocus(merged.dateFocus)
+    } else {
+      // Try to load default saved view
+      const defaultView = getDefaultView()
+      if (defaultView) {
+        const merged = mergeViewState(defaultView.state)
+        setSearchQuery(merged.searchQuery)
+        setSelectedCategories(merged.selectedCategories)
+        setSelectedTags(merged.selectedTags)
+        setFreeOnly(merged.toggles.freeOnly)
+        setExcludeExhibitions(merged.toggles.excludeExhibitions)
+        setExcludeContinuous(merged.toggles.excludeContinuous)
+        setCalendarView(merged.viewMode)
+        setDateFocus(merged.dateFocus)
+      }
+    }
+    
+    // Load saved views (from DB if logged in, else localStorage)
+    loadSavedViews()
+  }, [searchParams])
+
+  const loadSavedViews = async () => {
+    if (session?.user) {
+      // Load from database if logged in
+      const dbViews = await loadSavedViewsFromDB()
+      if (dbViews.length > 0) {
+        setSavedViews(dbViews.map((v) => ({
+          id: v.id,
+          name: v.name,
+          state: v.state,
+          isDefault: v.isDefault,
+          createdAt: v.createdAt,
+          updatedAt: v.updatedAt,
+        })))
+        return
+      }
+    }
+    
+    // Fallback to localStorage
+    setSavedViews(getSavedViews())
+  }
+
+  // Sync to URL (debounced)
+  useEffect(() => {
+    const currentState: ViewState = {
+      viewMode: calendarView,
+      dateFocus,
+      searchQuery,
+      selectedCategories,
+      selectedTags,
+      toggles: {
+        freeOnly,
+        excludeExhibitions,
+        excludeContinuous,
+      },
+    }
+    
+    const params = serializeViewStateToURL(currentState)
+    const url = new URL(window.location.href)
+    
+    // Clear existing params
+    url.search = ''
+    
+    // Add new params
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.set(key, value)
+    })
+    
+    // Update URL without page reload (debounced)
+    const timeoutId = setTimeout(() => {
+      router.replace(url.pathname + url.search, { scroll: false })
+    }, 500)
+    
+    return () => clearTimeout(timeoutId)
+  }, [calendarView, dateFocus, searchQuery, selectedCategories, selectedTags, freeOnly, excludeExhibitions, excludeContinuous, router])
+
   // Memoize all tags and categories
   const allTags = useMemo(() => getAllTags(events), [events])
   const allCategories = useMemo(() => getAllCategories(events), [events])
@@ -242,8 +363,38 @@ export default function CalendarPage() {
     return allTags.filter((tag) => tag.toLowerCase().includes(query))
   }, [allTags, tagSearchQuery])
 
-  // Apply category colors to events
+  // Apply category colors to events with shades for same-day, same-category events
   const eventsWithColors = useMemo(() => {
+    // First pass: group events by day and category
+    const eventsByDayAndCategory = new Map<string, NormalizedEvent[]>()
+    
+    events.forEach((event) => {
+      const startDate = new Date(event.start)
+      const dayKey = startDate.toISOString().split('T')[0] // YYYY-MM-DD
+      const category = event.extendedProps.category || 'default'
+      const groupKey = `${dayKey}-${category}`
+      
+      if (!eventsByDayAndCategory.has(groupKey)) {
+        eventsByDayAndCategory.set(groupKey, [])
+      }
+      eventsByDayAndCategory.get(groupKey)!.push(event)
+    })
+    
+    // Second pass: assign colors with shades
+    const colorAssignments = new Map<string, number>() // event.id -> shade index
+    
+    eventsByDayAndCategory.forEach((groupEvents) => {
+      if (groupEvents.length > 1) {
+        // Multiple events in same category on same day - assign shades
+        groupEvents.forEach((event, index) => {
+          colorAssignments.set(event.id, index)
+        })
+      } else {
+        // Single event - use base color (index 0)
+        colorAssignments.set(groupEvents[0].id, 0)
+      }
+    })
+    
     return events.map((event) => {
       // Try category first, then generate from tags if no category
       let categoryColor = getCategoryColor(event.extendedProps.category)
@@ -256,19 +407,89 @@ export default function CalendarPage() {
         }
       }
       
+      // Get shade index for this event
+      const shadeIndex = colorAssignments.get(event.id) || 0
+      const groupKey = `${new Date(event.start).toISOString().split('T')[0]}-${event.extendedProps.category || 'default'}`
+      const groupSize = eventsByDayAndCategory.get(groupKey)?.length || 1
+      
+      // Generate shade if there are multiple events in same category on same day
+      const finalColor = groupSize > 1 
+        ? generateColorShade(categoryColor, shadeIndex, groupSize)
+        : categoryColor
+      
+      // Store original end time for day view
+      const originalEnd = event.end
+      
+      // Handle long night music events - prevent spanning multiple days in month/week views
+      // We'll adjust this in the eventContent callback based on current view
+      const startDate = new Date(event.start)
+      const endDate = event.end ? new Date(event.end) : null
+      
+      let isLongNightMusicEvent = false
+      if (endDate && !event.allDay) {
+        const startHour = startDate.getHours()
+        const category = event.extendedProps.category?.toLowerCase() || ''
+        const tags = event.extendedProps.tags.map(t => t.toLowerCase())
+        const isMusic = category === 'music' || tags.some(t => 
+          ['music', 'concert', 'dj', 'nightlife', 'club', 'party', 'techno', 'electronic'].includes(t)
+        )
+        
+        // Check if it's a night music event (starts after 8pm) and lasts long (6 hours or more)
+        if (isMusic && startHour >= 20) {
+          const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)
+          isLongNightMusicEvent = durationHours >= 6
+        }
+      }
+      
       return {
         ...event,
-        backgroundColor: categoryColor,
-        borderColor: categoryColor,
+        backgroundColor: finalColor,
+        borderColor: finalColor,
         textColor: '#ffffff',
+        extendedProps: {
+          ...event.extendedProps,
+          originalEnd,
+          isLongNightMusicEvent,
+        },
       }
     })
   }, [events])
 
+  // Adjust events for month/week views - cap long night music events to same day
+  const adjustedEvents = useMemo(() => {
+    const isMonthOrWeek = calendarView === 'dayGridMonth' || calendarView === 'timeGridWeek'
+    
+    if (!isMonthOrWeek) {
+      // In day/list views, use original end times
+      return eventsWithColors
+    }
+    
+    // In month/week views, cap long night music events
+    return eventsWithColors.map((event: any) => {
+      if (event.extendedProps?.isLongNightMusicEvent && event.end) {
+        const startDate = new Date(event.start)
+        const endDate = new Date(event.end)
+        const startDay = startDate.toISOString().split('T')[0]
+        const endDay = endDate.toISOString().split('T')[0]
+        
+        // If event spans to next day, cap it to 11:59pm on start day
+        if (startDay !== endDay) {
+          const sameDayEnd = new Date(startDate)
+          sameDayEnd.setHours(23, 59, 59, 999)
+          return {
+            ...event,
+            end: sameDayEnd.toISOString(),
+          }
+        }
+      }
+      return event
+    })
+  }, [eventsWithColors, calendarView])
+
   // Filter events with debounced search
   const filteredEvents = useMemo(
     () => {
-      let filtered = filterEvents(eventsWithColors, {
+      let filtered = filterEvents(adjustedEvents, {
         searchQuery: debouncedSearchQuery,
         selectedTags,
         categories: selectedCategories.length > 0 ? selectedCategories : undefined,
@@ -301,7 +522,7 @@ export default function CalendarPage() {
       
       return filtered
     },
-    [eventsWithColors, debouncedSearchQuery, selectedTags, selectedCategories, freeOnly, excludeExhibitions, excludeContinuous]
+    [adjustedEvents, debouncedSearchQuery, selectedTags, selectedCategories, freeOnly, excludeExhibitions, excludeContinuous]
   )
 
   const handleTagToggle = (tag: string) => {
@@ -337,6 +558,129 @@ export default function CalendarPage() {
     }
   }
 
+  // FullCalendar handlers
+  const handleViewChange = (view: any) => {
+    setCalendarView(view.view.type)
+  }
+
+  const handleDateChange = (dateInfo: any) => {
+    const date = dateInfo.view.calendar.getDate()
+    setDateFocus(date.toISOString().split('T')[0])
+  }
+
+  // Saved views handlers
+  const handleSaveView = async () => {
+    const name = prompt('Enter a name for this view:')
+    if (!name || !name.trim()) return
+    
+    const currentState: ViewState = {
+      viewMode: calendarView,
+      dateFocus,
+      searchQuery,
+      selectedCategories,
+      selectedTags,
+      toggles: {
+        freeOnly,
+        excludeExhibitions,
+        excludeContinuous,
+      },
+    }
+    
+    // Save to DB if logged in, else localStorage
+    if (session?.user) {
+      const dbView = await saveViewToDB(name.trim(), currentState)
+      if (dbView) {
+        await loadSavedViews()
+        setShowSavedViewsMenu(false)
+        return
+      }
+    }
+    
+    // Fallback to localStorage
+    const saved = saveView(name.trim(), currentState)
+    setSavedViews(getSavedViews())
+    setShowSavedViewsMenu(false)
+  }
+
+  const handleLoadView = (view: SavedView) => {
+    const merged = mergeViewState(view.state)
+    setSearchQuery(merged.searchQuery)
+    setSelectedCategories(merged.selectedCategories)
+    setSelectedTags(merged.selectedTags)
+    setFreeOnly(merged.toggles.freeOnly)
+    setExcludeExhibitions(merged.toggles.excludeExhibitions)
+    setExcludeContinuous(merged.toggles.excludeContinuous)
+    setCalendarView(merged.viewMode)
+    setDateFocus(merged.dateFocus)
+    
+    // Navigate calendar to date
+    if (calendarRef.current) {
+      const calendarApi = calendarRef.current.getApi()
+      calendarApi.gotoDate(merged.dateFocus)
+      calendarApi.changeView(merged.viewMode)
+    }
+    
+    setShowSavedViewsMenu(false)
+  }
+
+  const handleDeleteView = (id: string) => {
+    if (confirm('Delete this saved view?')) {
+      deleteView(id)
+      setSavedViews(getSavedViews())
+    }
+  }
+
+  const handleSetDefault = (id: string) => {
+    setViewAsDefault(id)
+    setSavedViews(getSavedViews())
+  }
+
+  const handleResetToDefault = () => {
+    const defaultView = getDefaultView()
+    if (defaultView) {
+      handleLoadView(defaultView)
+    } else {
+      // Reset to default state
+      setSearchQuery(DEFAULT_VIEW_STATE.searchQuery)
+      setSelectedCategories(DEFAULT_VIEW_STATE.selectedCategories)
+      setSelectedTags(DEFAULT_VIEW_STATE.selectedTags)
+      setFreeOnly(DEFAULT_VIEW_STATE.toggles.freeOnly)
+      setExcludeExhibitions(DEFAULT_VIEW_STATE.toggles.excludeExhibitions)
+      setExcludeContinuous(DEFAULT_VIEW_STATE.toggles.excludeContinuous)
+      setCalendarView(DEFAULT_VIEW_STATE.viewMode)
+      setDateFocus(DEFAULT_VIEW_STATE.dateFocus)
+      
+      if (calendarRef.current) {
+        const calendarApi = calendarRef.current.getApi()
+        calendarApi.gotoDate(DEFAULT_VIEW_STATE.dateFocus)
+        calendarApi.changeView(DEFAULT_VIEW_STATE.viewMode)
+      }
+    }
+  }
+
+  const handleStartRename = (view: SavedView) => {
+    setEditingViewId(view.id)
+    setEditingViewName(view.name)
+  }
+
+  const handleSaveRename = () => {
+    if (!editingViewId || !editingViewName.trim()) {
+      setEditingViewId(null)
+      setEditingViewName('')
+      return
+    }
+    
+    updateView(editingViewId, { name: editingViewName.trim() })
+    setSavedViews(getSavedViews())
+    setEditingViewId(null)
+    setEditingViewName('')
+  }
+
+  const handleCancelRename = () => {
+    setEditingViewId(null)
+    setEditingViewName('')
+  }
+
   const activeFiltersCount = useMemo(() => {
     let count = 0
     if (debouncedSearchQuery) count++
@@ -349,99 +693,90 @@ export default function CalendarPage() {
   }, [debouncedSearchQuery, selectedTags.length, selectedCategories.length, freeOnly, excludeExhibitions, excludeContinuous])
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Top Bar */}
-      <div className="border-b border-gray-200 p-4">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Lisbon Events Calendar</h1>
+    <div className="min-h-screen bg-white/95 backdrop-blur-sm">
+
+      <div className="flex flex-col md:flex-row">
+        {/* Left Sidebar */}
+        <div className="w-full md:w-72 border-r-0 md:border-r border-b md:border-b-0 border-gray-200/50 p-4 md:p-6 bg-white/60 backdrop-blur-sm max-h-[50vh] md:max-h-none md:min-h-[calc(100vh-120px)] overflow-y-auto">
+          {/* Search Bar */}
+          <div className="mb-4 md:mb-6">
+            <div className="text-xs md:text-sm font-semibold mb-2 md:mb-3 text-gray-800">Search Events</div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Search events..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 border border-gray-300/50 rounded-lg px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+              />
+              <button
+                onClick={handleClearFilters}
+                className="px-3 md:px-4 py-2 md:py-2.5 border border-gray-300/50 rounded-lg hover:bg-gray-100/80 text-xs md:text-sm whitespace-nowrap font-medium text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow"
+                disabled={activeFiltersCount === 0}
+              >
+                Clear
+              </button>
+            </div>
             {!loading && (
-              <div className="text-sm text-gray-600 mt-1">
+              <div className="text-xs text-gray-500 mt-2 font-medium">
                 {filteredEvents.length} of {events.length} events
                 {activeFiltersCount > 0 && ` (${activeFiltersCount} filter${activeFiltersCount > 1 ? 's' : ''} active)`}
               </div>
             )}
           </div>
-          
-          <div className="flex gap-2 flex-1 max-w-md">
-            <input
-              type="text"
-              placeholder="Search events..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 border border-gray-300 rounded px-3 py-2"
-            />
-            <button
-              onClick={handleClearFilters}
-              className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
-              disabled={activeFiltersCount === 0}
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      </div>
 
-      <div className="flex">
-        {/* Left Sidebar */}
-        <div className="w-72 border-r border-gray-200 p-4 bg-gray-50 min-h-[calc(100vh-120px)] overflow-y-auto">
-          <div className="mb-4">
-            <div className="text-sm text-gray-600 mb-2">Timezone</div>
-            <div className="font-medium">Europe/Lisbon</div>
-          </div>
-
-          <div className="mb-4">
-            <div className="text-sm font-semibold mb-2">Filters</div>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
+          <div className="mb-4 md:mb-6">
+            <div className="text-xs md:text-sm font-semibold mb-2 md:mb-3 text-gray-800">Filters</div>
+            <div className="space-y-2.5">
+              <label className="flex items-center gap-3 cursor-pointer group p-2 rounded-lg hover:bg-gray-100/50 transition-colors">
                 <input
                   type="checkbox"
                   checked={freeOnly}
                   onChange={(e) => setFreeOnly(e.target.checked)}
-                  className="rounded"
+                  className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500/50 w-4 h-4 cursor-pointer"
                 />
-                <span className="text-sm">Free events only</span>
+                <span className="text-xs md:text-sm text-gray-700 group-hover:text-gray-900">Free events only</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-3 cursor-pointer group p-2 rounded-lg hover:bg-gray-100/50 transition-colors">
                 <input
                   type="checkbox"
                   checked={excludeExhibitions}
                   onChange={(e) => setExcludeExhibitions(e.target.checked)}
-                  className="rounded"
+                  className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500/50 w-4 h-4 cursor-pointer"
                 />
-                <span className="text-sm">Exclude exhibitions</span>
+                <span className="text-xs md:text-sm text-gray-700 group-hover:text-gray-900">Exclude exhibitions</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-3 cursor-pointer group p-2 rounded-lg hover:bg-gray-100/50 transition-colors">
                 <input
                   type="checkbox"
                   checked={excludeContinuous}
                   onChange={(e) => setExcludeContinuous(e.target.checked)}
-                  className="rounded"
+                  className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500/50 w-4 h-4 cursor-pointer"
                 />
-                <span className="text-sm">Exclude continuous events</span>
+                <span className="text-xs md:text-sm text-gray-700 group-hover:text-gray-900">Exclude continuous events</span>
               </label>
             </div>
           </div>
 
           {allCategories.length > 0 && (
-            <div className="mb-4">
-              <div className="text-sm font-semibold mb-2">
+            <div className="mb-6">
+              <div className="text-sm font-semibold mb-3 text-gray-800">
                 Category
                 {selectedCategories.length > 0 && (
-                  <span className="ml-2 text-xs text-gray-500">
+                  <span className="ml-2 text-xs text-gray-500 font-normal">
                     ({selectedCategories.length} selected)
                   </span>
                 )}
               </div>
               
               {/* All Categories Button */}
-              <div className="mb-2">
+              <div className="mb-3">
                 <button
                   onClick={() => setSelectedCategories([])}
-                  className={`px-3 py-1 rounded text-sm font-medium border transition-all ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all shadow-sm hover:shadow ${
                     selectedCategories.length === 0
-                      ? 'bg-gray-800 text-white border-gray-800'
-                      : 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700'
+                      ? 'bg-gray-900 text-white border-gray-900 shadow-md'
+                      : 'bg-white/80 border-gray-300/50 hover:bg-gray-50 text-gray-700 hover:border-gray-400'
                   }`}
                 >
                   All Categories
@@ -457,10 +792,10 @@ export default function CalendarPage() {
                     <button
                       key={category}
                       onClick={() => handleCategoryToggle(category)}
-                      className={`px-3 py-1 rounded text-sm font-medium border-2 transition-all ${
+                      className={`px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
                         isSelected
-                          ? 'text-white shadow-md'
-                          : 'text-gray-700 hover:opacity-80'
+                          ? 'text-white shadow-md hover:shadow-lg scale-105'
+                          : 'text-gray-700 hover:opacity-90 hover:scale-105 bg-white/80'
                       }`}
                       style={{
                         backgroundColor: isSelected ? color : 'transparent',
@@ -493,19 +828,19 @@ export default function CalendarPage() {
               <>
                 {/* Popular Tags Quick Select */}
                 {allTags.length > 0 && (
-                  <div className="mb-2">
-                    <div className="text-xs text-gray-600 mb-1">Popular tags:</div>
-                    <div className="flex flex-wrap gap-1">
+                  <div className="mb-3">
+                    <div className="text-xs text-gray-600 mb-2 font-medium">Popular tags:</div>
+                    <div className="flex flex-wrap gap-1.5">
                       {allTags.slice(0, 8).map((tag) => {
                         const isSelected = selectedTags.includes(tag)
                         return (
                           <button
                             key={tag}
                             onClick={() => handleTagToggle(tag)}
-                            className={`px-2 py-1 rounded text-xs border transition-all ${
+                            className={`px-3 py-1.5 rounded-lg text-xs border transition-all shadow-sm hover:shadow ${
                               isSelected
-                                ? 'bg-blue-100 border-blue-300 text-blue-800'
-                                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white border-transparent shadow-md hover:shadow-lg scale-105'
+                                : 'bg-white/80 border-gray-300/50 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
                             }`}
                           >
                             {tag}
@@ -526,31 +861,31 @@ export default function CalendarPage() {
                       // Keep dropdown open when clicking input
                       e.stopPropagation()
                     }}
-                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    className="w-full border border-gray-300/50 rounded-lg px-3 py-2 text-sm bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
                   />
                 
                 {/* Dropdown */}
                 {tagSearchQuery.trim() && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-64 overflow-y-auto">
+                  <div className="absolute z-10 w-full mt-1 bg-white/95 backdrop-blur-md border border-gray-300/50 rounded-xl shadow-xl max-h-64 overflow-y-auto">
                     {filteredTags.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-gray-500">No tags match your search</div>
+                      <div className="px-4 py-3 text-sm text-gray-500">No tags match your search</div>
                     ) : (
                       filteredTags.map((tag) => {
                         const isSelected = selectedTags.includes(tag)
                         return (
                           <label
                             key={tag}
-                            className={`flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-100 ${
-                              isSelected ? 'bg-blue-50' : ''
+                            className={`flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-gray-100/80 transition-colors ${
+                              isSelected ? 'bg-blue-50/80' : ''
                             }`}
                           >
                             <input
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => handleTagToggle(tag)}
-                              className="rounded"
+                              className="rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500/50 w-4 h-4 cursor-pointer"
                             />
-                            <span className="text-sm flex-1">{tag}</span>
+                            <span className="text-sm flex-1 text-gray-700">{tag}</span>
                           </label>
                         )
                       })
@@ -590,7 +925,7 @@ export default function CalendarPage() {
                     ))}
                     <button
                       onClick={() => setSelectedTags([])}
-                      className="text-xs text-blue-600 hover:underline px-2 py-1"
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50/50 transition-colors"
                     >
                       Clear all
                     </button>
@@ -600,10 +935,115 @@ export default function CalendarPage() {
               </>
             )}
           </div>
+
+          {/* Saved Views */}
+          <div className="mb-4 border-t border-gray-200/50 pt-4">
+            <div className="flex items-center justify-between mb-2 md:mb-3">
+              <div className="text-xs md:text-sm font-semibold text-gray-800">Saved Views</div>
+              <button
+                onClick={() => setShowSavedViewsMenu(!showSavedViewsMenu)}
+                className="text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50/50 transition-colors"
+              >
+                {showSavedViewsMenu ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            
+            {showSavedViewsMenu && (
+              <div className="space-y-2">
+                <button
+                  onClick={handleSaveView}
+                  className="w-full px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm border-2 border-gray-300/50 rounded-lg hover:bg-gray-50/80 font-medium text-gray-700 transition-all shadow-sm hover:shadow"
+                >
+                  Save Current View
+                </button>
+                
+                {savedViews.length > 0 && (
+                  <>
+                    <div className="text-xs text-gray-600 mb-1">Saved:</div>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {savedViews.map((view) => (
+                        <div
+                          key={view.id}
+                          className="flex items-center gap-1 p-2 border border-gray-200 rounded hover:bg-gray-50"
+                        >
+                          {editingViewId === view.id ? (
+                            <div className="flex-1 flex items-center gap-1">
+                              <input
+                                type="text"
+                                value={editingViewName}
+                                onChange={(e) => setEditingViewName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveRename()
+                                  if (e.key === 'Escape') handleCancelRename()
+                                }}
+                                className="flex-1 px-2 py-1 text-xs border rounded"
+                                autoFocus
+                              />
+                              <button
+                                onClick={handleSaveRename}
+                                className="text-xs text-green-600 hover:underline"
+                              >
+                                ✓
+                              </button>
+                              <button
+                                onClick={handleCancelRename}
+                                className="text-xs text-red-600 hover:underline"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleLoadView(view)}
+                                className="flex-1 text-left text-xs text-blue-600 hover:text-blue-700 font-medium truncate hover:underline transition-colors"
+                              >
+                                {view.name}
+                                {view.isDefault && (
+                                  <span className="ml-1 text-gray-500 font-normal">(default)</span>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => handleStartRename(view)}
+                                className="text-xs text-gray-500 hover:text-gray-700 px-1.5 py-1 rounded hover:bg-gray-100 transition-colors"
+                                title="Rename"
+                              >
+                                ✎
+                              </button>
+                              <button
+                                onClick={() => handleSetDefault(view.id)}
+                                className="text-xs text-gray-500 hover:text-yellow-600 px-1.5 py-1 rounded hover:bg-yellow-50 transition-colors"
+                                title="Set as default"
+                              >
+                                ⭐
+                              </button>
+                              <button
+                                onClick={() => handleDeleteView(view.id)}
+                                className="text-xs text-red-500 hover:text-red-700 px-1.5 py-1 rounded hover:bg-red-50 transition-colors"
+                                title="Delete"
+                              >
+                                ×
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={handleResetToDefault}
+                      className="w-full px-4 py-2.5 text-xs border-2 border-gray-300/50 rounded-lg hover:bg-gray-50/80 text-gray-700 font-medium transition-all shadow-sm hover:shadow"
+                    >
+                      Reset to Default View
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Main Calendar Area */}
-        <div className="flex-1 p-4">
+        <div className="flex-1 p-4 md:p-6">
           {loading ? (
             <div className="flex items-center justify-center h-96">
               <div className="text-gray-500">Loading events...</div>
@@ -624,8 +1064,12 @@ export default function CalendarPage() {
             </div>
           ) : (
             <FullCalendar
+              ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
-              initialView="dayGridMonth"
+              initialView={calendarView}
+              initialDate={dateFocus}
+              datesSet={handleDateChange}
+              viewDidMount={handleViewChange}
               headerToolbar={{
                 left: 'prev,next today',
                 center: 'title',
@@ -648,6 +1092,9 @@ export default function CalendarPage() {
               slotMaxTime="26:00:00"
               scrollTime="17:30:00"
               slotLabelInterval={{ hours: 1 }}
+              // Prevent long events from spanning multiple days in month/week views
+              eventMaxStack={10}
+              moreLinkClick="popover"
             />
           )}
         </div>

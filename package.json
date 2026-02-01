@@ -9,26 +9,29 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "^14.0.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "@fullcalendar/react": "^6.1.10",
-    "@fullcalendar/daygrid": "^6.1.10",
-    "@fullcalendar/timegrid": "^6.1.10",
-    "@fullcalendar/list": "^6.1.10",
     "@fullcalendar/core": "^6.1.10",
-    "papaparse": "^5.4.1"
+    "@fullcalendar/daygrid": "^6.1.10",
+    "@fullcalendar/list": "^6.1.10",
+    "@fullcalendar/react": "^6.1.10",
+    "@fullcalendar/timegrid": "^6.1.10",
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^3.0.3",
+    "next": "^14.0.0",
+    "next-auth": "^5.0.0-beta.30",
+    "papaparse": "^5.4.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/papaparse": "^5.3.14",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "@types/papaparse": "^5.3.14",
-    "typescript": "^5.0.0",
-    "tailwindcss": "^3.3.0",
-    "postcss": "^8.4.0",
     "autoprefixer": "^10.4.0",
     "eslint": "^8.0.0",
-    "eslint-config-next": "^14.0.0"
+    "eslint-config-next": "^14.0.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.3.0",
+    "typescript": "^5.0.0"
   }
 }

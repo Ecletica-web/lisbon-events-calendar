@@ -1,4 +1,5 @@
 import Papa from 'papaparse'
+import { normalizeCategory, normalizeCategories } from '@/lib/categoryNormalization'
 
 /**
  * Raw event schema from data source
@@ -451,19 +452,25 @@ export function filterEvents(
   }
 
   // Category filter (support both single and multiple categories)
+  // Normalize categories to handle duplicates like "art" and "arts"
   if (categories && categories.length > 0) {
     // Multiple categories - OR logic (event matches ANY selected category)
+    const normalizedSelected = categories.map(c => normalizeCategory(c))
     filtered = filtered.filter((event) => {
       if (!event.extendedProps.category) return false
-      return categories.some(
+      const normalizedEventCategory = normalizeCategory(event.extendedProps.category)
+      return normalizedSelected.some(
         (selectedCategory) =>
-          event.extendedProps.category?.toLowerCase() === selectedCategory.toLowerCase()
+          normalizedEventCategory === selectedCategory
       )
     })
   } else if (category) {
     // Single category (backward compatibility)
+    const normalizedSelected = normalizeCategory(category)
     filtered = filtered.filter((event) => {
-      return event.extendedProps.category?.toLowerCase() === category.toLowerCase()
+      if (!event.extendedProps.category) return false
+      const normalizedEventCategory = normalizeCategory(event.extendedProps.category)
+      return normalizedEventCategory === normalizedSelected
     })
   }
 
@@ -503,7 +510,7 @@ export function getAllTags(events: NormalizedEvent[]): string[] {
 }
 
 /**
- * Get all unique categories from events
+ * Get all unique categories from events (normalized to prevent duplicates)
  */
 export function getAllCategories(events: NormalizedEvent[]): string[] {
   const categorySet = new Set<string>()
@@ -512,7 +519,8 @@ export function getAllCategories(events: NormalizedEvent[]): string[] {
       categorySet.add(event.extendedProps.category)
     }
   })
-  return Array.from(categorySet).sort()
+  // Normalize categories to merge duplicates like "art" and "arts"
+  return normalizeCategories(Array.from(categorySet))
 }
 
 /**
