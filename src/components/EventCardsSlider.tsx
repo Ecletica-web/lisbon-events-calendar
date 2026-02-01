@@ -33,6 +33,7 @@ export default function EventCardsSlider({
   onCategoriesChange,
   onTagsChange,
   mode = 'slider',
+  hideHeader = false,
 }: EventCardsSliderProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('today')
   const [localCategories, setLocalCategories] = useState<string[]>(selectedCategories)
