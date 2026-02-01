@@ -18,6 +18,7 @@ interface EventCardsSliderProps {
   onTagsChange?: (tags: string[]) => void
   mode?: 'slider' | 'grid' // For list view, use grid
   hideHeader?: boolean // Hide the header (for mobile day sliders)
+  skipFiltering?: boolean // Skip internal filtering (events already filtered by parent)
 }
 
 type TimeRange = 'today' | 'week'
@@ -34,6 +35,7 @@ export default function EventCardsSlider({
   onTagsChange,
   mode = 'slider',
   hideHeader = false,
+  skipFiltering = false,
 }: EventCardsSliderProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('today')
   const [localCategories, setLocalCategories] = useState<string[]>(selectedCategories)
@@ -95,6 +97,11 @@ export default function EventCardsSlider({
 
   // Filter events by date range and other filters
   const filteredEvents = useMemo(() => {
+    // If skipFiltering is true, events are already filtered by parent (e.g., MobileDaySliders)
+    if (skipFiltering) {
+      return events
+    }
+
     let filtered = events.filter((event) => {
       const eventDate = new Date(event.start)
       return eventDate >= dateRange.start && eventDate < dateRange.end
@@ -144,7 +151,7 @@ export default function EventCardsSlider({
     }
 
     return filtered
-  }, [events, dateRange, localTags, localCategories, freeOnly, excludeExhibitions, excludeContinuous, timeRange])
+  }, [events, dateRange, localTags, localCategories, freeOnly, excludeExhibitions, excludeContinuous, timeRange, skipFiltering])
 
   // Mouse drag handlers for slider
   const handleMouseDown = (e: React.MouseEvent) => {

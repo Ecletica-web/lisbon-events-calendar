@@ -181,10 +181,16 @@ export default function MobileDaySliders({
               onTagsChange={onTagsChange}
               mode="slider"
               hideHeader={true}
+              skipFiltering={true}
             />
           ) : (
             <div className="text-center py-6 px-4 bg-slate-800/40 rounded-lg border border-slate-700/30 mx-4">
-              <div className="text-slate-400 text-sm">No events for {day.label.toLowerCase()}</div>
+              <div className="text-slate-400 text-sm">
+                {selectedTags.length > 0 || selectedCategories.length > 0 || freeOnly || excludeExhibitions || excludeContinuous
+                  ? `No events for ${day.label.toLowerCase()} with current filters`
+                  : `No events for ${day.label.toLowerCase()}`
+                }
+              </div>
             </div>
           )}
         </div>
