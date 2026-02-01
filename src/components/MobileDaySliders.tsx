@@ -64,8 +64,16 @@ export default function MobileDaySliders({
         selectedTags,
         categories: selectedCategories,
         freeOnly,
-        excludeExhibitions,
       })
+
+      // Exclude exhibitions
+      if (excludeExhibitions) {
+        dayEvents = dayEvents.filter((event) => {
+          const category = event.extendedProps.category?.toLowerCase()
+          const tags = event.extendedProps.tags.map((t) => t.toLowerCase())
+          return category !== 'arts' && !tags.includes('exhibition')
+        })
+      }
 
       if (excludeContinuous) {
         dayEvents = dayEvents.filter((event) => {
