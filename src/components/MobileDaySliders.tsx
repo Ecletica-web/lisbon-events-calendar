@@ -70,7 +70,7 @@ export default function MobileDaySliders({
       // Apply all other filters
       dayEvents = filterEvents(dayEvents, {
         selectedTags,
-        categories: selectedCategories,
+        categories: selectedCategories.length > 0 ? selectedCategories : undefined,
         freeOnly,
       })
 
