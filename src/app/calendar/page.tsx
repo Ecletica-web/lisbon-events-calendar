@@ -215,7 +215,7 @@ function EventModal({ event, onClose }: EventModalProps) {
   )
 }
 
-export default function CalendarPage() {
+function CalendarPageContent() {
   const [events, setEvents] = useState<NormalizedEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
