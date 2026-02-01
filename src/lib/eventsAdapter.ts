@@ -100,12 +100,17 @@ export interface NormalizedEvent {
  * Fetch events from Google Sheets CSV
  */
 export async function fetchEvents(): Promise<NormalizedEvent[]> {
-  const csvUrl = process.env.NEXT_PUBLIC_EVENTS_CSV_URL
+  // Use window.location to get env var in client-side
+  const csvUrl = typeof window !== 'undefined' 
+    ? process.env.NEXT_PUBLIC_EVENTS_CSV_URL
+    : process.env.NEXT_PUBLIC_EVENTS_CSV_URL
 
   if (!csvUrl) {
-    console.warn('NEXT_PUBLIC_EVENTS_CSV_URL is not set')
+    console.error('NEXT_PUBLIC_EVENTS_CSV_URL is not set. Please check your .env.local file.')
     return []
   }
+
+  console.log('Fetching events from:', csvUrl)
 
   try {
     const response = await fetch(csvUrl, { cache: 'no-store' })
@@ -404,6 +409,7 @@ export function filterEvents(
     searchQuery?: string
     selectedTags?: string[]
     category?: string
+    categories?: string[]
     freeOnly?: boolean
     language?: string
     ageRestriction?: string
@@ -415,6 +421,7 @@ export function filterEvents(
     searchQuery = '',
     selectedTags = [],
     category,
+    categories,
     freeOnly = false,
     language,
     ageRestriction,
@@ -443,10 +450,20 @@ export function filterEvents(
     })
   }
 
-  // Category filter
-  if (category) {
+  // Category filter (support both single and multiple categories)
+  if (categories && categories.length > 0) {
+    // Multiple categories - OR logic (event matches ANY selected category)
     filtered = filtered.filter((event) => {
-      return event.extendedProps.category === category.toLowerCase()
+      if (!event.extendedProps.category) return false
+      return categories.some(
+        (selectedCategory) =>
+          event.extendedProps.category?.toLowerCase() === selectedCategory.toLowerCase()
+      )
+    })
+  } else if (category) {
+    // Single category (backward compatibility)
+    filtered = filtered.filter((event) => {
+      return event.extendedProps.category?.toLowerCase() === category.toLowerCase()
     })
   }
 
