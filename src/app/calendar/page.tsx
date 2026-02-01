@@ -429,7 +429,13 @@ function CalendarPageContent() {
   const [showSavedViewsMenu, setShowSavedViewsMenu] = useState(false)
   const [editingViewId, setEditingViewId] = useState<string | null>(null)
   const [editingViewName, setEditingViewName] = useState('')
-  const [sidebarMinimized, setSidebarMinimized] = useState(false)
+  // Initialize sidebar as minimized on mobile, open on desktop
+  const [sidebarMinimized, setSidebarMinimized] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768 // md breakpoint
+    }
+    return false
+  })
   
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -438,6 +444,18 @@ function CalendarPageContent() {
 
   // Debounce search for performance
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
+
+  // Handle window resize to update sidebar state on mobile
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768 && !sidebarMinimized) {
+        // On mobile, minimize sidebar if it's open
+        setSidebarMinimized(true)
+      }
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [sidebarMinimized])
 
   useEffect(() => {
     async function loadEvents() {
@@ -902,11 +920,11 @@ function CalendarPageContent() {
 
       <div className="flex flex-col md:flex-row">
         {/* Left Sidebar */}
-        <div className={`relative transition-all duration-300 ${sidebarMinimized ? 'w-0 md:w-12' : 'w-full md:w-72'} border-r-0 md:border-r border-b md:border-b-0 border-slate-700/50 bg-slate-800/60 backdrop-blur-xl ${sidebarMinimized ? 'overflow-visible md:overflow-visible' : 'p-4 md:p-6 max-h-[50vh] md:max-h-none md:min-h-[calc(100vh-120px)] overflow-y-auto'} flex-shrink-0`}>
-          {/* Minimize/Expand Button - Always visible */}
+        <div className={`relative transition-all duration-300 ${sidebarMinimized ? 'w-0 md:w-12' : 'w-full md:w-72'} border-r-0 md:border-r border-b md:border-b-0 border-slate-700/50 bg-slate-800/60 backdrop-blur-xl ${sidebarMinimized ? 'overflow-visible md:overflow-visible' : 'p-4 md:p-6 max-h-[50vh] md:max-h-none md:min-h-[calc(100vh-120px)] overflow-y-auto'} flex-shrink-0 ${!sidebarMinimized ? 'z-50 md:z-auto' : ''}`}>
+          {/* Minimize/Expand Button - Visible on all screen sizes */}
           <button
             onClick={() => setSidebarMinimized(!sidebarMinimized)}
-            className={`absolute top-4 ${sidebarMinimized ? 'right-2 md:right-1' : 'right-4'} z-[100] p-2 rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all shadow-lg hover:shadow-xl hidden md:flex items-center justify-center backdrop-blur-sm`}
+            className={`absolute top-4 ${sidebarMinimized ? 'right-2 md:right-1' : 'right-4'} z-[100] p-2 rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all shadow-lg hover:shadow-xl flex items-center justify-center backdrop-blur-sm`}
             aria-label={sidebarMinimized ? 'Expand sidebar' : 'Minimize sidebar'}
           >
             <svg 
@@ -918,6 +936,14 @@ function CalendarPageContent() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
+
+          {/* Mobile Close Overlay - Click outside to close on mobile */}
+          {!sidebarMinimized && (
+            <div 
+              className="fixed inset-0 bg-black/50 z-40 md:hidden"
+              onClick={() => setSidebarMinimized(true)}
+            />
+          )}
           
           {!sidebarMinimized && (
             <>
