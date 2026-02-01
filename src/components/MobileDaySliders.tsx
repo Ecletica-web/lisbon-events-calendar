@@ -61,10 +61,12 @@ export default function MobileDaySliders({
   // Filter events for each day
   const eventsByDay = useMemo(() => {
     return days.map(day => {
-      // First filter by date range
+      // First filter by date range (compare dates only, ignoring time)
       let dayEvents = events.filter(event => {
         const eventStart = new Date(event.start)
-        return eventStart >= day.start && eventStart <= day.end
+        const eventDate = new Date(eventStart.getFullYear(), eventStart.getMonth(), eventStart.getDate())
+        const dayDate = new Date(day.date.getFullYear(), day.date.getMonth(), day.date.getDate())
+        return eventDate.getTime() === dayDate.getTime()
       })
 
       // Apply all other filters

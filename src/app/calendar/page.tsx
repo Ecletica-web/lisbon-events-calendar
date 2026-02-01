@@ -921,7 +921,7 @@ function CalendarPageContent() {
 
       <div className="flex flex-col md:flex-row">
         {/* Left Sidebar */}
-        <div className={`relative transition-all duration-300 ${sidebarMinimized ? 'w-0 md:w-12' : 'w-64 md:w-72'} border-r-0 md:border-r border-b md:border-b-0 border-slate-700/50 bg-slate-800/60 backdrop-blur-xl ${sidebarMinimized ? 'overflow-visible md:overflow-visible' : 'p-3 md:p-6 max-h-[50vh] md:max-h-none md:min-h-[calc(100vh-120px)] overflow-y-auto'} flex-shrink-0 ${!sidebarMinimized ? 'z-50 md:z-auto fixed md:relative inset-y-0 left-0' : ''}`}>
+        <div className={`relative transition-all duration-300 ${sidebarMinimized ? 'w-0 md:w-12' : 'w-full md:w-72'} border-r-0 md:border-r border-b md:border-b-0 border-slate-700/50 bg-slate-800/60 backdrop-blur-xl ${sidebarMinimized ? 'overflow-visible md:overflow-visible' : 'p-3 md:p-6 max-h-[50vh] md:max-h-none md:min-h-[calc(100vh-120px)] overflow-y-auto'} flex-shrink-0 ${!sidebarMinimized ? 'z-50 md:z-auto fixed md:relative inset-y-0 left-0' : ''}`}>
 
           {/* Minimize/Expand Button - Desktop only */}
           <button
@@ -1315,10 +1315,34 @@ function CalendarPageContent() {
 
         {/* Main Calendar Area */}
         <div className="flex-1 p-4 md:p-6 min-w-0">
-          {/* Mobile: Show Day Sliders */}
+          {/* Mobile: Show Day Sliders or List View */}
           <div className="md:hidden">
+            {/* Mobile View Toggle - List / This week (Slider) */}
+            <div className="mb-4 flex items-center gap-2 bg-slate-800/80 rounded-lg p-1 border border-slate-700/50">
+              <button
+                onClick={() => setShowListView(true)}
+                className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  showListView
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                List
+              </button>
+              <button
+                onClick={() => setShowListView(false)}
+                className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  !showListView
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                This week
+              </button>
+            </div>
+
             {/* Mobile Filter Icon Button - Above first slider */}
-            {sidebarMinimized && (
+            {sidebarMinimized && !showListView && (
               <button
                 onClick={() => setSidebarMinimized(false)}
                 className="mb-4 p-3 rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all shadow-lg hover:shadow-xl flex items-center justify-center backdrop-blur-sm"
@@ -1338,6 +1362,21 @@ function CalendarPageContent() {
             {loading ? (
               <div className="flex items-center justify-center h-96">
                 <div className="text-slate-400">Loading events...</div>
+              </div>
+            ) : showListView ? (
+              <div className="pt-2">
+                <EventListView
+                  events={filteredEvents}
+                  calendarView={calendarView}
+                  dateFocus={dateFocus}
+                  onEventClick={(info: any) => {
+                    // For mobile list view, info might be the event directly or a FullCalendar event object
+                    const event = info.event ? filteredEvents.find((e) => e.id === info.event.id) : info
+                    if (event) {
+                      setSelectedEvent(event)
+                    }
+                  }}
+                />
               </div>
             ) : (
               <MobileDaySliders
