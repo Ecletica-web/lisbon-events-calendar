@@ -80,71 +80,77 @@ function EventModal({ event, onClose }: EventModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-slate-800/95 backdrop-blur-xl rounded-lg p-4 max-w-md w-full mx-4 my-8 max-h-[80vh] overflow-y-auto border border-slate-700/50 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         {props.imageUrl && (
           <img
             src={props.imageUrl}
             alt={event.title}
-            className="w-full h-48 object-cover rounded mb-4"
+            className="w-full h-24 object-cover rounded-md mb-3"
           />
         )}
         
-        <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">{event.title}</h2>
+        <h2 className="text-lg font-bold mb-3 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">{event.title}</h2>
         
-        <div className="space-y-3 mb-4 text-slate-200">
+        <div className="space-y-2 mb-3 text-slate-200 text-xs">
           <div>
-            <strong className="text-slate-100">Date/Time:</strong>
-            <div className="text-slate-300">
+            <strong className="text-slate-100 text-xs">Date/Time:</strong>
+            <div className="text-slate-300 text-xs">
               {formatDateTime(startDate)}
               {endDate && ` - ${formatDateTime(endDate)}`}
-              {event.allDay && <span className="text-sm text-slate-400"> (All Day)</span>}
+              {event.allDay && <span className="text-xs text-slate-400"> (All Day)</span>}
             </div>
-            <div className="text-sm text-slate-400 mt-1">
+            <div className="text-xs text-slate-400 mt-0.5">
               Timezone: {props.timezone || 'Europe/Lisbon'}
             </div>
           </div>
 
           {props.descriptionShort && (
             <div>
-              <strong className="text-slate-100">Description:</strong>
-              <p className="mt-1 text-slate-300">{props.descriptionShort}</p>
+              <strong className="text-slate-100 text-xs">Description:</strong>
+              <p className="mt-0.5 text-slate-300 text-xs">{props.descriptionShort}</p>
             </div>
           )}
 
           {props.descriptionLong && (
             <div>
-              <strong className="text-slate-100">Full Description:</strong>
-              <p className="mt-1 whitespace-pre-wrap text-slate-300">{props.descriptionLong}</p>
+              <strong className="text-slate-100 text-xs">Full Description:</strong>
+              <p className="mt-0.5 whitespace-pre-wrap text-slate-300 text-xs">{props.descriptionLong}</p>
             </div>
           )}
 
           {props.venueName && (
             <div>
-              <strong className="text-slate-100">Venue:</strong> <span className="text-slate-300">{props.venueName}</span>
+              <strong className="text-slate-100 text-xs">Venue:</strong> <span className="text-slate-300 text-xs">{props.venueName}</span>
               {props.venueAddress && (
-                <div className="text-sm text-slate-400 mt-1">{props.venueAddress}</div>
+                <div className="text-xs text-slate-400 mt-0.5">{props.venueAddress}</div>
               )}
               {props.neighborhood && (
-                <div className="text-sm text-slate-400">{props.neighborhood}</div>
+                <div className="text-xs text-slate-400">{props.neighborhood}</div>
               )}
               {props.city && (
-                <div className="text-sm text-slate-400">{props.city}</div>
+                <div className="text-xs text-slate-400">{props.city}</div>
               )}
             </div>
           )}
 
           {formatPrice() && (
             <div>
-              <strong>Price:</strong> {formatPrice()}
+              <strong className="text-slate-100 text-xs">Price:</strong> <span className="text-slate-300 text-xs">{formatPrice()}</span>
             </div>
           )}
 
           {props.category && (
             <div>
-              <strong>Category:</strong>{' '}
+              <strong className="text-slate-100 text-xs">Category:</strong>{' '}
               <span
-                className="px-2 py-1 rounded text-sm text-white font-medium"
+                className="px-1.5 py-0.5 rounded text-xs text-white font-medium"
                 style={{ backgroundColor: categoryColor }}
               >
                 {props.category}
@@ -154,12 +160,12 @@ function EventModal({ event, onClose }: EventModalProps) {
 
           {props.tags.length > 0 && (
             <div>
-              <strong className="text-slate-100">Tags:</strong>
-              <div className="flex flex-wrap gap-2 mt-1">
+              <strong className="text-slate-100 text-xs">Tags:</strong>
+              <div className="flex flex-wrap gap-1.5 mt-1">
                 {props.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="bg-slate-800/80 border border-slate-700/50 px-2 py-1 rounded text-sm text-slate-300"
+                    className="bg-slate-700/80 border border-slate-600/50 px-1.5 py-0.5 rounded text-xs text-slate-300"
                   >
                     {tag}
                   </span>
@@ -170,24 +176,24 @@ function EventModal({ event, onClose }: EventModalProps) {
 
           {props.language && (
             <div>
-              <strong>Language:</strong> {props.language}
+              <strong className="text-slate-100 text-xs">Language:</strong> <span className="text-slate-300 text-xs">{props.language}</span>
             </div>
           )}
 
           {props.ageRestriction && (
             <div>
-              <strong>Age Restriction:</strong> {props.ageRestriction}
+              <strong className="text-slate-100 text-xs">Age Restriction:</strong> <span className="text-slate-300 text-xs">{props.ageRestriction}</span>
             </div>
           )}
 
           {props.ticketUrl && (
             <div>
-              <strong className="text-slate-100">Tickets:</strong>{' '}
+              <strong className="text-slate-100 text-xs">Tickets:</strong>{' '}
               <a
                 href={props.ticketUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-indigo-400 hover:text-indigo-300 hover:underline"
+                className="text-indigo-400 hover:text-indigo-300 hover:underline text-xs"
               >
                 Buy Tickets
               </a>
@@ -196,17 +202,17 @@ function EventModal({ event, onClose }: EventModalProps) {
 
           {props.sourceUrl && (
             <div>
-              <strong className="text-slate-100">Source:</strong>{' '}
+              <strong className="text-slate-100 text-xs">Source:</strong>{' '}
               <a
                 href={props.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-indigo-400 hover:text-indigo-300 hover:underline"
+                className="text-indigo-400 hover:text-indigo-300 hover:underline text-xs"
               >
                 View Source
               </a>
               {props.sourceName && (
-                <span className="text-sm text-slate-400 ml-2">({props.sourceName})</span>
+                <span className="text-xs text-slate-400 ml-2">({props.sourceName})</span>
               )}
             </div>
           )}
@@ -214,7 +220,7 @@ function EventModal({ event, onClose }: EventModalProps) {
 
         <button
           onClick={onClose}
-          className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 px-6 py-3 rounded-xl font-medium text-white transition-all shadow-xl hover:shadow-2xl mt-6"
+          className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 px-3 py-1.5 rounded-md text-xs font-medium text-white transition-all shadow-md hover:shadow-lg mt-3"
         >
           Close
         </button>
@@ -423,6 +429,7 @@ function CalendarPageContent() {
   const [showSavedViewsMenu, setShowSavedViewsMenu] = useState(false)
   const [editingViewId, setEditingViewId] = useState<string | null>(null)
   const [editingViewName, setEditingViewName] = useState('')
+  const [sidebarMinimized, setSidebarMinimized] = useState(false)
   
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -889,7 +896,25 @@ function CalendarPageContent() {
 
       <div className="flex flex-col md:flex-row">
         {/* Left Sidebar */}
-        <div className="w-full md:w-72 border-r-0 md:border-r border-b md:border-b-0 border-slate-700/50 p-4 md:p-6 bg-slate-800/60 backdrop-blur-xl max-h-[50vh] md:max-h-none md:min-h-[calc(100vh-120px)] overflow-y-auto">
+        <div className={`relative transition-all duration-300 ${sidebarMinimized ? 'w-0 md:w-12' : 'w-full md:w-72'} border-r-0 md:border-r border-b md:border-b-0 border-slate-700/50 bg-slate-800/60 backdrop-blur-xl ${sidebarMinimized ? 'overflow-visible md:overflow-visible' : 'p-4 md:p-6 max-h-[50vh] md:max-h-none md:min-h-[calc(100vh-120px)] overflow-y-auto'} flex-shrink-0`}>
+          {/* Minimize/Expand Button - Always visible */}
+          <button
+            onClick={() => setSidebarMinimized(!sidebarMinimized)}
+            className={`absolute top-4 ${sidebarMinimized ? 'right-2 md:right-1' : 'right-4'} z-[100] p-2 rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all shadow-lg hover:shadow-xl hidden md:flex items-center justify-center backdrop-blur-sm`}
+            aria-label={sidebarMinimized ? 'Expand sidebar' : 'Minimize sidebar'}
+          >
+            <svg 
+              className={`w-5 h-5 text-slate-300 transition-transform ${sidebarMinimized ? 'rotate-180' : ''}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          
+          {!sidebarMinimized && (
+            <>
           {/* Search Bar */}
           <div className="mb-4 md:mb-6">
             <div className="text-xs md:text-sm font-semibold mb-2 md:mb-3 text-slate-200">Search Events</div>
@@ -1232,35 +1257,30 @@ function CalendarPageContent() {
               </div>
             )}
           </div>
+            </>
+          )}
         </div>
 
         {/* Main Calendar Area */}
-        <div className="flex-1 p-4 md:p-6">
-          {/* Calendar/List Toggle */}
-          <div className="flex items-center justify-end mb-4">
-            <div className="flex items-center gap-2 bg-slate-800/80 rounded-lg p-1 border border-slate-700/50">
-              <button
-                onClick={() => setShowListView(false)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  !showListView
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-              >
-                Calendar
-              </button>
-              <button
-                onClick={() => setShowListView(true)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  showListView
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-              >
-                List
-              </button>
+        <div className="flex-1 p-4 md:p-6 min-w-0">
+
+          {/* Event Cards Slider - Above Calendar (only show when not in list view) */}
+          {!showListView && !loading && filteredEvents.length > 0 && (
+            <div className="w-full mb-6">
+              <EventCardsSlider
+                events={events}
+                onEventClick={setSelectedEvent}
+                selectedCategories={selectedCategories}
+                selectedTags={selectedTags}
+                freeOnly={freeOnly}
+                excludeExhibitions={excludeExhibitions}
+                excludeContinuous={excludeContinuous}
+                onCategoriesChange={setSelectedCategories}
+                onTagsChange={setSelectedTags}
+                mode="slider"
+              />
             </div>
-          </div>
+          )}
 
           {loading ? (
             <div className="flex items-center justify-center h-96">
@@ -1280,26 +1300,55 @@ function CalendarPageContent() {
                 )}
               </div>
             </div>
-          ) : showListView ? (
-            <EventListView
-              events={filteredEvents}
-              calendarView={calendarView}
-              dateFocus={dateFocus}
-              onEventClick={handleEventClick}
-            />
           ) : (
-            <FullCalendar
-              ref={calendarRef}
-              plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
-              initialView={calendarView}
-              initialDate={dateFocus}
-              datesSet={handleDateChange}
-              viewDidMount={handleViewChange}
-              headerToolbar={{
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay',
-              }}
+            <div className="relative">
+              {/* Calendar/List Toggle - Always visible, positioned just left of month/week/day buttons */}
+              <div className="fixed top-2 right-[200px] z-50">
+                <div className="flex items-center gap-2 bg-slate-800/80 rounded-lg p-1 border border-slate-700/50">
+                  <button
+                    onClick={() => setShowListView(false)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      !showListView
+                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                        : 'text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    Calendar
+                  </button>
+                  <button
+                    onClick={() => setShowListView(true)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      showListView
+                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                        : 'text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    List
+                  </button>
+                </div>
+              </div>
+              {showListView ? (
+                <div className="pt-12">
+                  <EventListView
+                    events={filteredEvents}
+                    calendarView={calendarView}
+                    dateFocus={dateFocus}
+                    onEventClick={handleEventClick}
+                  />
+                </div>
+              ) : (
+                <FullCalendar
+                ref={calendarRef}
+                plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
+                initialView={calendarView}
+                initialDate={dateFocus}
+                datesSet={handleDateChange}
+                viewDidMount={handleViewChange}
+                headerToolbar={{
+                  left: 'prev,next today',
+                  center: 'title',
+                  right: 'dayGridMonth,timeGridWeek,timeGridDay',
+                }}
               events={filteredEvents}
               eventClick={handleEventClick}
               firstDay={1} // Monday
@@ -1320,28 +1369,12 @@ function CalendarPageContent() {
               // Prevent long events from spanning multiple days in month/week views
               eventMaxStack={10}
               moreLinkClick="popover"
-            />
+              />
+              )}
+            </div>
           )}
         </div>
       </div>
-
-      {/* Event Cards Slider - Below Calendar (only show when not in list view) */}
-      {!showListView && (
-        <div className="w-full px-4 md:px-6 pb-6">
-          <EventCardsSlider
-            events={events}
-            onEventClick={setSelectedEvent}
-            selectedCategories={selectedCategories}
-            selectedTags={selectedTags}
-            freeOnly={freeOnly}
-            excludeExhibitions={excludeExhibitions}
-            excludeContinuous={excludeContinuous}
-            onCategoriesChange={setSelectedCategories}
-            onTagsChange={setSelectedTags}
-            mode="slider"
-          />
-        </div>
-      )}
 
       {/* Event Modal */}
       <EventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />

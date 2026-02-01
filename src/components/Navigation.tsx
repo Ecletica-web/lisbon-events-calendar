@@ -11,12 +11,115 @@ export default function Navigation() {
   const user = session?.user
 
   return (
-    <nav className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-50 shadow-2xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-14 md:h-16">
+    <nav className="relative bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-50 shadow-2xl overflow-hidden">
+      {/* Animated Neon Waves Background */}
+      <div className="absolute inset-0 opacity-30">
+        {/* Wave 1 - Purple/Indigo */}
+        <svg
+          className="absolute bottom-0 w-full h-full"
+          viewBox="0 0 1200 120"
+          preserveAspectRatio="none"
+          style={{ animation: 'wave 8s ease-in-out infinite' }}
+        >
+          <path
+            d="M0,60 Q300,20 600,60 T1200,60 L1200,120 L0,120 Z"
+            fill="url(#gradient1)"
+            opacity="0.6"
+          />
+          <defs>
+            <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#6366f1" stopOpacity="0.8" />
+              <stop offset="50%" stopColor="#a855f7" stopOpacity="0.6" />
+              <stop offset="100%" stopColor="#ec4899" stopOpacity="0.8" />
+            </linearGradient>
+          </defs>
+        </svg>
+        
+        {/* Wave 2 - Pink/Purple */}
+        <svg
+          className="absolute bottom-0 w-full h-full"
+          viewBox="0 0 1200 120"
+          preserveAspectRatio="none"
+          style={{ animation: 'wave 10s ease-in-out infinite reverse' }}
+        >
+          <path
+            d="M0,80 Q400,40 800,80 T1200,80 L1200,120 L0,120 Z"
+            fill="url(#gradient2)"
+            opacity="0.5"
+          />
+          <defs>
+            <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#ec4899" stopOpacity="0.7" />
+              <stop offset="50%" stopColor="#a855f7" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#6366f1" stopOpacity="0.7" />
+            </linearGradient>
+          </defs>
+        </svg>
+        
+        {/* Wave 3 - Indigo/Blue */}
+        <svg
+          className="absolute bottom-0 w-full h-full"
+          viewBox="0 0 1200 120"
+          preserveAspectRatio="none"
+          style={{ animation: 'wave 12s ease-in-out infinite' }}
+        >
+          <path
+            d="M0,100 Q200,60 600,100 T1200,100 L1200,120 L0,120 Z"
+            fill="url(#gradient3)"
+            opacity="0.4"
+          />
+          <defs>
+            <linearGradient id="gradient3" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.6" />
+              <stop offset="50%" stopColor="#6366f1" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.6" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      
+      {/* Neon Glow Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 animate-pulse" />
+      
+      {/* Animated Neon Particles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1 h-1 rounded-full bg-indigo-400 animate-ping"
+            style={{
+              left: `${15 + i * 15}%`,
+              top: `${20 + (i % 3) * 30}%`,
+              animationDelay: `${i * 0.5}s`,
+              animationDuration: `${2 + (i % 3)}s`,
+              opacity: 0.6,
+            }}
+          />
+        ))}
+        {[...Array(4)].map((_, i) => (
+          <div
+            key={`pink-${i}`}
+            className="absolute w-1 h-1 rounded-full bg-pink-400 animate-ping"
+            style={{
+              left: `${70 + i * 10}%`,
+              top: `${30 + (i % 2) * 40}%`,
+              animationDelay: `${i * 0.7}s`,
+              animationDuration: `${1.5 + (i % 2)}s`,
+              opacity: 0.5,
+            }}
+          />
+        ))}
+      </div>
+      
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-14 md:h-16 gap-4">
           {/* Logo/Title */}
-          <div className="flex items-center">
-            <Link href="/calendar" className="text-base md:text-xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent hover:from-indigo-300 hover:via-purple-300 hover:to-pink-300 transition-all duration-300 drop-shadow-lg">
+          <div className="flex items-center flex-shrink-0 min-w-fit pr-2">
+            <Link 
+              href="/calendar" 
+              className="text-base md:text-xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent hover:from-indigo-300 hover:via-purple-300 hover:to-pink-300 transition-all duration-300 drop-shadow-lg relative whitespace-nowrap z-10 flex-shrink-0"
+              style={{ animation: 'neon-pulse 3s ease-in-out infinite' }}
+            >
               <span className="hidden sm:inline">Lisbon Events Calendar</span>
               <span className="sm:hidden">LEC</span>
             </Link>

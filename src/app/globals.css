@@ -151,6 +151,11 @@ html {
   border-color: rgba(51, 65, 85, 0.3);
 }
 
+/* Calendar/List toggle positioning */
+.fc-header-toolbar {
+  position: relative;
+}
+
 /* Mobile responsive FullCalendar */
 @media (max-width: 768px) {
   .fc-button {
@@ -201,4 +206,26 @@ html {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Animated Waves for Header */
+@keyframes wave {
+  0%, 100% {
+    transform: translateX(0) translateY(0);
+  }
+  50% {
+    transform: translateX(-25px) translateY(-10px);
+  }
+}
+
+/* Neon Glow Effects */
+@keyframes neon-pulse {
+  0%, 100% {
+    opacity: 0.8;
+    filter: drop-shadow(0 0 5px rgba(99, 102, 241, 0.5)) drop-shadow(0 0 10px rgba(168, 85, 247, 0.3));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.8)) drop-shadow(0 0 20px rgba(168, 85, 247, 0.6)) drop-shadow(0 0 30px rgba(236, 72, 153, 0.4));
+  }
 }

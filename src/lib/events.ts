@@ -110,10 +110,10 @@ export function filterEvents(
     })
   }
 
-  // Tag filtering (AND logic - event must have ALL selected tags)
+  // Tag filtering (OR logic - event must have ANY of the selected tags)
   if (selectedTags.length > 0) {
     filtered = filtered.filter((event) => {
-      return selectedTags.every((selectedTag) =>
+      return selectedTags.some((selectedTag) =>
         event.extendedProps.tags.includes(selectedTag)
       )
     })

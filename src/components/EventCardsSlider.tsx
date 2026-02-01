@@ -2,9 +2,8 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { NormalizedEvent } from '@/lib/eventsAdapter'
-import { filterEvents, getAllTags, getAllCategories } from '@/lib/eventsAdapter'
+import { filterEvents } from '@/lib/eventsAdapter'
 import { getCategoryColor } from '@/lib/categoryColors'
-import { normalizeCategory } from '@/lib/categoryNormalization'
 import { useDebounce } from '@/lib/useDebounce'
 
 interface EventCardsSliderProps {
@@ -35,10 +34,8 @@ export default function EventCardsSlider({
   mode = 'slider',
 }: EventCardsSliderProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('today')
-  const [showFilters, setShowFilters] = useState(false)
   const [localCategories, setLocalCategories] = useState<string[]>(selectedCategories)
   const [localTags, setLocalTags] = useState<string[]>(selectedTags)
-  const [tagSearchQuery, setTagSearchQuery] = useState('')
   const sliderRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [startX, setStartX] = useState(0)
@@ -147,75 +144,6 @@ export default function EventCardsSlider({
     return filtered
   }, [events, dateRange, localTags, localCategories, freeOnly, excludeExhibitions, excludeContinuous, timeRange])
 
-  // Get available categories and tags
-  const allCategories = useMemo(() => getAllCategories(events), [events])
-  const allTags = useMemo(() => {
-    let tags: string[] = []
-    if (localCategories.length > 0) {
-      // Only show tags from selected categories
-      const categorySet = new Set(localCategories.map(c => normalizeCategory(c)))
-      tags = getAllTags(events).filter(tag => {
-        // Check if any event with this tag has one of the selected categories
-        return events.some(event => 
-          event.extendedProps.tags.includes(tag) &&
-          event.extendedProps.category &&
-          categorySet.has(normalizeCategory(event.extendedProps.category))
-        )
-      })
-    } else {
-      // Show popular tags (top 20 by frequency) or all if less than 20
-      const tagCounts = new Map<string, number>()
-      events.forEach(event => {
-        event.extendedProps.tags.forEach(tag => {
-          tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
-        })
-      })
-      const sortedTags = Array.from(tagCounts.entries())
-        .sort((a, b) => b[1] - a[1])
-        .map(([tag]) => tag)
-      tags = sortedTags.slice(0, 20)
-    }
-    
-    // Filter by search query
-    if (tagSearchQuery.trim()) {
-      const query = tagSearchQuery.toLowerCase()
-      tags = tags.filter(tag => tag.toLowerCase().includes(query))
-    }
-    
-    return tags
-  }, [events, localCategories, tagSearchQuery])
-
-  // Handle category toggle
-  const handleCategoryToggle = (category: string) => {
-    const newCategories = localCategories.includes(category)
-      ? localCategories.filter(c => c !== category)
-      : [...localCategories, category]
-    setLocalCategories(newCategories)
-    onCategoriesChange?.(newCategories)
-    // Clear tags that don't belong to new categories
-    if (newCategories.length > 0) {
-      const categorySet = new Set(newCategories.map(c => normalizeCategory(c)))
-      const validTags = localTags.filter(tag => {
-        return events.some(event => 
-          event.extendedProps.tags.includes(tag) &&
-          event.extendedProps.category &&
-          categorySet.has(normalizeCategory(event.extendedProps.category))
-        )
-      })
-      setLocalTags(validTags)
-      onTagsChange?.(validTags)
-    }
-  }
-
-  // Handle tag toggle
-  const handleTagToggle = (tag: string) => {
-    const newTags = localTags.includes(tag)
-      ? localTags.filter(t => t !== tag)
-      : [...localTags, tag]
-    setLocalTags(newTags)
-    onTagsChange?.(newTags)
-  }
-
   // Mouse drag handlers for slider
   const handleMouseDown = (e: React.MouseEvent) => {
     if (mode !== 'slider') return
@@ -276,15 +204,18 @@ export default function EventCardsSlider({
     }
   }
 
-  if (filteredEvents.length === 0 && !showFilters) {
-    return null
+  // Always show the slider, even if no events - display a helpful message
+
+  const handleRemoveTag = (tag: string) => {
+    const newTags = selectedTags.filter(t => t !== tag)
+    onTagsChange?.(newTags)
   }
 
   return (
     <div className="w-full mt-6 md:mt-8">
       {/* Header with toggle and count */}
-      <div className="flex items-center justify-between mb-4 px-4 md:px-6">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between mb-4 px-4 md:px-6 flex-wrap gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {/* Segmented control */}
           <div className="flex bg-slate-800/80 rounded-lg p-1 border border-slate-700/50">
             <button
@@ -312,100 +243,51 @@ export default function EventCardsSlider({
           {timeRange === 'week' && (
             <span className="text-xs text-slate-400 hidden md:inline">Next 7 days</span>
           )}
+
+          {/* Selected Tags Preview */}
+          {selectedTags && selectedTags.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {selectedTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-slate-700/80 border border-slate-600/50 text-slate-200"
+                >
+                  {tag}
+                  <button
+                    onClick={() => handleRemoveTag(tag)}
+                    className="hover:bg-slate-600/80 rounded-full p-0.5 transition-colors flex items-center justify-center"
+                    aria-label={`Remove ${tag}`}
+                  >
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
           <span className="text-sm text-slate-400">
             {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} match
           </span>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="text-sm text-indigo-400 hover:text-indigo-300 px-3 py-1.5 rounded-lg hover:bg-slate-800/80 transition-colors"
-          >
-            {showFilters ? 'Hide' : 'Filter'}
-          </button>
         </div>
       </div>
 
-      {/* Filters */}
-      {showFilters && (
-        <div className="mb-4 px-4 md:px-6 space-y-4">
-          {/* Categories */}
-          <div>
-            <div className="text-xs font-semibold mb-2 text-slate-300">Categories</div>
-            <div className="flex flex-wrap gap-2">
-              {allCategories.map((category) => {
-                const color = getCategoryColor(category)
-                const isSelected = localCategories.includes(category)
-                return (
-                  <button
-                    key={category}
-                    onClick={() => handleCategoryToggle(category)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-all ${
-                      isSelected
-                        ? 'text-white shadow-md'
-                        : 'text-slate-300 hover:opacity-90 bg-slate-800/80'
-                    }`}
-                    style={{
-                      backgroundColor: isSelected ? color : 'transparent',
-                      borderColor: color,
-                    }}
-                  >
-                    {category}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div>
-            <div className="text-xs font-semibold mb-2 text-slate-300">
-              Tags {localCategories.length > 0 && '(from selected categories)'}
-            </div>
-            
-            {/* Tag search input */}
-            <div className="mb-3">
-              <input
-                type="text"
-                placeholder="Search tags..."
-                value={tagSearchQuery}
-                onChange={(e) => setTagSearchQuery(e.target.value)}
-                className="w-full border border-slate-600/50 rounded-lg px-3 py-2 text-sm bg-slate-900/80 backdrop-blur-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all shadow-lg"
-              />
-            </div>
-            
-            <div className="flex flex-wrap gap-2">
-              {allTags.length === 0 ? (
-                <div className="text-sm text-slate-400 py-2">
-                  {tagSearchQuery.trim() ? 'No tags match your search' : 'No tags available'}
-                </div>
-              ) : (
-                allTags.map((tag) => {
-                  const isSelected = localTags.includes(tag)
-                  return (
-                    <button
-                      key={tag}
-                      onClick={() => handleTagToggle(tag)}
-                      className={`px-3 py-1.5 rounded-lg text-xs border transition-all ${
-                        isSelected
-                          ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white border-transparent shadow-md'
-                          : 'bg-slate-800/80 border-slate-600/50 text-slate-300 hover:bg-slate-700/80'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  )
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Cards container */}
       {filteredEvents.length > 0 ? (
-        <div className="relative">
+        <div className="relative overflow-hidden">
           {mode === 'slider' && (
             <>
               {/* Left scroll button */}
@@ -443,12 +325,13 @@ export default function EventCardsSlider({
             onTouchEnd={handleTouchEnd}
             className={`${
               mode === 'slider'
-                ? 'flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth px-4 md:px-6 pb-4'
+                ? 'flex gap-4 overflow-x-auto overflow-y-hidden scrollbar-hide scroll-smooth px-4 md:px-6 pb-4'
                 : 'grid grid-cols-1 md:grid-cols-2 gap-4 px-4 md:px-6'
             } ${isDragging ? 'cursor-grabbing' : mode === 'slider' ? 'cursor-grab' : ''}`}
             style={{
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
+              WebkitOverflowScrolling: 'touch',
             }}
           >
             {filteredEvents.map((event) => (
@@ -458,7 +341,10 @@ export default function EventCardsSlider({
         </div>
       ) : (
         <div className="text-center py-8 px-4 md:px-6">
-          <div className="text-slate-400 text-sm">No events found for {timeRange === 'today' ? 'today' : 'this week'}</div>
+          <div className="text-center py-8 px-4">
+            <div className="text-slate-300 text-base font-medium mb-2">No events found for {timeRange === 'today' ? 'today' : 'this week'}</div>
+            <div className="text-slate-400 text-sm">Try broadening your search or adjusting your filters</div>
+          </div>
         </div>
       )}
     </div>
