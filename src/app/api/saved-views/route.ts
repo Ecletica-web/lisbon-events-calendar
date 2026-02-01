@@ -13,8 +13,8 @@ import { ViewState } from '@/lib/viewState'
 // Get all saved views for user
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions as any)
-    const userId = session?.user ? (session.user as any).id : null
+    const session = await getServerSession(authOptions as any) as any
+    const userId = session?.user?.id
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
 // Create a new saved view
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions as any)
-    const userId = session?.user ? (session.user as any).id : null
+    const session = await getServerSession(authOptions as any) as any
+    const userId = session?.user?.id
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -57,8 +57,8 @@ export async function POST(request: NextRequest) {
 // Update a saved view
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions as any)
-    const userId = session?.user ? (session.user as any).id : null
+    const session = await getServerSession(authOptions as any) as any
+    const userId = session?.user?.id
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -96,8 +96,8 @@ export async function PATCH(request: NextRequest) {
 // Delete a saved view
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions as any)
-    const userId = session?.user ? (session.user as any).id : null
+    const session = await getServerSession(authOptions as any) as any
+    const userId = session?.user?.id
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

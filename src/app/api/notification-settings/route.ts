@@ -9,8 +9,8 @@ import {
 // Get notification settings
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions as any)
-    const userId = session?.user ? (session.user as any).id : null
+    const session = await getServerSession(authOptions as any) as any
+    const userId = session?.user?.id
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
 // Update notification settings
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions as any)
-    const userId = session?.user ? (session.user as any).id : null
+    const session = await getServerSession(authOptions as any) as any
+    const userId = session?.user?.id
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
