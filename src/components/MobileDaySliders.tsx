@@ -1,0 +1,129 @@
+'use client'
+
+import { useMemo } from 'react'
+import { NormalizedEvent, filterEvents } from '@/lib/eventsAdapter'
+import EventCardsSlider from './EventCardsSlider'
+import { format, addDays } from 'date-fns'
+
+interface MobileDaySlidersProps {
+  events: NormalizedEvent[]
+  onEventClick: (event: NormalizedEvent) => void
+  selectedCategories: string[]
+  selectedTags: string[]
+  freeOnly: boolean
+  excludeExhibitions: boolean
+  excludeContinuous: boolean
+  onCategoriesChange?: (categories: string[]) => void
+  onTagsChange?: (tags: string[]) => void
+}
+
+export default function MobileDaySliders({
+  events,
+  onEventClick,
+  selectedCategories,
+  selectedTags,
+  freeOnly,
+  excludeExhibitions,
+  excludeContinuous,
+  onCategoriesChange,
+  onTagsChange,
+}: MobileDaySlidersProps) {
+  // Generate 7 days starting from today (T+0 to T+6)
+  const days = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = addDays(today, i)
+      const dayStart = new Date(day)
+      dayStart.setHours(0, 0, 0, 0)
+      const dayEnd = new Date(day)
+      dayEnd.setHours(23, 59, 59, 999)
+      
+      return {
+        date: day,
+        start: dayStart,
+        end: dayEnd,
+        label: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : format(day, 'EEE, MMM d'),
+        shortLabel: i === 0 ? 'T+0' : `T+${i}`,
+      }
+    })
+  }, [])
+
+  // Filter events for each day
+  const eventsByDay = useMemo(() => {
+    return days.map(day => {
+      // First filter by date range
+      let dayEvents = events.filter(event => {
+        const eventStart = new Date(event.start)
+        return eventStart >= day.start && eventStart <= day.end
+      })
+
+      // Apply all other filters
+      dayEvents = filterEvents(dayEvents, {
+        selectedTags,
+        categories: selectedCategories,
+        freeOnly,
+        excludeExhibitions,
+      })
+
+      if (excludeContinuous) {
+        dayEvents = dayEvents.filter((event) => {
+          if (!event.allDay) return true
+          if (event.end) {
+            const start = new Date(event.start)
+            const end = new Date(event.end)
+            const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+            return daysDiff <= 1
+          }
+          return true
+        })
+      }
+
+      // Sort chronologically
+      return dayEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+    })
+  }, [events, days, selectedCategories, selectedTags, freeOnly, excludeExhibitions, excludeContinuous])
+
+  return (
+    <div className="w-full space-y-6 pb-6">
+      {days.map((day, index) => (
+        <div key={index} className="w-full">
+          {/* Day Header */}
+          <div className="flex items-center justify-between mb-3 px-4">
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-bold text-white">
+                {day.label}
+              </h3>
+              <span className="text-xs text-slate-400 font-mono">{day.shortLabel}</span>
+            </div>
+            <span className="text-sm text-slate-400">
+              {eventsByDay[index].length} event{eventsByDay[index].length !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          {/* Day Slider */}
+          {eventsByDay[index].length > 0 ? (
+            <EventCardsSlider
+              events={eventsByDay[index]}
+              onEventClick={onEventClick}
+              selectedCategories={selectedCategories}
+              selectedTags={selectedTags}
+              freeOnly={freeOnly}
+              excludeExhibitions={excludeExhibitions}
+              excludeContinuous={excludeContinuous}
+              onCategoriesChange={onCategoriesChange}
+              onTagsChange={onTagsChange}
+              mode="slider"
+              hideHeader={true}
+            />
+          ) : (
+            <div className="text-center py-6 px-4 bg-slate-800/40 rounded-lg border border-slate-700/30 mx-4">
+              <div className="text-slate-400 text-sm">No events for {day.label.toLowerCase()}</div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}

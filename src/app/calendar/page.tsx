@@ -35,6 +35,7 @@ import {
 import { useSession } from 'next-auth/react'
 import { loadSavedViewsFromDB, saveViewToDB } from '@/lib/savedViewsSync'
 import EventCardsSlider from '@/components/EventCardsSlider'
+import MobileDaySliders from '@/components/MobileDaySliders'
 
 interface EventModalProps {
   event: NormalizedEvent | null
@@ -920,11 +921,29 @@ function CalendarPageContent() {
 
       <div className="flex flex-col md:flex-row">
         {/* Left Sidebar */}
-        <div className={`relative transition-all duration-300 ${sidebarMinimized ? 'w-0 md:w-12' : 'w-full md:w-72'} border-r-0 md:border-r border-b md:border-b-0 border-slate-700/50 bg-slate-800/60 backdrop-blur-xl ${sidebarMinimized ? 'overflow-visible md:overflow-visible' : 'p-4 md:p-6 max-h-[50vh] md:max-h-none md:min-h-[calc(100vh-120px)] overflow-y-auto'} flex-shrink-0 ${!sidebarMinimized ? 'z-50 md:z-auto' : ''}`}>
-          {/* Minimize/Expand Button - Visible on all screen sizes */}
+        <div className={`relative transition-all duration-300 ${sidebarMinimized ? 'w-0 md:w-12' : 'w-64 md:w-72'} border-r-0 md:border-r border-b md:border-b-0 border-slate-700/50 bg-slate-800/60 backdrop-blur-xl ${sidebarMinimized ? 'overflow-visible md:overflow-visible' : 'p-3 md:p-6 max-h-[50vh] md:max-h-none md:min-h-[calc(100vh-120px)] overflow-y-auto'} flex-shrink-0 ${!sidebarMinimized ? 'z-50 md:z-auto fixed md:relative inset-y-0 left-0' : ''}`}>
+          {/* Mobile Filter Icon Button - Only visible when sidebar is minimized on mobile */}
+          {sidebarMinimized && (
+            <button
+              onClick={() => setSidebarMinimized(false)}
+              className="md:hidden fixed top-20 left-4 z-[100] p-3 rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all shadow-lg hover:shadow-xl flex items-center justify-center backdrop-blur-sm"
+              aria-label="Open filters"
+            >
+              <svg 
+                className="w-5 h-5 text-slate-300" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+            </button>
+          )}
+
+          {/* Minimize/Expand Button - Desktop only */}
           <button
             onClick={() => setSidebarMinimized(!sidebarMinimized)}
-            className={`absolute top-4 ${sidebarMinimized ? 'right-2 md:right-1' : 'right-4'} z-[100] p-2 rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all shadow-lg hover:shadow-xl flex items-center justify-center backdrop-blur-sm`}
+            className={`hidden md:flex absolute top-4 ${sidebarMinimized ? 'right-2 md:right-1' : 'right-4'} z-[100] p-2 rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all shadow-lg hover:shadow-xl items-center justify-center backdrop-blur-sm`}
             aria-label={sidebarMinimized ? 'Expand sidebar' : 'Minimize sidebar'}
           >
             <svg 
@@ -936,6 +955,24 @@ function CalendarPageContent() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
+
+          {/* Mobile Close Button - Inside sidebar on mobile */}
+          {!sidebarMinimized && (
+            <button
+              onClick={() => setSidebarMinimized(true)}
+              className="md:hidden absolute top-4 right-4 z-[100] p-2 rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all shadow-lg hover:shadow-xl flex items-center justify-center backdrop-blur-sm"
+              aria-label="Close filters"
+            >
+              <svg 
+                className="w-5 h-5 text-slate-300" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
 
           {/* Mobile Close Overlay - Click outside to close on mobile */}
           {!sidebarMinimized && (
@@ -1295,11 +1332,14 @@ function CalendarPageContent() {
 
         {/* Main Calendar Area */}
         <div className="flex-1 p-4 md:p-6 min-w-0">
-
-          {/* Event Cards Slider - Above Calendar (only show when not in list view) */}
-          {!showListView && !loading && filteredEvents.length > 0 && (
-            <div className="w-full mb-6">
-              <EventCardsSlider
+          {/* Mobile: Show Day Sliders */}
+          <div className="md:hidden">
+            {loading ? (
+              <div className="flex items-center justify-center h-96">
+                <div className="text-slate-400">Loading events...</div>
+              </div>
+            ) : (
+              <MobileDaySliders
                 events={events}
                 onEventClick={setSelectedEvent}
                 selectedCategories={selectedCategories}
@@ -1309,67 +1349,86 @@ function CalendarPageContent() {
                 excludeContinuous={excludeContinuous}
                 onCategoriesChange={setSelectedCategories}
                 onTagsChange={setSelectedTags}
-                mode="slider"
               />
-            </div>
-          )}
+            )}
+          </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center h-96">
-              <div className="text-slate-400">Loading events...</div>
-            </div>
-          ) : filteredEvents.length === 0 ? (
-            <div className="flex items-center justify-center h-96">
-              <div className="text-center">
-                <div className="text-slate-400 text-lg mb-2">No events found</div>
-                {activeFiltersCount > 0 && (
-                  <button
-                    onClick={handleClearFilters}
-                    className="text-indigo-400 hover:text-indigo-300 hover:underline text-sm"
-                  >
-                    Clear filters to see all events
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="relative">
-              {/* Calendar/List Toggle - Always visible, positioned just left of month/week/day buttons */}
-              <div className="fixed top-2 right-[200px] z-50">
-                <div className="flex items-center gap-2 bg-slate-800/80 rounded-lg p-1 border border-slate-700/50">
-                  <button
-                    onClick={() => setShowListView(false)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                      !showListView
-                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                        : 'text-slate-300 hover:text-white'
-                    }`}
-                  >
-                    Calendar
-                  </button>
-                  <button
-                    onClick={() => setShowListView(true)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                      showListView
-                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                        : 'text-slate-300 hover:text-white'
-                    }`}
-                  >
-                    List
-                  </button>
-                </div>
-              </div>
-              {showListView ? (
-                <div className="pt-12">
-                  <EventListView
-                    events={filteredEvents}
-                    calendarView={calendarView}
-                    dateFocus={dateFocus}
-                    onEventClick={handleEventClick}
+          {/* Desktop: Calendar View */}
+          <div className="hidden md:block">
+              {/* Desktop: Event Cards Slider - Above Calendar (only show when not in list view) */}
+              {!showListView && !loading && filteredEvents.length > 0 && (
+                <div className="w-full mb-6">
+                  <EventCardsSlider
+                    events={events}
+                    onEventClick={setSelectedEvent}
+                    selectedCategories={selectedCategories}
+                    selectedTags={selectedTags}
+                    freeOnly={freeOnly}
+                    excludeExhibitions={excludeExhibitions}
+                    excludeContinuous={excludeContinuous}
+                    onCategoriesChange={setSelectedCategories}
+                    onTagsChange={setSelectedTags}
+                    mode="slider"
                   />
                 </div>
+              )}
+
+              {loading ? (
+                <div className="flex items-center justify-center h-96">
+                  <div className="text-slate-400">Loading events...</div>
+                </div>
+              ) : filteredEvents.length === 0 ? (
+                <div className="flex items-center justify-center h-96">
+                  <div className="text-center">
+                    <div className="text-slate-400 text-lg mb-2">No events found</div>
+                    {activeFiltersCount > 0 && (
+                      <button
+                        onClick={handleClearFilters}
+                        className="text-indigo-400 hover:text-indigo-300 hover:underline text-sm"
+                      >
+                        Clear filters to see all events
+                      </button>
+                    )}
+                  </div>
+                </div>
               ) : (
-                <FullCalendar
+                <div className="relative">
+                  {/* Calendar/List Toggle - Desktop only, positioned just left of month/week/day buttons */}
+                  <div className="fixed top-2 right-[200px] z-50 hidden md:block">
+                    <div className="flex items-center gap-2 bg-slate-800/80 rounded-lg p-1 border border-slate-700/50">
+                      <button
+                        onClick={() => setShowListView(false)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                          !showListView
+                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                            : 'text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        Calendar
+                      </button>
+                      <button
+                        onClick={() => setShowListView(true)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                          showListView
+                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                            : 'text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        List
+                      </button>
+                    </div>
+                  </div>
+                  {showListView ? (
+                    <div className="pt-12">
+                      <EventListView
+                        events={filteredEvents}
+                        calendarView={calendarView}
+                        dateFocus={dateFocus}
+                        onEventClick={handleEventClick}
+                      />
+                    </div>
+                  ) : (
+                    <FullCalendar
                 ref={calendarRef}
                 plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
                 initialView={calendarView}
@@ -1401,10 +1460,11 @@ function CalendarPageContent() {
               // Prevent long events from spanning multiple days in month/week views
               eventMaxStack={10}
               moreLinkClick="popover"
-              />
+                    />
+                  )}
+                </div>
               )}
-            </div>
-          )}
+          </div>
         </div>
       </div>
 

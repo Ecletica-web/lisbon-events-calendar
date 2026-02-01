@@ -17,6 +17,7 @@ interface EventCardsSliderProps {
   onCategoriesChange?: (categories: string[]) => void
   onTagsChange?: (tags: string[]) => void
   mode?: 'slider' | 'grid' // For list view, use grid
+  hideHeader?: boolean // Hide the header (for mobile day sliders)
 }
 
 type TimeRange = 'today' | 'week'
@@ -213,7 +214,8 @@ export default function EventCardsSlider({
 
   return (
     <div className="w-full mt-6 md:mt-8">
-      {/* Header with toggle and count */}
+      {/* Header with toggle and count - Hidden if hideHeader is true */}
+      {!hideHeader && (
       <div className="flex items-center justify-between mb-4 px-4 md:px-6 flex-wrap gap-3">
         <div className="flex items-center gap-3 flex-wrap">
           {/* Segmented control */}
@@ -284,6 +286,7 @@ export default function EventCardsSlider({
           </span>
         </div>
       </div>
+      )}
 
       {/* Cards container */}
       {filteredEvents.length > 0 ? (
