@@ -14,7 +14,7 @@ import { ViewState } from '@/lib/viewState'
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions as any)
-    const userId = (session?.user as any)?.id
+    const userId = session?.user ? (session.user as any).id : null
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions as any)
-    const userId = (session?.user as any)?.id
+    const userId = session?.user ? (session.user as any).id : null
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions as any)
-    const userId = (session?.user as any)?.id
+    const userId = session?.user ? (session.user as any).id : null
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -97,7 +97,7 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions as any)
-    const userId = (session?.user as any)?.id
+    const userId = session?.user ? (session.user as any).id : null
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
