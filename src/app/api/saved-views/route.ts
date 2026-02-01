@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth-nextauth'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-config'
 import {
   getSavedViewsByUserId,
   createSavedView,
