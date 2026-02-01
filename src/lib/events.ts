@@ -57,7 +57,7 @@ export async function fetchEvents(): Promise<NormalizedEvent[]> {
             reject(error)
           }
         },
-        error: (error) => {
+        error: (error: Error) => {
           reject(error)
         },
       })
