@@ -957,13 +957,6 @@ function CalendarPageContent() {
             </button>
           )}
 
-          {/* Mobile Close Overlay - Click outside to close on mobile */}
-          {!sidebarMinimized && (
-            <div 
-              className="fixed inset-0 bg-black/50 z-40 md:hidden"
-              onClick={() => setSidebarMinimized(true)}
-            />
-          )}
           
           {!sidebarMinimized && (
             <>
