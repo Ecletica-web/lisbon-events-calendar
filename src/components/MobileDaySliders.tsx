@@ -5,6 +5,15 @@ import { NormalizedEvent, filterEvents } from '@/lib/eventsAdapter'
 import EventCardsSlider from './EventCardsSlider'
 import { format, addDays } from 'date-fns'
 
+// Helper to format date safely
+const formatDate = (date: Date, formatStr: string) => {
+  try {
+    return format(date, formatStr)
+  } catch (e) {
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  }
+}
+
 interface MobileDaySlidersProps {
   events: NormalizedEvent[]
   onEventClick: (event: NormalizedEvent) => void
@@ -44,7 +53,7 @@ export default function MobileDaySliders({
         date: day,
         start: dayStart,
         end: dayEnd,
-        label: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : format(day, 'EEE, MMM d'),
+        label: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : formatDate(day, 'EEE, MMM d'),
         shortLabel: i === 0 ? 'T+0' : `T+${i}`,
       }
     })
