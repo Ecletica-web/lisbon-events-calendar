@@ -470,7 +470,10 @@ function CalendarPageContent() {
       setSelectedTags(merged.selectedTags)
       setFreeOnly(merged.toggles.freeOnly)
       setExcludeExhibitions(merged.toggles.excludeExhibitions)
-      setExcludeContinuous(merged.toggles.excludeContinuous)
+      // Only update excludeContinuous if it's explicitly in the URL state
+      if (urlState.toggles?.excludeContinuous !== undefined) {
+        setExcludeContinuous(merged.toggles.excludeContinuous)
+      }
       setCalendarView(merged.viewMode)
       setDateFocus(merged.dateFocus)
     } else {
@@ -483,7 +486,10 @@ function CalendarPageContent() {
         setSelectedTags(merged.selectedTags)
         setFreeOnly(merged.toggles.freeOnly)
         setExcludeExhibitions(merged.toggles.excludeExhibitions)
-        setExcludeContinuous(merged.toggles.excludeContinuous)
+        // Only update excludeContinuous if it's explicitly in the saved view state
+        if (defaultView.state.toggles?.excludeContinuous !== undefined) {
+          setExcludeContinuous(merged.toggles.excludeContinuous)
+        }
         setCalendarView(merged.viewMode)
         setDateFocus(merged.dateFocus)
       }

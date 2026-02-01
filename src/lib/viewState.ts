@@ -105,14 +105,16 @@ export function deserializeViewStateFromURL(
   }
   
   const toggles = searchParams.get('t')
-  if (toggles) {
-    const flags = toggles.split(',')
+  if (toggles !== null) {
+    // If 't' parameter exists (even if empty), parse it
+    const flags = toggles ? toggles.split(',') : []
     state.toggles = {
       freeOnly: flags.includes('free'),
       excludeExhibitions: flags.includes('noex'),
       excludeContinuous: flags.includes('nocont'),
     }
   }
+  // If 't' parameter doesn't exist, don't set toggles - let mergeViewState use defaults
   
   return state
 }
@@ -126,7 +128,12 @@ export function mergeViewState(partial: Partial<ViewState>): ViewState {
     ...partial,
     toggles: {
       ...DEFAULT_VIEW_STATE.toggles,
-      ...(partial.toggles || {}),
+      // Only override with partial.toggles if it exists and has values
+      ...(partial.toggles ? {
+        freeOnly: partial.toggles.freeOnly ?? DEFAULT_VIEW_STATE.toggles.freeOnly,
+        excludeExhibitions: partial.toggles.excludeExhibitions ?? DEFAULT_VIEW_STATE.toggles.excludeExhibitions,
+        excludeContinuous: partial.toggles.excludeContinuous ?? DEFAULT_VIEW_STATE.toggles.excludeContinuous,
+      } : {}),
     },
   }
 }
