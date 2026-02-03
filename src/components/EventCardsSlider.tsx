@@ -415,53 +415,67 @@ function EventCard({ event, onClick, mode }: { event: NormalizedEvent; onClick: 
         mode === 'slider' ? 'min-w-[280px] md:min-w-[320px] flex-shrink-0' : ''
       }`}
     >
-      {/* Title */}
-      <h3 className="text-base font-semibold text-white mb-2 line-clamp-2 min-h-[2.5rem]">
-        {event.title}
-      </h3>
+      <div className="flex gap-3">
+        {/* Left side: Content */}
+        <div className="flex-1 min-w-0">
+          {/* Title */}
+          <h3 className="text-base font-semibold text-white mb-2 line-clamp-2 min-h-[2.5rem]">
+            {event.title}
+          </h3>
 
-      {/* Date & Time */}
-      <div className="flex items-center gap-2 mb-2 text-sm text-slate-300">
-        <span className="font-medium">{formatDate()}</span>
-        <span>•</span>
-        <span>{formatTime()}</span>
-      </div>
+          {/* Date & Time */}
+          <div className="flex items-center gap-2 mb-2 text-sm text-slate-300">
+            <span className="font-medium">{formatDate()}</span>
+            <span>•</span>
+            <span>{formatTime()}</span>
+          </div>
 
-      {/* Venue */}
-      {props.venueName && (
-        <div className="text-sm text-slate-400 mb-3 line-clamp-1">
-          {props.venueName}
+          {/* Venue */}
+          {props.venueName && (
+            <div className="text-sm text-slate-400 mb-3 line-clamp-1">
+              {props.venueName}
+            </div>
+          )}
+
+          {/* Category & Tags */}
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            {props.category && (
+              <span
+                className="px-2 py-1 rounded text-xs font-medium text-white"
+                style={{ backgroundColor: categoryColor }}
+              >
+                {props.category}
+              </span>
+            )}
+            {displayTags.map((tag) => (
+              <span
+                key={tag}
+                className="px-2 py-1 rounded text-xs bg-slate-700/50 text-slate-300 border border-slate-600/50"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+
+          {/* Price & Source */}
+          <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-700/50">
+            {formatPrice() && (
+              <span className="text-sm font-medium text-slate-200">{formatPrice()}</span>
+            )}
+            {props.sourceName && (
+              <span className="text-xs text-slate-500 uppercase">{props.sourceName}</span>
+            )}
+          </div>
         </div>
-      )}
 
-      {/* Category & Tags */}
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        {props.category && (
-          <span
-            className="px-2 py-1 rounded text-xs font-medium text-white"
-            style={{ backgroundColor: categoryColor }}
-          >
-            {props.category}
-          </span>
-        )}
-        {displayTags.map((tag) => (
-          <span
-            key={tag}
-            className="px-2 py-1 rounded text-xs bg-slate-700/50 text-slate-300 border border-slate-600/50"
-          >
-            {tag}
-          </span>
-        ))}
-      </div>
-
-      {/* Price & Source */}
-      <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-700/50">
-        {formatPrice() && (
-          <span className="text-sm font-medium text-slate-200">{formatPrice()}</span>
-        )}
-        {props.sourceName && (
-          <span className="text-xs text-slate-500 uppercase">{props.sourceName}</span>
-        )}
+        {/* Right side: Image */}
+        <div className="flex-shrink-0 w-20 h-20 md:w-24 md:h-24">
+          <img
+            src="/lisboa.png"
+            alt="Event"
+            className="w-full h-full object-cover rounded-lg border border-slate-700/50"
+          />
+        </div>
       </div>
     </div>
   )
