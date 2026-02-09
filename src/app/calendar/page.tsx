@@ -52,6 +52,20 @@ interface EventListViewProps {
 }
 
 function EventModal({ event, onClose }: EventModalProps) {
+  const overlayRef = useRef<HTMLDivElement>(null)
+
+  // When modal opens: scroll overlay to top so content is in view, lock body scroll
+  useEffect(() => {
+    if (!event) return
+    overlayRef.current?.scrollTo(0, 0)
+    window.scrollTo(0, 0)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prevOverflow
+    }
+  }, [event])
+
   if (!event) return null
 
   const startDate = new Date(event.start)
@@ -84,11 +98,12 @@ function EventModal({ event, onClose }: EventModalProps) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto p-4"
+      ref={overlayRef}
+      className="fixed inset-0 min-h-full bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto p-4 overscroll-contain"
       onClick={onClose}
     >
       <div 
-        className="bg-slate-800/95 backdrop-blur-xl rounded-lg p-4 max-w-md w-full mx-4 my-8 max-h-[80vh] overflow-y-auto border border-slate-700/50 shadow-2xl"
+        className="bg-slate-800/95 backdrop-blur-xl rounded-lg p-4 max-w-md w-full mx-4 my-8 max-h-[85vh] overflow-y-auto border border-slate-700/50 shadow-2xl flex-shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
         <img

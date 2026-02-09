@@ -1,5 +1,6 @@
 import Papa from 'papaparse'
 import { normalizeCategory, normalizeCategories } from '@/lib/categoryNormalization'
+import { CANONICAL_VENUES, venueNameToSlug, normalizeHandle } from '@/data/canonicalVenues'
 
 /**
  * Raw event schema from data source
@@ -206,7 +207,23 @@ const IMAGE_PROXY = 'https://images.weserv.nl/?url='
 const MAX_EVENTS_PER_VENUE = 15
 
 /**
- * Canonical key for venue/location - normalizes names for dedupe and grouping
+ * Match event to canonical venue by venue_name or source_name (handle). Returns canonical key or undefined.
+ */
+function matchEventToCanonicalVenue(venueName?: string, sourceName?: string): string | undefined {
+  const nameSlug = venueNameToSlug(venueName || '')
+  const handleNorm = normalizeHandle(sourceName || '')
+  if (!nameSlug && !handleNorm) return undefined
+  for (const v of CANONICAL_VENUES) {
+    if (nameSlug && v.key === nameSlug) return v.key
+    if (handleNorm && normalizeHandle(v.handle) === handleNorm) return v.key
+    // Also match venue name (display) normalized to slug
+    if (venueName && venueNameToSlug(v.name) === nameSlug) return v.key
+  }
+  return undefined
+}
+
+/**
+ * Canonical key for venue/location - fallback when not in canonical list (normalizes names for dedupe and grouping)
  */
 function toCanonicalVenueKey(venueName?: string, venueAddress?: string): string {
   const name = (venueName || '').trim().toLowerCase().replace(/\s+/g, ' ')
@@ -341,7 +358,7 @@ function normalizeEvent(row: RawEvent): NormalizedEvent | null {
       descriptionLong: row.description_long?.trim() || undefined,
       venueName: row.venue_name?.trim() || undefined,
       venueAddress: row.venue_address?.trim() || undefined,
-      venueKey: toCanonicalVenueKey(row.venue_name?.trim(), row.venue_address?.trim()) || undefined,
+      venueKey: matchEventToCanonicalVenue(row.venue_name?.trim(), row.source_name?.trim()) || toCanonicalVenueKey(row.venue_name?.trim(), row.venue_address?.trim()) || undefined,
       neighborhood: row.neighborhood?.trim() || undefined,
       city: row.city?.trim() || undefined,
       latitude: latitude || undefined,
@@ -690,19 +707,15 @@ export interface VenueOption {
 }
 
 /**
- * Get all unique venues from events (by canonical venue key)
+ * Get all venues that have at least one event, from the canonical list. Uses canonical names.
  */
 export function getAllVenues(events: NormalizedEvent[]): VenueOption[] {
-  const byKey = new Map<string, string>()
+  const keysWithEvents = new Set<string>()
   events.forEach((event) => {
     const key = event.extendedProps.venueKey || toCanonicalVenueKeyPublic(event.extendedProps.venueName, event.extendedProps.venueAddress)
-    if (!key) return
-    const name = event.extendedProps.venueName?.trim() || event.extendedProps.venueAddress?.trim() || key
-    if (!byKey.has(key) || (event.extendedProps.venueName && name.length < (byKey.get(key) || '').length)) {
-      byKey.set(key, name)
-    }
+    if (key) keysWithEvents.add(key)
   })
-  return Array.from(byKey.entries()).map(([key, name]) => ({ key, name })).sort((a, b) => a.name.localeCompare(b.name))
+  return CANONICAL_VENUES.filter((v) => keysWithEvents.has(v.key)).map((v) => ({ key: v.key, name: v.name })).sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /** Public helper to get canonical venue key (for filtering) */
