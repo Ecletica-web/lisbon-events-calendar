@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useRef, Suspense } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
@@ -52,18 +53,12 @@ interface EventListViewProps {
 }
 
 function EventModal({ event, onClose }: EventModalProps) {
-  const overlayRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
 
-  // When modal opens: scroll overlay to top so content is in view, lock body scroll
+  // When modal opens: scroll content to top; avoid body lock (can freeze mobile)
   useEffect(() => {
     if (!event) return
-    overlayRef.current?.scrollTo(0, 0)
-    window.scrollTo(0, 0)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prevOverflow
-    }
+    contentRef.current?.scrollTo(0, 0)
   }, [event])
 
   if (!event) return null
@@ -96,14 +91,18 @@ function EventModal({ event, onClose }: EventModalProps) {
     return null
   }
 
-  return (
-    <div 
-      ref={overlayRef}
-      className="fixed inset-0 min-h-full bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto p-4 overscroll-contain"
+  const modalContent = (
+    <div
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] overflow-hidden p-4"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="event-modal-title"
     >
-      <div 
-        className="bg-slate-800/95 backdrop-blur-xl rounded-lg p-4 max-w-md w-full mx-4 my-8 max-h-[85vh] overflow-y-auto border border-slate-700/50 shadow-2xl flex-shrink-0"
+      <div
+        ref={contentRef}
+        className="bg-slate-800/95 backdrop-blur-xl rounded-lg p-4 max-w-md w-full mx-4 my-8 max-h-[85vh] min-h-0 overflow-y-auto overflow-x-hidden border border-slate-700/50 shadow-2xl overscroll-contain flex-shrink-0"
+        style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
         onClick={(e) => e.stopPropagation()}
       >
         <img
@@ -115,7 +114,7 @@ function EventModal({ event, onClose }: EventModalProps) {
           }}
         />
         
-        <h2 className="text-lg font-bold mb-3 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">{event.title}</h2>
+        <h2 id="event-modal-title" className="text-lg font-bold mb-3 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">{event.title}</h2>
         
         <div className="space-y-2 mb-3 text-slate-200 text-xs">
           <div>
@@ -255,6 +254,8 @@ function EventModal({ event, onClose }: EventModalProps) {
       </div>
     </div>
   )
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent
 }
 
 // Event List View Component
@@ -370,15 +371,20 @@ function EventListView({ events, calendarView, dateFocus, onEventClick }: EventL
           <div className="divide-y divide-slate-700/50">
             {dayEvents.map((event) => {
               const categoryColor = getCategoryColor(event.extendedProps.category)
+              const priceStr = event.extendedProps.isFree
+                ? 'Free'
+                : event.extendedProps.priceMin != null
+                  ? `${event.extendedProps.priceMin}${event.extendedProps.priceMax && event.extendedProps.priceMax !== event.extendedProps.priceMin ? `–${event.extendedProps.priceMax}` : ''} ${event.extendedProps.currency === 'EUR' ? '€' : event.extendedProps.currency || '€'}`
+                  : null
               return (
                 <div
                   key={event.id}
                   onClick={() => onEventClick({ event })}
                   className="px-4 py-4 hover:bg-slate-700/30 transition-colors cursor-pointer"
                 >
-                  <div className="flex items-start gap-4">
-                    {/* Thumbnail */}
-                    <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-slate-700/50">
+                  <div className="flex items-start gap-3 md:gap-4">
+                    {/* Thumbnail - bigger on mobile */}
+                    <div className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20 rounded-lg overflow-hidden bg-slate-700/50">
                       <img
                         src={event.extendedProps.imageUrl || '/lisboa.png'}
                         alt={event.title}
@@ -386,28 +392,34 @@ function EventListView({ events, calendarView, dateFocus, onEventClick }: EventL
                         onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
                       />
                     </div>
-                    {/* Time */}
-                    <div className="text-sm font-medium text-slate-300 min-w-[120px]">
-                      {formatTime(event)}
-                    </div>
 
                     {/* Event Details */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-semibold text-white mb-1">
-                        {event.title}
-                      </h3>
-                      
+                      <div className="flex items-start justify-between gap-2 mb-0.5">
+                        <h3 className="text-base font-semibold text-white leading-tight">
+                          {event.title}
+                        </h3>
+                        {priceStr && (
+                          <span className={`flex-shrink-0 text-xs font-medium tabular-nums ${event.extendedProps.isFree ? 'text-green-400' : 'text-slate-300'}`}>
+                            {priceStr}
+                          </span>
+                        )}
+                      </div>
+                      {/* Time - compact */}
+                      <div className="text-xs font-medium text-slate-300 tabular-nums mb-1">
+                        {formatTime(event)}
+                      </div>
                       {event.extendedProps.venueName && (
-                        <div className="text-sm text-slate-400 mb-2">
+                        <div className="text-sm text-slate-300 mb-2">
                           {event.extendedProps.venueName}
                         </div>
                       )}
 
                       {/* Category & Tags */}
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {event.extendedProps.category && (
                           <span
-                            className="px-2 py-1 rounded text-xs font-medium text-white"
+                            className="px-2 py-0.5 rounded text-xs font-medium text-white"
                             style={{ backgroundColor: categoryColor }}
                           >
                             {event.extendedProps.category}
@@ -416,26 +428,13 @@ function EventListView({ events, calendarView, dateFocus, onEventClick }: EventL
                         {event.extendedProps.tags.slice(0, 3).map((tag) => (
                           <span
                             key={tag}
-                            className="px-2 py-1 rounded text-xs bg-slate-700/50 text-slate-300 border border-slate-600/50"
+                            className="px-2 py-0.5 rounded text-xs bg-slate-700/60 text-slate-200 border border-slate-600/50"
                           >
                             {tag}
                           </span>
                         ))}
                       </div>
                     </div>
-
-                    {/* Price */}
-                    {event.extendedProps.isFree ? (
-                      <div className="text-sm font-medium text-green-400">Free</div>
-                    ) : event.extendedProps.priceMin ? (
-                      <div className="text-sm font-medium text-slate-300">
-                        {event.extendedProps.priceMin}
-                        {event.extendedProps.priceMax && event.extendedProps.priceMax !== event.extendedProps.priceMin
-                          ? `-${event.extendedProps.priceMax}`
-                          : ''}{' '}
-                        {event.extendedProps.currency || 'EUR'}
-                      </div>
-                    ) : null}
                   </div>
                 </div>
               )

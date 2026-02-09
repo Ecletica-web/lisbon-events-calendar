@@ -410,12 +410,12 @@ function EventCard({ event, onClick, mode }: { event: NormalizedEvent; onClick: 
     if (props.isFree) return 'Free'
     if (props.priceMin !== undefined && props.priceMax !== undefined) {
       if (props.priceMin === props.priceMax) {
-        return `${props.priceMin} ${props.currency || 'EUR'}`
+        return `${props.priceMin} ${props.currency === 'EUR' ? '€' : props.currency || '€'}`
       }
-      return `${props.priceMin}-${props.priceMax} ${props.currency || 'EUR'}`
+      return `${props.priceMin}–${props.priceMax} ${props.currency === 'EUR' ? '€' : props.currency || '€'}`
     }
     if (props.priceMin !== undefined) {
-      return `From ${props.priceMin} ${props.currency || 'EUR'}`
+      return `From ${props.priceMin} ${props.currency === 'EUR' ? '€' : props.currency || '€'}`
     }
     return null
   }
@@ -430,60 +430,8 @@ function EventCard({ event, onClick, mode }: { event: NormalizedEvent; onClick: 
       }`}
     >
       <div className="flex gap-3">
-        {/* Left side: Content */}
-        <div className="flex-1 min-w-0">
-          {/* Title */}
-          <h3 className="text-base font-semibold text-white mb-2 line-clamp-2 min-h-[2.5rem]">
-            {event.title}
-          </h3>
-
-          {/* Date & Time */}
-          <div className="flex items-center gap-2 mb-2 text-sm text-slate-300">
-            <span className="font-medium">{formatDate()}</span>
-            <span>•</span>
-            <span>{formatTime()}</span>
-          </div>
-
-          {/* Venue */}
-          {props.venueName && (
-            <div className="text-sm text-slate-400 mb-3 line-clamp-1">
-              {props.venueName}
-            </div>
-          )}
-
-          {/* Category & Tags */}
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            {props.category && (
-              <span
-                className="px-2 py-1 rounded text-xs font-medium text-white"
-                style={{ backgroundColor: categoryColor }}
-              >
-                {props.category}
-              </span>
-            )}
-            {displayTags.map((tag) => (
-              <span
-                key={tag}
-                className="px-2 py-1 rounded text-xs bg-slate-700/50 text-slate-300 border border-slate-600/50"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-
-          {/* Price & Source */}
-          <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-700/50">
-            {formatPrice() && (
-              <span className="text-sm font-medium text-slate-200">{formatPrice()}</span>
-            )}
-            {props.sourceName && (
-              <span className="text-xs text-slate-500 uppercase">{props.sourceName}</span>
-            )}
-          </div>
-        </div>
-
-        {/* Right side: Image - use image_url from sheet when available */}
-        <div className="flex-shrink-0 w-20 h-20 md:w-24 md:h-24">
+        {/* Left side: Image - bigger on mobile */}
+        <div className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20">
           <img
             src={props.imageUrl || '/lisboa.png'}
             alt={event.title}
@@ -492,6 +440,52 @@ function EventCard({ event, onClick, mode }: { event: NormalizedEvent; onClick: 
               e.currentTarget.src = '/lisboa.png'
             }}
           />
+        </div>
+        {/* Right side: Content */}
+        <div className="flex-1 min-w-0">
+          {/* Title & Price */}
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <h3 className="text-base font-semibold text-white line-clamp-2 min-h-[2.5rem]">
+              {event.title}
+            </h3>
+            {formatPrice() && (
+              <span className={`flex-shrink-0 text-xs font-medium tabular-nums ${props.isFree ? 'text-green-400' : 'text-slate-300'}`}>
+                {formatPrice()}
+              </span>
+            )}
+          </div>
+
+          {/* Date & Time - compact */}
+          <div className="text-xs font-medium text-slate-300 tabular-nums mb-1">
+            {formatDate()} · {formatTime()}
+          </div>
+
+          {/* Venue */}
+          {props.venueName && (
+            <div className="text-sm text-slate-300 mb-2 line-clamp-1">
+              {props.venueName}
+            </div>
+          )}
+
+          {/* Category & Tags */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {props.category && (
+              <span
+                className="px-2 py-0.5 rounded text-xs font-medium text-white"
+                style={{ backgroundColor: categoryColor }}
+              >
+                {props.category}
+              </span>
+            )}
+            {displayTags.map((tag) => (
+              <span
+                key={tag}
+                className="px-2 py-0.5 rounded text-xs bg-slate-700/60 text-slate-200 border border-slate-600/50"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>
