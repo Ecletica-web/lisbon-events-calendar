@@ -208,15 +208,19 @@ const MAX_EVENTS_PER_VENUE = 15
 
 /**
  * Match event to canonical venue by venue_name or source_name (handle). Returns canonical key or undefined.
+ * Normalises so RŪMU / Rumu match rumu.club (accents removed, prefix match: "rumu" -> "rumuclub").
  */
 function matchEventToCanonicalVenue(venueName?: string, sourceName?: string): string | undefined {
   const nameSlug = venueNameToSlug(venueName || '')
   const handleNorm = normalizeHandle(sourceName || '')
+  const handleNoDots = handleNorm.replace(/\./g, '')
   if (!nameSlug && !handleNorm) return undefined
   for (const v of CANONICAL_VENUES) {
     if (nameSlug && v.key === nameSlug) return v.key
+    if (nameSlug && nameSlug.length >= 3 && v.key.startsWith(nameSlug)) return v.key // Rumu / RŪMU -> rumu.club
     if (handleNorm && normalizeHandle(v.handle) === handleNorm) return v.key
-    // Also match venue name (display) normalized to slug
+    const vHandleNoDots = normalizeHandle(v.handle).replace(/\./g, '')
+    if (handleNoDots && handleNoDots.length >= 3 && (vHandleNoDots === handleNoDots || vHandleNoDots.startsWith(handleNoDots) || handleNoDots.startsWith(vHandleNoDots))) return v.key
     if (venueName && venueNameToSlug(v.name) === nameSlug) return v.key
   }
   return undefined
@@ -707,15 +711,11 @@ export interface VenueOption {
 }
 
 /**
- * Get all venues that have at least one event, from the canonical list. Uses canonical names.
+ * Get all venues from the canonical list (full list so filter always shows rumu, etc.).
+ * Selecting a venue with no matching events just shows 0 events.
  */
-export function getAllVenues(events: NormalizedEvent[]): VenueOption[] {
-  const keysWithEvents = new Set<string>()
-  events.forEach((event) => {
-    const key = event.extendedProps.venueKey || toCanonicalVenueKeyPublic(event.extendedProps.venueName, event.extendedProps.venueAddress)
-    if (key) keysWithEvents.add(key)
-  })
-  return CANONICAL_VENUES.filter((v) => keysWithEvents.has(v.key)).map((v) => ({ key: v.key, name: v.name })).sort((a, b) => a.name.localeCompare(b.name))
+export function getAllVenues(_events?: NormalizedEvent[]): VenueOption[] {
+  return CANONICAL_VENUES.map((v) => ({ key: v.key, name: v.name })).sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /** Public helper to get canonical venue key (for filtering) */

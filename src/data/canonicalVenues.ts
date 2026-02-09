@@ -1,6 +1,9 @@
 /**
  * Canonical venue/source list. Used for deduplication, cap per location, and venue filter.
  * Key = stable slug (used in URL and filtering). Name = display name (Source).
+ *
+ * TODO: Load from Google Sheets (e.g. NEXT_PUBLIC_VENUES_CSV_URL) so venues can be added/edited
+ * anytime; scraper can match new events to existing venues from the same sheet.
  */
 
 function slug(name: string): string {
