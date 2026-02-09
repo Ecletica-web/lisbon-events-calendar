@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { NormalizedEvent } from '@/lib/eventsAdapter'
-import { filterEvents } from '@/lib/eventsAdapter'
+import { NormalizedEvent, filterEvents, toCanonicalTagKey } from '@/lib/eventsAdapter'
 import { getCategoryColor } from '@/lib/categoryColors'
 import { useDebounce } from '@/lib/useDebounce'
 
@@ -119,21 +118,18 @@ export default function EventCardsSlider({
       filtered = filtered.filter((event) => {
         const category = event.extendedProps.category?.toLowerCase()
         const tags = event.extendedProps.tags.map((t) => t.toLowerCase())
-        return category !== 'arts' && !tags.includes('exhibition')
+        return category !== 'arts' && !tags.some((t) => toCanonicalTagKey(t) === 'exhibition')
       })
     }
 
-    // Exclude continuous events
+    // Exclude continuous events (multi-day exhibitions with opensAt)
     if (excludeContinuous) {
       filtered = filtered.filter((event) => {
-        if (!event.allDay) return true
-        if (event.end) {
-          const start = new Date(event.start)
-          const end = new Date(event.end)
-          const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-          return daysDiff <= 1
-        }
-        return true
+        if (!event.extendedProps?.opensAt || !event.end) return true
+        const start = new Date(event.start)
+        const end = new Date(event.end)
+        const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+        return daysDiff <= 1
       })
     }
 
@@ -388,7 +384,7 @@ function EventCard({ event, onClick, mode }: { event: NormalizedEvent; onClick: 
   }
 
   const formatTime = () => {
-    if (event.allDay) return 'All day'
+    if (props.opensAt) return `Opens ${props.opensAt}`
     return startDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
   }
 
@@ -468,12 +464,15 @@ function EventCard({ event, onClick, mode }: { event: NormalizedEvent; onClick: 
           </div>
         </div>
 
-        {/* Right side: Image */}
+        {/* Right side: Image - use image_url from sheet when available */}
         <div className="flex-shrink-0 w-20 h-20 md:w-24 md:h-24">
           <img
-            src="/lisboa.png"
-            alt="Event"
+            src={props.imageUrl || '/lisboa.png'}
+            alt={event.title}
             className="w-full h-full object-cover rounded-lg border border-slate-700/50"
+            onError={(e) => {
+              e.currentTarget.src = '/lisboa.png'
+            }}
           />
         </div>
       </div>

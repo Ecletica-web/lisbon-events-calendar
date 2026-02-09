@@ -11,6 +11,7 @@ import {
   filterEvents,
   getAllTags,
   getAllCategories,
+  toCanonicalTagKey,
   type NormalizedEvent,
 } from '@/lib/eventsAdapter'
 import { getCategoryColor, generateColorFromString } from '@/lib/categoryColors'
@@ -57,11 +58,11 @@ function EventModal({ event, onClose }: EventModalProps) {
   const props = event.extendedProps
   const categoryColor = getCategoryColor(props.category)
 
-  const formatDateTime = (date: Date) => {
+  const formatDateTime = (date: Date, opts?: { timeStyle?: 'short' | undefined }) => {
     const timezone = props.timezone || 'Europe/Lisbon'
     return new Intl.DateTimeFormat('en-GB', {
       dateStyle: 'full',
-      timeStyle: event.allDay ? undefined : 'short',
+      timeStyle: opts?.timeStyle ?? 'short',
       timeZone: timezone,
     }).format(date)
   }
@@ -94,6 +95,9 @@ function EventModal({ event, onClose }: EventModalProps) {
             src={props.imageUrl}
             alt={event.title}
             className="w-full h-24 object-cover rounded-md mb-3"
+            onError={(e) => {
+              e.currentTarget.src = '/lisboa.png'
+            }}
           />
         )}
         
@@ -103,9 +107,18 @@ function EventModal({ event, onClose }: EventModalProps) {
           <div>
             <strong className="text-slate-100 text-xs">Date/Time:</strong>
             <div className="text-slate-300 text-xs">
-              {formatDateTime(startDate)}
-              {endDate && ` - ${formatDateTime(endDate)}`}
-              {event.allDay && <span className="text-xs text-slate-400"> (All Day)</span>}
+              {props.opensAt ? (
+                <>
+                  {formatDateTime(startDate, { timeStyle: undefined })}
+                  {endDate && ` – ${formatDateTime(endDate, { timeStyle: undefined })}`}
+                  <span className="text-slate-400"> · Opens {props.opensAt}</span>
+                </>
+              ) : (
+                <>
+                  {formatDateTime(startDate)}
+                  {endDate && ` – ${formatDateTime(endDate)}`}
+                </>
+              )}
             </div>
             <div className="text-xs text-slate-400 mt-0.5">
               Timezone: {props.timezone || 'Europe/Lisbon'}
@@ -303,13 +316,14 @@ function EventListView({ events, calendarView, dateFocus, onEventClick }: EventL
   }
 
   const formatTime = (event: NormalizedEvent) => {
-    if (event.allDay) return 'All day'
+    const opensAt = event.extendedProps?.opensAt
+    if (opensAt) return `Opens ${opensAt}`
     const start = new Date(event.start)
     const end = event.end ? new Date(event.end) : null
     const startTime = start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
     if (end) {
       const endTime = end.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-      return `${startTime} - ${endTime}`
+      return `${startTime} – ${endTime}`
     }
     return startTime
   }
@@ -722,22 +736,18 @@ function CalendarPageContent() {
         filtered = filtered.filter((event) => {
           const category = event.extendedProps.category?.toLowerCase()
           const tags = event.extendedProps.tags.map((t) => t.toLowerCase())
-          return category !== 'arts' && !tags.includes('exhibition')
+          return category !== 'arts' && !tags.some((t) => toCanonicalTagKey(t) === 'exhibition')
         })
       }
       
-      // Exclude continuous events (all-day events that span multiple days)
+      // Exclude continuous events (multi-day exhibitions with opensAt that span multiple days)
       if (excludeContinuous) {
         filtered = filtered.filter((event) => {
-          if (!event.allDay) return true
-          // If it's all-day but has an end date, check if it spans more than 1 day
-          if (event.end) {
-            const start = new Date(event.start)
-            const end = new Date(event.end)
-            const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-            return daysDiff <= 1
-          }
-          return true
+          if (!event.extendedProps?.opensAt || !event.end) return true
+          const start = new Date(event.start)
+          const end = new Date(event.end)
+          const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+          return daysDiff <= 1
         })
       }
       

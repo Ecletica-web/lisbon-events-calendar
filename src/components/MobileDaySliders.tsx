@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { NormalizedEvent, filterEvents } from '@/lib/eventsAdapter'
+import { NormalizedEvent, filterEvents, toCanonicalTagKey } from '@/lib/eventsAdapter'
 import EventCardsSlider from './EventCardsSlider'
 import { format, addDays } from 'date-fns'
 
@@ -89,20 +89,17 @@ export default function MobileDaySliders({
         dayEvents = dayEvents.filter((event) => {
           const category = event.extendedProps.category?.toLowerCase()
           const tags = event.extendedProps.tags.map((t) => t.toLowerCase())
-          return category !== 'arts' && !tags.includes('exhibition')
+          return category !== 'arts' && !tags.some((t) => toCanonicalTagKey(t) === 'exhibition')
         })
       }
 
       if (excludeContinuous) {
         dayEvents = dayEvents.filter((event) => {
-          if (!event.allDay) return true
-          if (event.end) {
-            const start = new Date(event.start)
-            const end = new Date(event.end)
-            const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-            return daysDiff <= 1
-          }
-          return true
+          if (!event.extendedProps?.opensAt || !event.end) return true
+          const start = new Date(event.start)
+          const end = new Date(event.end)
+          const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+          return daysDiff <= 1
         })
       }
 

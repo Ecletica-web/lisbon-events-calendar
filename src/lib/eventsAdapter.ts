@@ -13,6 +13,7 @@ export interface RawEvent {
   end_datetime?: string
   timezone?: string
   is_all_day?: string | boolean
+  opens_at?: string
   venue_name?: string
   venue_address?: string
   neighborhood?: string
@@ -89,6 +90,7 @@ export interface NormalizedEvent {
     
     // Metadata
     timezone?: string
+    opensAt?: string
     recurrenceRule?: string
     lastSeenAt?: string
     createdAt?: string
@@ -181,6 +183,27 @@ export async function fetchEvents(): Promise<NormalizedEvent[]> {
 }
 
 /**
+ * Parse opening time from description (e.g. "14:00-20:00", "opens 14:00", "daily 14:00")
+ * Returns "HH:MM" or null
+ */
+function parseOpeningTimeFromDescription(desc: string | undefined): string | null {
+  if (!desc) return null
+  const text = desc.toLowerCase()
+  // Match "14:00-20:00", "14:00 - 20:00", "14:00–20:00" (first time is opening)
+  const rangeMatch = text.match(/\b(\d{1,2}):(\d{2})\s*[-–]\s*\d{1,2}:\d{2}\b/)
+  if (rangeMatch) return `${rangeMatch[1].padStart(2, '0')}:${rangeMatch[2]}`
+  // Match "opens at 14:00", "opens 14:00", "open 14:00", "daily 14:00"
+  const opensMatch = text.match(/(?:opens?\s+(?:at\s+)?|daily\s+)(\d{1,2}):(\d{2})\b/)
+  if (opensMatch) return `${opensMatch[1].padStart(2, '0')}:${opensMatch[2]}`
+  // Match standalone "14:00" or "14h"
+  const timeMatch = text.match(/\b(\d{1,2}):(\d{2})\b/)
+  if (timeMatch) return `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`
+  const hourMatch = text.match(/\b(\d{1,2})h\b/)
+  if (hourMatch) return `${hourMatch[1].padStart(2, '0')}:00`
+  return null
+}
+
+/**
  * Normalize a raw event to FullCalendar format
  */
 function normalizeEvent(row: RawEvent): NormalizedEvent | null {
@@ -217,8 +240,43 @@ function normalizeEvent(row: RawEvent): NormalizedEvent | null {
     return null
   }
 
-  // Normalize all-day flag
-  const allDay = normalizeBoolean(row.is_all_day, false)
+  // Normalize all-day flag - we never use allDay for display; events show at opening time
+  const wasAllDay = normalizeBoolean(row.is_all_day, false)
+
+  // For all-day events: get opening time and convert to time-bounded (no full-day slot)
+  let opensAt: string | undefined
+  if (wasAllDay) {
+    const start = new Date(startDate)
+    const startHour = start.getUTCHours()
+    const startMin = start.getUTCMinutes()
+    const isMidnight = startHour === 0 && startMin === 0
+
+    if (isMidnight) {
+      // Try opens_at column (e.g. "14:00", "14"), then parse description
+      const sheetOpens = row.opens_at?.trim()
+      let parsed: string | null = null
+      if (sheetOpens) {
+        const m = sheetOpens.match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?$/)
+        if (m) parsed = `${m[1].padStart(2, '0')}:${(m[2] || '00').padStart(2, '0')}`
+      }
+      if (!parsed) parsed = parseOpeningTimeFromDescription(row.description_short || row.description_long)
+      const [openH, openM] = (parsed || '10:00').split(':').map(Number)
+      opensAt = `${String(openH).padStart(2, '0')}:${String(openM || 0).padStart(2, '0')}`
+      // Adjust start to opening time on start date
+      const startOnly = new Date(start)
+      startOnly.setUTCHours(openH, openM || 0, 0, 0)
+      startDate = startOnly.toISOString()
+      // If we have end, keep it; else end 1h after start for calendar display
+      if (!endDate) {
+        const endOnly = new Date(startOnly)
+        endOnly.setUTCHours(endOnly.getUTCHours() + 1, 0, 0, 0)
+        endDate = endOnly.toISOString()
+      }
+    } else {
+      // Start already has a time - use it as opens
+      opensAt = `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}`
+    }
+  }
 
   // Normalize tags
   const tags = normalizeTags(row.tags)
@@ -250,7 +308,7 @@ function normalizeEvent(row: RawEvent): NormalizedEvent | null {
     title: row.title,
     start: startDate,
     end: endDate,
-    allDay: allDay || undefined,
+    allDay: false,
     extendedProps: {
       descriptionShort: row.description_short?.trim() || undefined,
       descriptionLong: row.description_long?.trim() || undefined,
@@ -275,6 +333,7 @@ function normalizeEvent(row: RawEvent): NormalizedEvent | null {
       sourceEventId: row.source_event_id?.trim() || undefined,
       confidenceScore: confidenceScore || undefined,
       timezone,
+      opensAt,
       recurrenceRule: row.recurrence_rule?.trim() || undefined,
       lastSeenAt: row.last_seen_at?.trim() || undefined,
       createdAt: row.created_at?.trim() || undefined,
@@ -443,10 +502,11 @@ export function filterEvents(
   }
 
   // Tag filtering (OR logic - event must have ANY of the selected tags)
+  // Uses canonical matching so "visual art" matches events with "visual-art"
   if (selectedTags.length > 0) {
     filtered = filtered.filter((event) => {
       return selectedTags.some((selectedTag) =>
-        event.extendedProps.tags.includes(selectedTag)
+        event.extendedProps.tags.some((eventTag) => tagsMatch(eventTag, selectedTag))
       )
     })
   }
@@ -499,14 +559,54 @@ export function filterEvents(
 }
 
 /**
- * Get all unique tags from events
+ * Canonical key for tag deduplication - groups variants like "visual-art", "visual art", "visualart"
+ * Exported for use in filters (e.g. excludeExhibitions)
+ */
+export function toCanonicalTagKey(tag: string): string {
+  if (!tag || typeof tag !== 'string') return ''
+  let key = tag.toLowerCase().trim().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim()
+  // Simple plural merge: "concerts" -> "concert", "exhibitions" -> "exhibition"
+  if (key.length > 4 && key.endsWith('s') && !key.endsWith('ss')) {
+    key = key.slice(0, -1)
+  }
+  return key
+}
+
+/**
+ * Deduplicate tags by merging variants (hyphen/space, plural/singular)
+ * Returns a smaller list for display, using the shortest form as representative
+ */
+function deduplicateTags(tags: string[]): string[] {
+  const byCanonical = new Map<string, string>()
+  for (const tag of tags) {
+    const key = toCanonicalTagKey(tag)
+    if (!key) continue
+    const existing = byCanonical.get(key)
+    // Prefer shorter form (e.g. "concert" over "concerts"), then form without hyphens
+    if (!existing || tag.length < existing.length || (tag.length === existing.length && !tag.includes('-') && existing.includes('-'))) {
+      byCanonical.set(key, tag)
+    }
+  }
+  return Array.from(byCanonical.values()).sort()
+}
+
+/**
+ * Check if an event tag matches a selected (display) tag (handles variants)
+ */
+function tagsMatch(eventTag: string, selectedTag: string): boolean {
+  if (eventTag === selectedTag) return true
+  return toCanonicalTagKey(eventTag) === toCanonicalTagKey(selectedTag)
+}
+
+/**
+ * Get all unique tags from events, deduplicated for redundancy
  */
 export function getAllTags(events: NormalizedEvent[]): string[] {
   const tagSet = new Set<string>()
   events.forEach((event) => {
     event.extendedProps.tags.forEach((tag) => tagSet.add(tag))
   })
-  return Array.from(tagSet).sort()
+  return deduplicateTags(Array.from(tagSet))
 }
 
 /**
