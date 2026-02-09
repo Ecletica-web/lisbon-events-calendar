@@ -7,6 +7,7 @@ export interface ViewState {
   searchQuery: string
   selectedCategories: string[]
   selectedTags: string[]
+  selectedVenues: string[]
   toggles: {
     freeOnly: boolean
     excludeExhibitions: boolean
@@ -23,6 +24,7 @@ export const DEFAULT_VIEW_STATE: ViewState = {
   searchQuery: '',
   selectedCategories: [],
   selectedTags: [],
+  selectedVenues: [],
   toggles: {
     freeOnly: false,
     excludeExhibitions: false,
@@ -54,6 +56,10 @@ export function serializeViewStateToURL(state: ViewState): Record<string, string
   
   if (state.selectedTags.length > 0) {
     params.tag = state.selectedTags.join(',')
+  }
+  
+  if (state.selectedVenues.length > 0) {
+    params.venue = state.selectedVenues.join(',')
   }
   
   const toggleFlags: string[] = []
@@ -104,6 +110,11 @@ export function deserializeViewStateFromURL(
     state.selectedTags = tags.split(',').filter(Boolean)
   }
   
+  const venues = searchParams.get('venue')
+  if (venues) {
+    state.selectedVenues = venues.split(',').filter(Boolean)
+  }
+  
   const toggles = searchParams.get('t')
   if (toggles !== null) {
     // If 't' parameter exists (even if empty), parse it
@@ -148,6 +159,7 @@ export function isViewStateDefault(state: ViewState): boolean {
     state.searchQuery === '' &&
     state.selectedCategories.length === 0 &&
     state.selectedTags.length === 0 &&
+    state.selectedVenues.length === 0 &&
     !state.toggles.freeOnly &&
     !state.toggles.excludeExhibitions &&
     state.toggles.excludeContinuous

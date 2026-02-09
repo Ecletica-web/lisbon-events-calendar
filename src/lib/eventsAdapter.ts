@@ -56,9 +56,10 @@ export interface NormalizedEvent {
     descriptionShort?: string
     descriptionLong?: string
     
-    // Venue
+    // Venue (venueKey = canonical key for dedupe & cap per location)
     venueName?: string
     venueAddress?: string
+    venueKey?: string
     neighborhood?: string
     city?: string
     
@@ -150,12 +151,17 @@ export async function fetchEvents(): Promise<NormalizedEvent[]> {
             
             console.log(`Normalized ${normalized.length} events from ${results.data.length} rows`)
             
-            // Deduplicate
+            // Deduplicate by dedupe_key, event_id, then title+start+venue
             const deduped = deduplicateEvents(normalized)
-            
             console.log(`After deduplication: ${deduped.length} events`)
-            
-            resolve(deduped)
+
+            // Cap per venue so one location doesn't dominate
+            const capped = capEventsPerVenue(deduped, MAX_EVENTS_PER_VENUE)
+            if (capped.length < deduped.length) {
+              console.log(`After cap per venue (max ${MAX_EVENTS_PER_VENUE}): ${capped.length} events`)
+            }
+
+            resolve(capped)
           } catch (error) {
             console.error('Error processing CSV data:', error)
             reject(error)
@@ -194,15 +200,33 @@ function parseOpeningTimeFromDescription(desc: string | undefined): string | nul
   return null
 }
 
+const IMAGE_PROXY = 'https://images.weserv.nl/?url='
+
+/** Max events to show per venue (cap so one location doesn't dominate) */
+const MAX_EVENTS_PER_VENUE = 15
+
 /**
- * Skip image URLs that won't load (placeholders, Instagram CDN blocks embedding)
- * Returns undefined so components use fallback (/lisboa.png)
+ * Canonical key for venue/location - normalizes names for dedupe and grouping
+ */
+function toCanonicalVenueKey(venueName?: string, venueAddress?: string): string {
+  const name = (venueName || '').trim().toLowerCase().replace(/\s+/g, ' ')
+  const addr = (venueAddress || '').trim().toLowerCase().replace(/\s+/g, ' ')
+  if (!name && !addr) return ''
+  if (!name) return addr || ''
+  if (!addr) return name
+  return `${name}|${addr}`
+}
+
+/**
+ * Use fallback for placeholder; proxy Instagram CDN URLs so they load (they block direct embedding)
  */
 function sanitizeImageUrl(url?: string): string | undefined {
   if (!url) return undefined
   const lower = url.toLowerCase()
-  if (lower.includes('images.example.com')) return undefined // Placeholder domain
-  if (lower.includes('cdninstagram.com') || lower.includes('fbcdn.net')) return undefined // Blocked for embedding
+  if (lower.includes('images.example.com')) return undefined
+  if (lower.includes('cdninstagram') || lower.includes('fbcdn.net')) {
+    return IMAGE_PROXY + encodeURIComponent(url)
+  }
   return url
 }
 
@@ -317,6 +341,7 @@ function normalizeEvent(row: RawEvent): NormalizedEvent | null {
       descriptionLong: row.description_long?.trim() || undefined,
       venueName: row.venue_name?.trim() || undefined,
       venueAddress: row.venue_address?.trim() || undefined,
+      venueKey: toCanonicalVenueKey(row.venue_name?.trim(), row.venue_address?.trim()) || undefined,
       neighborhood: row.neighborhood?.trim() || undefined,
       city: row.city?.trim() || undefined,
       latitude: latitude || undefined,
@@ -413,8 +438,9 @@ function deduplicateEvents(events: NormalizedEvent[]): NormalizedEvent[] {
       eventIdMap.set(event.id, event)
     }
 
-    // Priority 3: title + start + venue (fallback)
-    const fallbackKey = `${event.title}|${event.start}|${event.extendedProps.venueName || ''}`
+    // Priority 3: title + start + venue key (fallback) - same event at same location
+    const venueKey = event.extendedProps.venueKey || event.extendedProps.venueName?.toLowerCase().trim() || ''
+    const fallbackKey = `${event.title}|${event.start}|${venueKey}`
     const existingFallback = fallbackMap.get(fallbackKey)
     if (!existingFallback || shouldKeepNewer(event, existingFallback)) {
       fallbackMap.set(fallbackKey, event)
@@ -447,6 +473,25 @@ function deduplicateEvents(events: NormalizedEvent[]): NormalizedEvent[] {
 }
 
 /**
+ * Cap events per venue so one location doesn't dominate (keeps soonest by start date)
+ */
+function capEventsPerVenue(events: NormalizedEvent[], maxPerVenue: number): NormalizedEvent[] {
+  if (maxPerVenue <= 0) return events
+  const byVenue = new Map<string, NormalizedEvent[]>()
+  for (const event of events) {
+    const key = event.extendedProps.venueKey || event.extendedProps.venueName?.toLowerCase().trim() || `_no_venue_${event.id}`
+    if (!byVenue.has(key)) byVenue.set(key, [])
+    byVenue.get(key)!.push(event)
+  }
+  const out: NormalizedEvent[] = []
+  for (const [, venueEvents] of byVenue) {
+    const sorted = venueEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+    out.push(...sorted.slice(0, maxPerVenue))
+  }
+  return out.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+}
+
+/**
  * Determine if new event should replace existing based on updated_at
  */
 function shouldKeepNewer(newEvent: NormalizedEvent, existing: NormalizedEvent): boolean {
@@ -471,6 +516,7 @@ export function filterEvents(
   options: {
     searchQuery?: string
     selectedTags?: string[]
+    selectedVenues?: string[]
     category?: string
     categories?: string[]
     freeOnly?: boolean
@@ -483,6 +529,7 @@ export function filterEvents(
   const {
     searchQuery = '',
     selectedTags = [],
+    selectedVenues = [],
     category,
     categories,
     freeOnly = false,
@@ -511,6 +558,14 @@ export function filterEvents(
       return selectedTags.some((selectedTag) =>
         event.extendedProps.tags.some((eventTag) => tagsMatch(eventTag, selectedTag))
       )
+    })
+  }
+
+  // Venue/location filtering (OR logic - event must be at ANY of the selected venues)
+  if (selectedVenues.length > 0) {
+    filtered = filtered.filter((event) => {
+      const eventVenueKey = event.extendedProps.venueKey || toCanonicalVenueKey(event.extendedProps.venueName, event.extendedProps.venueAddress)
+      return eventVenueKey && selectedVenues.includes(eventVenueKey)
     })
   }
 
@@ -624,6 +679,35 @@ export function getAllCategories(events: NormalizedEvent[]): string[] {
   })
   // Normalize categories to merge duplicates like "art" and "arts"
   return normalizeCategories(Array.from(categorySet))
+}
+
+/**
+ * Venue entry for filter UI (key = canonical key, name = display name)
+ */
+export interface VenueOption {
+  key: string
+  name: string
+}
+
+/**
+ * Get all unique venues from events (by canonical venue key)
+ */
+export function getAllVenues(events: NormalizedEvent[]): VenueOption[] {
+  const byKey = new Map<string, string>()
+  events.forEach((event) => {
+    const key = event.extendedProps.venueKey || toCanonicalVenueKeyPublic(event.extendedProps.venueName, event.extendedProps.venueAddress)
+    if (!key) return
+    const name = event.extendedProps.venueName?.trim() || event.extendedProps.venueAddress?.trim() || key
+    if (!byKey.has(key) || (event.extendedProps.venueName && name.length < (byKey.get(key) || '').length)) {
+      byKey.set(key, name)
+    }
+  })
+  return Array.from(byKey.entries()).map(([key, name]) => ({ key, name })).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/** Public helper to get canonical venue key (for filtering) */
+export function toCanonicalVenueKeyPublic(venueName?: string, venueAddress?: string): string {
+  return toCanonicalVenueKey(venueName, venueAddress)
 }
 
 /**

@@ -11,6 +11,7 @@ import {
   filterEvents,
   getAllTags,
   getAllCategories,
+  getAllVenues,
   toCanonicalTagKey,
   type NormalizedEvent,
 } from '@/lib/eventsAdapter'
@@ -90,16 +91,14 @@ function EventModal({ event, onClose }: EventModalProps) {
         className="bg-slate-800/95 backdrop-blur-xl rounded-lg p-4 max-w-md w-full mx-4 my-8 max-h-[80vh] overflow-y-auto border border-slate-700/50 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {props.imageUrl && (
-          <img
-            src={props.imageUrl}
-            alt={event.title}
-            className="w-full h-24 object-cover rounded-md mb-3"
-            onError={(e) => {
-              e.currentTarget.src = '/lisboa.png'
-            }}
-          />
-        )}
+        <img
+          src={props.imageUrl || '/lisboa.png'}
+          alt={event.title}
+          className="w-full h-24 object-cover rounded-md mb-3"
+          onError={(e) => {
+            e.currentTarget.src = '/lisboa.png'
+          }}
+        />
         
         <h2 className="text-lg font-bold mb-3 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">{event.title}</h2>
         
@@ -363,6 +362,15 @@ function EventListView({ events, calendarView, dateFocus, onEventClick }: EventL
                   className="px-4 py-4 hover:bg-slate-700/30 transition-colors cursor-pointer"
                 >
                   <div className="flex items-start gap-4">
+                    {/* Thumbnail */}
+                    <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-slate-700/50">
+                      <img
+                        src={event.extendedProps.imageUrl || '/lisboa.png'}
+                        alt={event.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
+                      />
+                    </div>
                     {/* Time */}
                     <div className="text-sm font-medium text-slate-300 min-w-[120px]">
                       {formatTime(event)}
@@ -430,6 +438,7 @@ function CalendarPageContent() {
   const [searchQuery, setSearchQuery] = useState('')
   const [tagSearchQuery, setTagSearchQuery] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [selectedVenues, setSelectedVenues] = useState<string[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [freeOnly, setFreeOnly] = useState(false)
   const [excludeExhibitions, setExcludeExhibitions] = useState(false)
@@ -501,6 +510,7 @@ function CalendarPageContent() {
       setSearchQuery(merged.searchQuery)
       setSelectedCategories(merged.selectedCategories)
       setSelectedTags(merged.selectedTags)
+      setSelectedVenues(merged.selectedVenues)
       setFreeOnly(merged.toggles.freeOnly)
       setExcludeExhibitions(merged.toggles.excludeExhibitions)
       // Only update excludeContinuous if it's explicitly in the URL state
@@ -517,6 +527,7 @@ function CalendarPageContent() {
         setSearchQuery(merged.searchQuery)
         setSelectedCategories(merged.selectedCategories)
         setSelectedTags(merged.selectedTags)
+        setSelectedVenues(merged.selectedVenues)
         setFreeOnly(merged.toggles.freeOnly)
         setExcludeExhibitions(merged.toggles.excludeExhibitions)
         // Only update excludeContinuous if it's explicitly in the saved view state
@@ -561,6 +572,7 @@ function CalendarPageContent() {
       searchQuery,
       selectedCategories,
       selectedTags,
+      selectedVenues,
       toggles: {
         freeOnly,
         excludeExhibitions,
@@ -585,11 +597,12 @@ function CalendarPageContent() {
     }, 500)
     
     return () => clearTimeout(timeoutId)
-  }, [calendarView, dateFocus, searchQuery, selectedCategories, selectedTags, freeOnly, excludeExhibitions, excludeContinuous, router])
+  }, [calendarView, dateFocus, searchQuery, selectedCategories, selectedTags, selectedVenues, freeOnly, excludeExhibitions, excludeContinuous, router])
 
   // Memoize all tags and categories
   const allTags = useMemo(() => getAllTags(events), [events])
   const allCategories = useMemo(() => getAllCategories(events), [events])
+  const allVenues = useMemo(() => getAllVenues(events), [events])
 
   // Filter tags based on search
   const filteredTags = useMemo(() => {
@@ -727,6 +740,7 @@ function CalendarPageContent() {
       let filtered = filterEvents(adjustedEvents, {
         searchQuery: debouncedSearchQuery,
         selectedTags,
+        selectedVenues: selectedVenues.length > 0 ? selectedVenues : undefined,
         categories: selectedCategories.length > 0 ? selectedCategories : undefined,
         freeOnly,
       })
@@ -753,12 +767,18 @@ function CalendarPageContent() {
       
       return filtered
     },
-    [adjustedEvents, debouncedSearchQuery, selectedTags, selectedCategories, freeOnly, excludeExhibitions, excludeContinuous]
+    [adjustedEvents, debouncedSearchQuery, selectedTags, selectedVenues, selectedCategories, freeOnly, excludeExhibitions, excludeContinuous]
   )
 
   const handleTagToggle = (tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    )
+  }
+
+  const handleVenueToggle = (venueKey: string) => {
+    setSelectedVenues((prev) =>
+      prev.includes(venueKey) ? prev.filter((k) => k !== venueKey) : [...prev, venueKey]
     )
   }
 
@@ -776,6 +796,7 @@ function CalendarPageContent() {
     setSearchQuery('')
     setTagSearchQuery('')
     setSelectedTags([])
+    setSelectedVenues([])
     setSelectedCategories([])
     setFreeOnly(false)
     setExcludeExhibitions(false)
@@ -813,6 +834,7 @@ function CalendarPageContent() {
       searchQuery,
       selectedCategories,
       selectedTags,
+      selectedVenues,
       toggles: {
         freeOnly,
         excludeExhibitions,
@@ -841,6 +863,7 @@ function CalendarPageContent() {
     setSearchQuery(merged.searchQuery)
     setSelectedCategories(merged.selectedCategories)
     setSelectedTags(merged.selectedTags)
+    setSelectedVenues(merged.selectedVenues)
     setFreeOnly(merged.toggles.freeOnly)
     setExcludeExhibitions(merged.toggles.excludeExhibitions)
     setExcludeContinuous(merged.toggles.excludeContinuous)
@@ -878,6 +901,7 @@ function CalendarPageContent() {
       setSearchQuery(DEFAULT_VIEW_STATE.searchQuery)
       setSelectedCategories(DEFAULT_VIEW_STATE.selectedCategories)
       setSelectedTags(DEFAULT_VIEW_STATE.selectedTags)
+      setSelectedVenues(DEFAULT_VIEW_STATE.selectedVenues)
       setFreeOnly(DEFAULT_VIEW_STATE.toggles.freeOnly)
       setExcludeExhibitions(DEFAULT_VIEW_STATE.toggles.excludeExhibitions)
       setExcludeContinuous(DEFAULT_VIEW_STATE.toggles.excludeContinuous)
@@ -919,12 +943,13 @@ function CalendarPageContent() {
     let count = 0
     if (debouncedSearchQuery) count++
     if (selectedTags.length > 0) count++
+    if (selectedVenues.length > 0) count++
     if (selectedCategories.length > 0) count++
     if (freeOnly) count++
     if (excludeExhibitions) count++
     if (excludeContinuous) count++
     return count
-  }, [debouncedSearchQuery, selectedTags.length, selectedCategories.length, freeOnly, excludeExhibitions, excludeContinuous])
+  }, [debouncedSearchQuery, selectedTags.length, selectedVenues.length, selectedCategories.length, freeOnly, excludeExhibitions, excludeContinuous])
 
   return (
     <div className="min-h-screen bg-slate-900/95 backdrop-blur-sm">
@@ -1080,6 +1105,46 @@ function CalendarPageContent() {
                   )
                 })}
               </div>
+            </div>
+          )}
+
+          {allVenues.length > 0 && (
+            <div className="mb-6">
+              <div className="text-sm font-semibold mb-2 text-slate-200">
+                Venue / Location ({allVenues.length} total)
+                {selectedVenues.length > 0 && (
+                  <span className="ml-2 text-xs text-slate-400">
+                    ({selectedVenues.length} selected)
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                {allVenues.map((venue) => {
+                  const isSelected = selectedVenues.includes(venue.key)
+                  return (
+                    <button
+                      key={venue.key}
+                      onClick={() => handleVenueToggle(venue.key)}
+                      className={`px-3 py-1.5 rounded-lg text-xs border transition-all ${
+                        isSelected
+                          ? 'bg-emerald-600/90 text-white border-emerald-500'
+                          : 'bg-slate-800/80 border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:border-slate-500'
+                      }`}
+                      title={venue.name}
+                    >
+                      <span className="line-clamp-1 max-w-[140px] md:max-w-[180px]">{venue.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              {selectedVenues.length > 0 && (
+                <button
+                  onClick={() => setSelectedVenues([])}
+                  className="mt-2 text-xs text-emerald-400 hover:text-emerald-300 font-medium"
+                >
+                  Clear venues
+                </button>
+              )}
             </div>
           )}
 
