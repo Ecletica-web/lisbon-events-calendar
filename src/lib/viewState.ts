@@ -26,7 +26,7 @@ export const DEFAULT_VIEW_STATE: ViewState = {
   toggles: {
     freeOnly: false,
     excludeExhibitions: false,
-    excludeContinuous: true,
+    excludeContinuous: false,
   },
 }
 

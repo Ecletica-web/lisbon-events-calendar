@@ -207,9 +207,9 @@ function parseOpeningTimeFromDescription(desc: string | undefined): string | nul
  * Normalize a raw event to FullCalendar format
  */
 function normalizeEvent(row: RawEvent): NormalizedEvent | null {
-  // Filter out inactive events - accept both 'active' and 'scheduled'
+  // Filter out inactive events - accept 'active', 'scheduled', and 'needs_review'
   const status = row.status?.toLowerCase()
-  if (status && status !== 'active' && status !== 'scheduled') {
+  if (status && status !== 'active' && status !== 'scheduled' && status !== 'needs_review') {
     return null
   }
 
