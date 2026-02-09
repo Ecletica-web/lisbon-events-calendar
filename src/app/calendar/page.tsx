@@ -1412,6 +1412,7 @@ function CalendarPageContent() {
                     onCategoriesChange={setSelectedCategories}
                     onTagsChange={setSelectedTags}
                     mode="slider"
+                    dateFocus={dateFocus}
                   />
                 </div>
               )}

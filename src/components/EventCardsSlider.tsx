@@ -18,9 +18,10 @@ interface EventCardsSliderProps {
   mode?: 'slider' | 'grid' // For list view, use grid
   hideHeader?: boolean // Hide the header (for mobile day sliders)
   skipFiltering?: boolean // Skip internal filtering (events already filtered by parent)
+  dateFocus?: string // ISO date (YYYY-MM-DD) for month view - syncs with calendar
 }
 
-type TimeRange = 'today' | 'week'
+type TimeRange = 'today' | 'week' | 'month'
 
 export default function EventCardsSlider({
   events,
@@ -35,8 +36,9 @@ export default function EventCardsSlider({
   mode = 'slider',
   hideHeader = false,
   skipFiltering = false,
+  dateFocus,
 }: EventCardsSliderProps) {
-  const [timeRange, setTimeRange] = useState<TimeRange>('today')
+  const [timeRange, setTimeRange] = useState<TimeRange>('month')
   const [localCategories, setLocalCategories] = useState<string[]>(selectedCategories)
   const [localTags, setLocalTags] = useState<string[]>(selectedTags)
   const sliderRef = useRef<HTMLDivElement>(null)
@@ -67,17 +69,23 @@ export default function EventCardsSlider({
     nextWeek.setDate(nextWeek.getDate() + 7)
 
     if (timeRange === 'today') {
-      return {
-        start: today,
-        end: tomorrow,
-      }
-    } else {
-      return {
-        start: today,
-        end: nextWeek,
-      }
+      return { start: today, end: tomorrow }
     }
-  }, [timeRange])
+    if (timeRange === 'week') {
+      return { start: today, end: nextWeek }
+    }
+    // month: use dateFocus (calendar's visible month) or current month
+    if (timeRange === 'month' && dateFocus) {
+      const d = new Date(dateFocus)
+      const start = new Date(d.getFullYear(), d.getMonth(), 1)
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59)
+      return { start, end }
+    }
+    // month without dateFocus: current month
+    const start = new Date(today.getFullYear(), today.getMonth(), 1)
+    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59)
+    return { start, end }
+  }, [timeRange, dateFocus])
 
   // Sync debounced filters to parent (only when they actually change)
   useEffect(() => {
@@ -244,6 +252,16 @@ export default function EventCardsSlider({
             >
               This week
             </button>
+            <button
+              onClick={() => setTimeRange('month')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                timeRange === 'month'
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Month
+            </button>
           </div>
           
           {timeRange === 'week' && (
@@ -349,7 +367,7 @@ export default function EventCardsSlider({
       ) : (
         <div className="text-center py-8 px-4 md:px-6">
           <div className="text-center py-8 px-4">
-            <div className="text-slate-300 text-base font-medium mb-2">No events found for {timeRange === 'today' ? 'today' : 'this week'}</div>
+            <div className="text-slate-300 text-base font-medium mb-2">No events found for {timeRange === 'today' ? 'today' : timeRange === 'week' ? 'this week' : 'this month'}</div>
             <div className="text-slate-400 text-sm">Try broadening your search or adjusting your filters</div>
           </div>
         </div>

@@ -138,17 +138,8 @@ export async function fetchEvents(): Promise<NormalizedEvent[]> {
 
             const normalized = results.data
               .filter((row) => {
-                // Required fields check
-                const hasRequired = row.event_id && row.title && row.start_datetime
-                if (!hasRequired && results.data.length > 0) {
-                  console.warn('Row missing required fields:', {
-                    event_id: row.event_id,
-                    title: row.title,
-                    start_datetime: row.start_datetime,
-                    availableKeys: Object.keys(row),
-                  })
-                }
-                return hasRequired
+                // Skip rows without required fields (event_id, title, start_datetime)
+                return !!(row.event_id && row.title && row.start_datetime)
               })
               .map((row) => normalizeEvent(row))
               .filter((event) => {
@@ -201,6 +192,18 @@ function parseOpeningTimeFromDescription(desc: string | undefined): string | nul
   const hourMatch = text.match(/\b(\d{1,2})h\b/)
   if (hourMatch) return `${hourMatch[1].padStart(2, '0')}:00`
   return null
+}
+
+/**
+ * Skip image URLs that won't load (placeholders, Instagram CDN blocks embedding)
+ * Returns undefined so components use fallback (/lisboa.png)
+ */
+function sanitizeImageUrl(url?: string): string | undefined {
+  if (!url) return undefined
+  const lower = url.toLowerCase()
+  if (lower.includes('images.example.com')) return undefined // Placeholder domain
+  if (lower.includes('cdninstagram.com') || lower.includes('fbcdn.net')) return undefined // Blocked for embedding
+  return url
 }
 
 /**
@@ -327,7 +330,7 @@ function normalizeEvent(row: RawEvent): NormalizedEvent | null {
       ageRestriction: row.age_restriction?.trim() || undefined,
       language: row.language?.trim() || undefined,
       ticketUrl: row.ticket_url?.trim() || undefined,
-      imageUrl: row.image_url?.trim() || undefined,
+      imageUrl: sanitizeImageUrl(row.image_url?.trim()),
       sourceName: row.source_name?.trim() || undefined,
       sourceUrl: row.source_url?.trim() || undefined,
       sourceEventId: row.source_event_id?.trim() || undefined,
