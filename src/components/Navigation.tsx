@@ -249,14 +249,14 @@ export default function Navigation() {
               <>
                 <Link
                   href="/login"
-                  className="text-xs text-slate-300 hover:text-white px-2 py-1.5"
+                  className="text-xs text-slate-300 hover:text-white px-3 py-2.5 min-h-[44px] flex items-center"
                   onClick={() => setShowMobileNav(false)}
                 >
                   Login
                 </Link>
                 <Link
                   href="/signup"
-                  className="text-xs text-white bg-gradient-to-r from-indigo-600 to-purple-600 px-2 py-1.5 rounded"
+                  className="text-xs text-white bg-gradient-to-r from-indigo-600 to-purple-600 px-3 py-2.5 min-h-[44px] rounded flex items-center"
                   onClick={() => setShowMobileNav(false)}
                 >
                   Sign Up
@@ -265,7 +265,7 @@ export default function Navigation() {
             )}
             <button
               onClick={() => setShowMobileNav(!showMobileNav)}
-              className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/80"
+              className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/80 touch-manipulation"
               aria-label="Toggle menu"
             >
               {showMobileNav ? (
@@ -292,7 +292,7 @@ export default function Navigation() {
                 <>
                   <Link
                     href="/profile"
-                    className="block text-slate-300 hover:text-white px-4 py-3 rounded-lg hover:bg-slate-800/80"
+                    className="block text-slate-300 hover:text-white px-4 py-3 min-h-[44px] flex items-center rounded-lg hover:bg-slate-800/80"
                     onClick={() => setShowMobileNav(false)}
                   >
                     Profile
@@ -302,7 +302,7 @@ export default function Navigation() {
                       await signOut({ callbackUrl: '/calendar' })
                       setShowMobileNav(false)
                     }}
-                    className="w-full text-left px-4 py-3 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/80"
+                    className="w-full text-left px-4 py-3 min-h-[44px] text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/80"
                   >
                     Logout
                   </button>
@@ -311,14 +311,14 @@ export default function Navigation() {
                 <>
                   <Link
                     href="/login"
-                    className="block text-slate-300 hover:text-white px-4 py-3 rounded-lg hover:bg-slate-800/80"
+                    className="block text-slate-300 hover:text-white px-4 py-3 min-h-[44px] flex items-center rounded-lg hover:bg-slate-800/80"
                     onClick={() => setShowMobileNav(false)}
                   >
                     Login
                   </Link>
                   <Link
                     href="/signup"
-                    className="block text-slate-300 hover:text-white px-4 py-3 rounded-lg hover:bg-slate-800/80"
+                    className="block text-slate-300 hover:text-white px-4 py-3 min-h-[44px] flex items-center rounded-lg hover:bg-slate-800/80"
                     onClick={() => setShowMobileNav(false)}
                   >
                     Sign Up

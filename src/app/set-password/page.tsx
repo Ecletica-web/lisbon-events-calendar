@@ -72,9 +72,9 @@ function SetPasswordContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center pt-16 px-4">
-      <div className="max-w-md w-full p-6 md:p-8 bg-slate-800/60 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50">
-        <h1 className="text-2xl font-bold mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center pt-16 px-4 pb-8 md:pb-16">
+      <div className="max-w-md w-full p-4 sm:p-6 md:p-8 bg-slate-800/60 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50">
+        <h1 className="text-xl sm:text-2xl font-bold mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
           Set your password
         </h1>
         <p className="text-sm text-slate-400 mb-6">
@@ -89,7 +89,7 @@ function SetPasswordContent() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-800/80 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50"
+              className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-800/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50"
               placeholder="your@email.com"
             />
           </div>
@@ -102,7 +102,7 @@ function SetPasswordContent() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-800/80 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50"
+              className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-800/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50"
               placeholder="At least 6 characters"
             />
           </div>
@@ -114,7 +114,7 @@ function SetPasswordContent() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-800/80 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50"
+              className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-800/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50"
               placeholder="Confirm your password"
             />
           </div>
@@ -124,7 +124,7 @@ function SetPasswordContent() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-4 py-3 rounded-xl hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 disabled:opacity-50 transition-all font-medium"
+            className="w-full min-h-[44px] bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-4 py-3 rounded-xl hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 disabled:opacity-50 transition-all font-medium"
           >
             {loading ? 'Setting password...' : 'Set password & sign in'}
           </button>

@@ -65,7 +65,7 @@ export default function EventModal({ event, onClose }: EventModalProps) {
 
   const modalContent = (
     <div
-      className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] overflow-hidden p-4"
+      className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-[9999] overflow-hidden p-0 sm:p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -73,7 +73,7 @@ export default function EventModal({ event, onClose }: EventModalProps) {
     >
       <div
         ref={contentRef}
-        className="bg-slate-800/95 backdrop-blur-xl rounded-lg p-4 max-w-md w-full mx-4 my-8 max-h-[85vh] min-h-0 overflow-y-auto overflow-x-hidden border border-slate-700/50 shadow-2xl overscroll-contain flex-shrink-0"
+        className="bg-slate-800/95 backdrop-blur-xl rounded-t-2xl sm:rounded-lg p-4 pb-[max(1rem,env(safe-area-inset-bottom))] max-w-md w-full max-h-[90vh] sm:max-h-[85vh] min-h-0 overflow-y-auto overflow-x-hidden border border-slate-700/50 shadow-2xl overscroll-contain flex-shrink-0 sm:mx-4 sm:my-8 touch-pan-y"
         style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
         onClick={(e) => e.stopPropagation()}
       >

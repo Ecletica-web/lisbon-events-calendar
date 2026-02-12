@@ -248,7 +248,7 @@ export default function EventListView({
                 <div
                   key={event.id}
                   onClick={() => onEventClick({ event })}
-                  className="px-4 py-4 hover:bg-slate-700/30 transition-colors cursor-pointer"
+                  className="px-4 py-4 min-h-[44px] hover:bg-slate-700/30 transition-colors cursor-pointer touch-manipulation"
                 >
                   <div className="flex items-start gap-3 md:gap-4">
                     <div className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20 rounded-lg overflow-hidden bg-slate-700/50">

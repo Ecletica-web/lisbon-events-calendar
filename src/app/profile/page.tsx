@@ -216,9 +216,9 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-slate-900/95 text-slate-100">
-      <div className="max-w-4xl mx-auto p-4 md:p-8 pt-20 md:pt-28">
+      <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 pt-20 md:pt-28 pb-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+          <h1 className="text-2xl sm:text-4xl font-bold mb-3 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
             Profile
           </h1>
           <div className="text-slate-300 space-y-1">
@@ -250,14 +250,14 @@ export default function ProfilePage() {
         {showImportPrompt && !isGuest && (
           <div className="mb-6 p-4 bg-indigo-900/30 border border-indigo-700/50 rounded-xl">
             <p className="mb-2 text-slate-200">You have saved views in local storage. Import them to your account?</p>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <button
                 onClick={handleImportLocalViews}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors"
+                className="min-h-[44px] px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors"
               >
                 Import Views
               </button>
-              <button onClick={() => setShowImportPrompt(false)} className="px-4 py-2 bg-slate-700 text-slate-200 rounded-lg hover:bg-slate-600 transition-colors">
+              <button onClick={() => setShowImportPrompt(false)} className="min-h-[44px] px-4 py-2 bg-slate-700 text-slate-200 rounded-lg hover:bg-slate-600 transition-colors">
                 Dismiss
               </button>
             </div>
@@ -267,7 +267,7 @@ export default function ProfilePage() {
         {/* My Saved Views */}
         {!isGuest && (
           <div className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4 text-slate-200">My Saved Views</h2>
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">My Saved Views</h2>
             {savedViews.length === 0 ? (
               <p className="text-slate-500">No saved views yet. Save views from the calendar sidebar.</p>
             ) : (
@@ -275,7 +275,7 @@ export default function ProfilePage() {
                 {savedViews.map((v) => (
                   <div
                     key={v.id}
-                    className="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-slate-600 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-slate-600 transition-colors"
                   >
                     <Link href={`/calendar?viewId=${v.id}`} className="font-medium text-indigo-400 hover:text-indigo-300">
                       {v.name}
@@ -295,7 +295,7 @@ export default function ProfilePage() {
         {/* My Personas */}
         {!isGuest && FEATURE_FLAGS.PERSONAS && (
           <div className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4 text-slate-200">My Personas</h2>
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">My Personas</h2>
             {personas.length === 0 ? (
               <p className="text-slate-500">No personas yet. Create personas from the calendar sidebar.</p>
             ) : (
@@ -303,7 +303,7 @@ export default function ProfilePage() {
                 {personas.map((p) => (
                   <div
                     key={p.id}
-                    className="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-slate-600 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-slate-600 transition-colors"
                   >
                     <Link href={`/p/${p.share_slug || p.id}`} className="font-medium text-indigo-400 hover:text-indigo-300">
                       {p.title}
@@ -322,7 +322,7 @@ export default function ProfilePage() {
 
         {/* Follows Section */}
         <div className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-slate-200">Follows</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Follows</h2>
           {follows.length === 0 ? (
             <p className="text-slate-500">
               No follows yet. Follow venues from event cards or venue pages, and follow tags from event details.
@@ -332,7 +332,7 @@ export default function ProfilePage() {
               {follows.map((follow) => (
                 <div
                   key={follow.id}
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 border border-slate-700/50"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-xl bg-slate-800/60 border border-slate-700/50"
                 >
                   <div>
                     <span className="text-xs text-slate-500 uppercase">{follow.type}</span>
@@ -342,7 +342,7 @@ export default function ProfilePage() {
                   {!isGuest && (
                     <button
                       onClick={() => handleDeleteFollow(follow.id)}
-                      className="px-3 py-1 text-sm text-red-400 hover:bg-red-900/30 rounded-lg transition-colors"
+                      className="min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1 text-sm text-red-400 hover:bg-red-900/30 rounded-lg transition-colors self-start sm:self-center"
                     >
                       Unfollow
                     </button>
@@ -356,9 +356,9 @@ export default function ProfilePage() {
         {/* Notification Settings */}
         {!isGuest && (
           <div className="mb-8">
-            <h2 className="text-2xl font-semibold mb-5 text-slate-200">Notification Settings</h2>
+            <h2 className="text-xl sm:text-2xl font-semibold mb-5 text-slate-200">Notification Settings</h2>
             {settings && (
-              <div className="space-y-5 p-6 rounded-xl bg-slate-800/60 border border-slate-700/50">
+              <div className="space-y-5 p-4 sm:p-6 rounded-xl bg-slate-800/60 border border-slate-700/50">
                 <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
                   <input
                     type="checkbox"

@@ -275,13 +275,13 @@ export default function EventCardsSlider({
     <div className="w-full mt-6 md:mt-8">
       {showFullHeader && (
         <div className="flex items-center justify-between mb-4 px-4 md:px-6 flex-wrap gap-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex bg-slate-800/80 rounded-lg p-1 border border-slate-700/50 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+            <div className="flex bg-slate-800/80 rounded-lg p-1 border border-slate-700/50 flex-wrap overflow-x-auto scrollbar-hide max-w-full">
               {(['today', 'tomorrow', 'week', 'month', 'nextMonth'] as const).map((r) => (
                 <button
                   key={r}
                   onClick={() => setTimeRange(r)}
-                  className={`px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-all ${
+                  className={`px-2 sm:px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 text-xs md:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
                     timeRange === r ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-300 hover:text-white'
                   }`}
                 >
@@ -289,7 +289,7 @@ export default function EventCardsSlider({
                 </button>
               ))}
             </div>
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex items-center gap-2 cursor-pointer shrink-0">
               <span className="text-xs text-slate-400">Near me</span>
               <button
                 onClick={() => {
@@ -305,7 +305,7 @@ export default function EventCardsSlider({
                 <select
                   value={radiusKm}
                   onChange={(e) => setRadiusKm(Number(e.target.value))}
-                  className="text-xs bg-slate-800 border border-slate-600/50 rounded-md px-2 py-1 text-slate-200 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="text-xs bg-slate-800 border border-slate-600/50 rounded-md px-2 py-2 min-h-[36px] text-slate-200 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 touch-manipulation"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {RADIUS_OPTIONS_KM.map((r) => (
@@ -331,7 +331,7 @@ export default function EventCardsSlider({
               </div>
             )}
           </div>
-          <span className="text-sm text-slate-400">
+          <span className="text-xs sm:text-sm text-slate-400 shrink-0">
             {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} match
             {nearMeEnabled && userPos && ` within ${radiusKm} km`}
           </span>
@@ -422,7 +422,7 @@ function EventCard({ event, onClick, mode, distanceKm }: { event: NormalizedEven
   return (
     <div
       onClick={onClick}
-      className={`bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-xl p-4 cursor-pointer transition-all hover:shadow-xl hover:scale-[1.02] ${mode === 'slider' ? 'min-w-[280px] md:min-w-[320px] flex-shrink-0' : ''}`}
+      className={`bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-xl p-4 cursor-pointer transition-all hover:shadow-xl hover:scale-[1.02] touch-manipulation active:scale-[0.99] ${mode === 'slider' ? 'min-w-[260px] sm:min-w-[280px] md:min-w-[320px] flex-shrink-0' : ''}`}
     >
       <div className="flex gap-3">
         <div className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20">
