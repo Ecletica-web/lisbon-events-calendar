@@ -248,8 +248,49 @@ function CalendarPageContent() {
       .catch(() => {})
   }, [session?.user])
 
+  // Load saved view by viewId from URL (e.g. /calendar?viewId=xxx)
+  useEffect(() => {
+    const viewId = searchParams.get('viewId')
+    if (!viewId || !session?.user) return
+    const isGuest = (session?.user as any)?.id === 'guest'
+    if (isGuest) return
+
+    fetch('/api/saved-views')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const view = data?.views?.find((v: any) => v.id === viewId)
+        if (view?.state_json) {
+          const state = typeof view.state_json === 'string' ? JSON.parse(view.state_json) : view.state_json
+          const merged = mergeViewState(state)
+          setSearchQuery(merged.searchQuery)
+          setSelectedCategories(merged.selectedCategories)
+          setSelectedTags(merged.selectedTags)
+          setSelectedVenues(merged.selectedVenues)
+          setFreeOnly(merged.toggles.freeOnly)
+          setExcludeExhibitions(merged.toggles.excludeExhibitions)
+          if (state.toggles?.excludeContinuous !== undefined) setExcludeContinuous(merged.toggles.excludeContinuous)
+          setCalendarView(merged.viewMode)
+          setDateFocus(merged.dateFocus)
+          const params = serializeViewStateToURL(merged)
+          const qs = new URLSearchParams(params)
+          const sharedSlug = searchParams.get('sharedSlug')
+          const sharedBy = searchParams.get('sharedBy')
+          const sharedType = searchParams.get('sharedType')
+          const sharedName = searchParams.get('sharedName')
+          if (sharedSlug) qs.set('sharedSlug', sharedSlug)
+          if (sharedBy) qs.set('sharedBy', sharedBy)
+          if (sharedType) qs.set('sharedType', sharedType)
+          if (sharedName) qs.set('sharedName', sharedName)
+          router.replace(`/calendar?${qs.toString()}`, { scroll: false })
+        }
+      })
+      .catch(() => {})
+  }, [searchParams, session?.user, router])
+
   // Hydrate from URL on mount and load saved views
   useEffect(() => {
+    const viewId = searchParams.get('viewId')
+    if (viewId) return
     const urlState = deserializeViewStateFromURL(searchParams)
     if (Object.keys(urlState).length > 0) {
       const merged = mergeViewState(urlState)

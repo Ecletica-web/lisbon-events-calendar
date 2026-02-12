@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
+import Link from 'next/link'
 import { NormalizedEvent, filterEvents, toCanonicalTagKey } from '@/lib/eventsAdapter'
 import type { VenueForDisplay } from '@/lib/eventsAdapter'
 import { getCategoryColor } from '@/lib/categoryColors'
 import { useDebounce } from '@/lib/useDebounce'
 import { haversineDistanceKm, formatDistance } from '@/lib/geo'
+import FollowButton from '@/components/FollowButton'
 
 function norm(s: string): string {
   return (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
@@ -427,7 +429,22 @@ function EventCard({ event, onClick, mode, distanceKm }: { event: NormalizedEven
               {formatDistance(distanceKm)} away
             </div>
           )}
-          {props.venueName && <div className="text-sm text-slate-300 line-clamp-1 mb-2">{props.venueName}</div>}
+          {props.venueName && (
+            <div className="flex items-center gap-2 flex-wrap mb-2" onClick={(e) => e.stopPropagation()}>
+              <Link
+                href={`/venues/${encodeURIComponent(props.venueId || props.venueKey || props.venueName?.toLowerCase().replace(/\s+/g, '-') || '')}`}
+                className="text-sm text-indigo-400 hover:text-indigo-300 hover:underline line-clamp-1"
+              >
+                {props.venueName}
+              </Link>
+              <FollowButton
+                type="venue"
+                normalizedValue={(props.venueId || props.venueKey || props.venueName || '').toLowerCase().trim()}
+                displayValue={props.venueName}
+                size="sm"
+              />
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-1.5">
             {props.category && <span className="px-2 py-0.5 rounded text-xs font-medium text-white" style={{ backgroundColor: categoryColor }}>{props.category}</span>}
             {displayTags.map((tag) => (

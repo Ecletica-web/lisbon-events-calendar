@@ -2,8 +2,11 @@
 
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import Link from 'next/link'
 import { getCategoryColor } from '@/lib/categoryColors'
+import { toCanonicalTagKey } from '@/lib/eventsAdapter'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
+import FollowButton from '@/components/FollowButton'
 
 interface EventModalProps {
   event: NormalizedEvent | null
@@ -138,7 +141,20 @@ export default function EventModal({ event, onClose }: EventModalProps) {
           {props.venueName && (
             <div>
               <strong className="text-slate-100 text-xs">Venue:</strong>{' '}
-              <span className="text-slate-300 text-xs">{props.venueName}</span>
+              <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                <Link
+                  href={`/venues/${encodeURIComponent(props.venueId || props.venueKey || props.venueName?.toLowerCase().replace(/\s+/g, '-') || '')}`}
+                  className="text-indigo-400 hover:text-indigo-300 hover:underline text-xs"
+                >
+                  {props.venueName}
+                </Link>
+                <FollowButton
+                  type="venue"
+                  normalizedValue={(props.venueId || props.venueKey || props.venueName || '').toLowerCase().trim()}
+                  displayValue={props.venueName}
+                  size="sm"
+                />
+              </div>
               {props.venueAddress && (
                 <div className="text-xs text-slate-400 mt-0.5">{props.venueAddress}</div>
               )}
@@ -171,13 +187,18 @@ export default function EventModal({ event, onClose }: EventModalProps) {
           {props.tags.length > 0 && (
             <div>
               <strong className="text-slate-100 text-xs">Tags:</strong>
-              <div className="flex flex-wrap gap-1.5 mt-1">
+              <div className="flex flex-wrap gap-1.5 mt-1 items-center">
                 {props.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="bg-slate-700/80 border border-slate-600/50 px-1.5 py-0.5 rounded text-xs text-slate-300"
-                  >
-                    {tag}
+                  <span key={tag} className="flex items-center gap-1">
+                    <span className="bg-slate-700/80 border border-slate-600/50 px-1.5 py-0.5 rounded text-xs text-slate-300">
+                      {tag}
+                    </span>
+                    <FollowButton
+                      type="tag"
+                      normalizedValue={toCanonicalTagKey(tag)}
+                      displayValue={tag}
+                      size="sm"
+                    />
                   </span>
                 ))}
               </div>
@@ -215,18 +236,28 @@ export default function EventModal({ event, onClose }: EventModalProps) {
           {(props.sourceUrl || props.sourceName) && (
             <div>
               <strong className="text-slate-100 text-xs">Source:</strong>{' '}
-              {props.sourceUrl ? (
-                <a
-                  href={props.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-indigo-400 hover:text-indigo-300 hover:underline text-xs"
-                >
-                  {props.sourceName || 'View Source'}
-                </a>
-              ) : (
-                <span className="text-slate-300 text-xs">{props.sourceName}</span>
-              )}
+              <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                {props.sourceUrl ? (
+                  <a
+                    href={props.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-400 hover:text-indigo-300 hover:underline text-xs"
+                  >
+                    {props.sourceName || 'View Source'}
+                  </a>
+                ) : (
+                  <span className="text-slate-300 text-xs">{props.sourceName}</span>
+                )}
+                {props.sourceName && (
+                  <FollowButton
+                    type="source"
+                    normalizedValue={(props.sourceName || '').toLowerCase().trim()}
+                    displayValue={props.sourceName}
+                    size="sm"
+                  />
+                )}
+              </div>
             </div>
           )}
         </div>

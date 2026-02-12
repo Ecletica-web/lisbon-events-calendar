@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { fetchVenues, fetchEvents } from '@/lib/eventsAdapter'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import { getCategoryColor } from '@/lib/categoryColors'
+import FollowButton from '@/components/FollowButton'
 
 export default function VenueDetailPage() {
   const params = useParams()
@@ -94,9 +95,18 @@ export default function VenueDetailPage() {
             />
           </div>
           <div className="p-4 sm:p-6">
-            <h1 className="text-2xl font-bold mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              {displayName}
-            </h1>
+            <div className="flex items-center gap-3 flex-wrap mb-2">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                {displayName}
+              </h1>
+              <FollowButton
+                type="venue"
+                normalizedValue={(venue?.venue_id || venue?.slug || slug).toLowerCase().trim()}
+                displayValue={displayName}
+                size="md"
+                variant="default"
+              />
+            </div>
             {(venue?.neighborhood || venue?.venue_address) && (
               <p className="text-slate-300">
                 {[venue?.neighborhood, venue?.venue_address].filter(Boolean).join(' · ')}

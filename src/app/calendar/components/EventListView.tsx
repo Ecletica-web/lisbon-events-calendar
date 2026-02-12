@@ -1,8 +1,10 @@
 'use client'
 
+import Link from 'next/link'
 import { getCategoryColor } from '@/lib/categoryColors'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import type { ViewState } from '@/lib/viewState'
+import FollowButton from '@/components/FollowButton'
 
 interface EventListViewProps {
   events: NormalizedEvent[]
@@ -276,8 +278,19 @@ export default function EventListView({
                         {formatTime(event)}
                       </div>
                       {event.extendedProps.venueName && (
-                        <div className="text-sm text-slate-300 mb-2">
-                          {event.extendedProps.venueName}
+                        <div className="flex items-center gap-2 flex-wrap mb-2" onClick={(e) => e.stopPropagation()}>
+                          <Link
+                            href={`/venues/${encodeURIComponent(event.extendedProps.venueId || event.extendedProps.venueKey || event.extendedProps.venueName?.toLowerCase().replace(/\s+/g, '-') || '')}`}
+                            className="text-sm text-indigo-400 hover:text-indigo-300 hover:underline"
+                          >
+                            {event.extendedProps.venueName}
+                          </Link>
+                          <FollowButton
+                            type="venue"
+                            normalizedValue={(event.extendedProps.venueId || event.extendedProps.venueKey || event.extendedProps.venueName || '').toLowerCase().trim()}
+                            displayValue={event.extendedProps.venueName}
+                            size="sm"
+                          />
                         </div>
                       )}
                       <div className="flex flex-wrap items-center gap-1.5">
