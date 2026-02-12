@@ -41,8 +41,11 @@ import {
 import { useSession } from 'next-auth/react'
 import { loadSavedViewsFromDB, saveViewToDB } from '@/lib/savedViewsSync'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
+import { PREDEFINED_PERSONAS, getPredefinedPersonaBySlug } from '@/data/predefinedPersonas'
 import EventCardsSlider from '@/components/EventCardsSlider'
 import MobileDaySliders from '@/components/MobileDaySliders'
+import MobileListHeader, { type MobileListTimeRange } from '@/components/MobileListHeader'
+import { haversineDistanceKm } from '@/lib/geo'
 import EventModal from './components/EventModal'
 import EventListView from './components/EventListView'
 
@@ -167,6 +170,13 @@ function CalendarPageContent() {
   const [sharedContext, setSharedContext] = useState<{ slug: string; by?: string; name?: string; type: 'view' | 'persona' } | null>(null)
   const [personas, setPersonas] = useState<{ id: string; title: string; rules_json: string }[]>([])
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null)
+  const [activePredefinedPersonaId, setActivePredefinedPersonaId] = useState<string | null>(null)
+  const [mobileListTimeRange, setMobileListTimeRange] = useState<MobileListTimeRange>('week')
+  const [mobileNearMeEnabled, setMobileNearMeEnabled] = useState(false)
+  const [mobileRadiusKm, setMobileRadiusKm] = useState(2)
+  const [mobileUserPos, setMobileUserPos] = useState<{ lat: number; lng: number } | null>(null)
+  const [mobileLocError, setMobileLocError] = useState<string | null>(null)
+  const [mobileLocLoading, setMobileLocLoading] = useState(false)
   // Initialize sidebar as minimized on mobile, open on desktop
   const [sidebarMinimized, setSidebarMinimized] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -234,6 +244,11 @@ function CalendarPageContent() {
     const type = searchParams.get('sharedType')
     if (slug && (type === 'view' || type === 'persona')) {
       setSharedContext({ slug, by, name, type: type as 'view' | 'persona' })
+      // If shared persona is predefined, mark it active
+      if (type === 'persona') {
+        const predefined = getPredefinedPersonaBySlug(slug)
+        if (predefined) setActivePredefinedPersonaId(predefined.id)
+      }
     } else {
       setSharedContext(null)
     }
@@ -578,6 +593,85 @@ function CalendarPageContent() {
     [adjustedEvents, debouncedSearchQuery, selectedTags, selectedVenues, selectedCategories, freeOnly, excludeExhibitions, excludeContinuous]
   )
 
+  // Mobile list: date focus and calendar view from time range
+  const { mobileListDateFocus, mobileListCalendarView } = useMemo(() => {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    if (mobileListTimeRange === 'today') {
+      return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'timeGridDay' as const }
+    }
+    if (mobileListTimeRange === 'tomorrow') {
+      return { mobileListDateFocus: tomorrow.toISOString().split('T')[0], mobileListCalendarView: 'timeGridDay' as const }
+    }
+    if (mobileListTimeRange === 'week') {
+      return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'timeGridWeek' as const }
+    }
+    return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'dayGridMonth' as const }
+  }, [mobileListTimeRange])
+
+  // Mobile list: venue coords map for Near me
+  const venueCoordsMap = useMemo(() => {
+    const m = new Map<string, { lat: number; lng: number }>()
+    const norm = (s: string) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
+    for (const v of venuesWithCoords) {
+      if (typeof v.latitude === 'number' && typeof v.longitude === 'number') {
+        m.set(v.venue_id, { lat: v.latitude, lng: v.longitude })
+        m.set(v.slug, { lat: v.latitude, lng: v.longitude })
+        m.set(norm(v.name), { lat: v.latitude, lng: v.longitude })
+      }
+    }
+    return m
+  }, [venuesWithCoords])
+
+  // Mobile list: events filtered by date range + Near me
+  const mobileListEvents = useMemo(() => {
+    let list = filteredEvents
+    if (mobileNearMeEnabled && mobileUserPos) {
+      const norm = (s: string) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
+      const getEventCoords = (e: NormalizedEvent): { lat: number; lng: number } | null => {
+        const lat = e.extendedProps?.latitude
+        const lng = e.extendedProps?.longitude
+        if (typeof lat === 'number' && typeof lng === 'number') return { lat, lng }
+        const vid = e.extendedProps?.venueId
+        const vkey = e.extendedProps?.venueKey
+        const vname = e.extendedProps?.venueName
+        if (vid && venueCoordsMap.has(vid)) return venueCoordsMap.get(vid)!
+        if (vkey && venueCoordsMap.has(vkey)) return venueCoordsMap.get(vkey)!
+        if (vname && venueCoordsMap.has(norm(vname))) return venueCoordsMap.get(norm(vname))!
+        return null
+      }
+      list = filteredEvents
+        .map((e) => ({ event: e, coords: getEventCoords(e) }))
+        .filter((x): x is { event: NormalizedEvent; coords: { lat: number; lng: number } } => x.coords !== null)
+        .filter((x) => haversineDistanceKm(mobileUserPos.lat, mobileUserPos.lng, x.coords.lat, x.coords.lng) <= mobileRadiusKm)
+        .map((x) => x.event)
+    }
+    return list
+  }, [filteredEvents, mobileNearMeEnabled, mobileUserPos, mobileRadiusKm, venueCoordsMap])
+
+  const mobileRequestLocation = () => {
+    setMobileLocError(null)
+    setMobileLocLoading(true)
+    if (!navigator.geolocation) {
+      setMobileLocError('Location not supported')
+      setMobileLocLoading(false)
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setMobileUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        setMobileLocLoading(false)
+      },
+      (err) => {
+        setMobileLocError(err.message === 'User denied Geolocation' ? 'Location denied' : 'Could not get location')
+        setMobileLocLoading(false)
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    )
+  }
+
   const handleTagToggle = (tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
@@ -739,10 +833,27 @@ function CalendarPageContent() {
     setSelectedVenues(merged.selectedVenues)
     setFreeOnly(merged.toggles.freeOnly)
     setActivePersonaId(persona.id)
+    setActivePredefinedPersonaId(null)
+  }
+
+  const handleApplyPredefinedPersona = (persona: typeof PREDEFINED_PERSONAS[0]) => {
+    const rules: PersonaRulesInput = {
+      includeTags: persona.tags,
+      includeCategories: persona.categories,
+    }
+    const partial = personaRulesToViewState(rules)
+    const merged = mergeViewState(partial)
+    setSelectedTags(merged.selectedTags)
+    setSelectedCategories(merged.selectedCategories)
+    setSelectedVenues(merged.selectedVenues || [])
+    setFreeOnly(merged.toggles?.freeOnly ?? false)
+    setActivePredefinedPersonaId(persona.id)
+    setActivePersonaId(null)
   }
 
   const handleClearPersona = () => {
     setActivePersonaId(null)
+    setActivePredefinedPersonaId(null)
   }
 
   const handleDismissSharedBanner = () => {
@@ -1167,45 +1278,73 @@ function CalendarPageContent() {
             )}
           </div>
 
-          {/* Personas */}
+          {/* Predefined Lisbon Personas — one-click vibe filters */}
+          {FEATURE_FLAGS.PERSONAS && (
+            <div className="mb-4 border-t border-slate-700/50 pt-4">
+              <div className="text-xs md:text-sm font-semibold text-slate-200 mb-2">Lisbon vibes</div>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {PREDEFINED_PERSONAS.map((p) => {
+                  const isActive = activePredefinedPersonaId === p.id
+                  const accent = p.accentColor || '#6366f1'
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => isActive ? handleClearPersona() : handleApplyPredefinedPersona(p)}
+                      title={p.description}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                        isActive
+                          ? 'ring-1 ring-offset-1 ring-offset-slate-900'
+                          : 'hover:bg-slate-700/60 border border-transparent'
+                      }`}
+                      style={isActive ? { borderColor: accent, backgroundColor: `${accent}20` } : {}}
+                    >
+                      <span className={isActive ? 'font-semibold' : ''} style={isActive ? { color: accent } : {}}>
+                        {p.name}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              {(activePredefinedPersonaId || activePersonaId) && (
+                <button
+                  onClick={handleClearPersona}
+                  className="mt-2 text-xs text-indigo-400 hover:text-indigo-300"
+                >
+                  Clear vibe
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* User-created Personas */}
           {FEATURE_FLAGS.PERSONAS && session?.user && (
             <div className="mb-4 border-t border-slate-700/50 pt-4">
-              <div className="text-xs md:text-sm font-semibold text-slate-200 mb-2">Personas</div>
+              <div className="text-xs md:text-sm font-semibold text-slate-200 mb-2">My Personas</div>
               <button
                 onClick={handleCreatePersona}
                 className="w-full mb-2 px-3 py-2 text-xs border border-slate-600/50 rounded-lg hover:bg-slate-700/80 font-medium text-slate-300 transition-colors"
               >
-                Create persona from current filters
+                Create from current filters
               </button>
               {personas.length > 0 && (
-                <>
-                  <select
-                    value={activePersonaId || ''}
-                    onChange={(e) => {
-                      const id = e.target.value
-                      if (!id) {
-                        handleClearPersona()
-                        return
-                      }
-                      const p = personas.find((x) => x.id === id)
-                      if (p) handleApplyPersona(p)
-                    }}
-                    className="w-full border border-slate-600/50 rounded-lg px-3 py-2 text-sm bg-slate-900/80 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                  >
-                    <option value="">Apply persona...</option>
-                    {personas.map((p) => (
-                      <option key={p.id} value={p.id}>{p.title}</option>
-                    ))}
-                  </select>
-                  {activePersonaId && (
-                    <button
-                      onClick={handleClearPersona}
-                      className="mt-1 text-xs text-indigo-400 hover:text-indigo-300"
-                    >
-                      Clear persona
-                    </button>
-                  )}
-                </>
+                <select
+                  value={activePersonaId || ''}
+                  onChange={(e) => {
+                    const id = e.target.value
+                    if (!id) {
+                      handleClearPersona()
+                      return
+                    }
+                    const p = personas.find((x) => x.id === id)
+                    if (p) handleApplyPersona(p)
+                  }}
+                  className="w-full border border-slate-600/50 rounded-lg px-3 py-2 text-sm bg-slate-900/80 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                >
+                  <option value="">Apply saved persona...</option>
+                  {personas.map((p) => (
+                    <option key={p.id} value={p.id}>{p.title}</option>
+                  ))}
+                </select>
               )}
             </div>
           )}
@@ -1346,11 +1485,11 @@ function CalendarPageContent() {
               </button>
             </div>
 
-            {/* Mobile Filter Icon Button - Above first slider */}
-            {sidebarMinimized && !showListView && (
+            {/* Mobile Filter Icon Button - Always visible when sidebar minimized */}
+            {sidebarMinimized && (
               <button
                 onClick={() => setSidebarMinimized(false)}
-                className="mb-4 p-3 rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all shadow-lg hover:shadow-xl flex items-center justify-center backdrop-blur-sm"
+                className="mb-4 p-3 min-h-[44px] min-w-[44px] rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all shadow-lg hover:shadow-xl flex items-center justify-center backdrop-blur-sm touch-manipulation"
                 aria-label="Open filters"
               >
                 <svg 
@@ -1370,18 +1509,29 @@ function CalendarPageContent() {
               </div>
             ) : showListView ? (
               <div className="pt-2">
+                <MobileListHeader
+                  timeRange={mobileListTimeRange}
+                  onTimeRangeChange={setMobileListTimeRange}
+                  nearMeEnabled={mobileNearMeEnabled}
+                  onNearMeChange={setMobileNearMeEnabled}
+                  radiusKm={mobileRadiusKm}
+                  onRadiusChange={setMobileRadiusKm}
+                  onLocationRequest={mobileRequestLocation}
+                  userPos={mobileUserPos}
+                  locLoading={mobileLocLoading}
+                  locError={mobileLocError}
+                  eventCount={mobileListEvents.length}
+                />
                 <EventListView
-                  events={filteredEvents}
-                  calendarView={calendarView}
-                  dateFocus={dateFocus}
-                  onDateChange={setDateFocus}
+                  events={mobileListEvents}
+                  calendarView={mobileListCalendarView}
+                  dateFocus={mobileListDateFocus}
+                  onDateChange={() => {}}
                   onEventClick={(info: any) => {
-                    // For mobile list view, info might be the event directly or a FullCalendar event object
-                    const event = info.event ? filteredEvents.find((e) => e.id === info.event.id) : info
-                    if (event) {
-                      setSelectedEvent(event)
-                    }
+                    const event = info.event ? mobileListEvents.find((e) => e.id === info.event.id) : info
+                    if (event) setSelectedEvent(event)
                   }}
+                  hideDateNav
                 />
               </div>
             ) : (

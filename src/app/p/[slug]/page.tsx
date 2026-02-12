@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
 import { mergeViewState, personaRulesToViewState, serializeViewStateToURL } from '@/lib/viewState'
 import type { PersonaRulesInput } from '@/lib/viewState'
+import { getPredefinedPersonaBySlug } from '@/data/predefinedPersonas'
 
 export default function SharedPersonaPage() {
   const params = useParams()
@@ -27,6 +28,24 @@ export default function SharedPersonaPage() {
 
     async function load() {
       try {
+        // Check predefined personas first (no API call)
+        const predefined = getPredefinedPersonaBySlug(slug)
+        if (predefined) {
+          const rules: PersonaRulesInput = {
+            includeTags: predefined.tags,
+            includeCategories: predefined.categories,
+          }
+          const partial = personaRulesToViewState(rules)
+          const state = mergeViewState(partial)
+          const urlParams = serializeViewStateToURL(state)
+          const qs = new URLSearchParams(urlParams)
+          qs.set('sharedSlug', slug)
+          qs.set('sharedType', 'persona')
+          qs.set('sharedName', predefined.name)
+          router.replace(`/calendar?${qs.toString()}`)
+          return
+        }
+
         const res = await fetch(`/api/personas/public/${slug}`)
         if (!res.ok) {
           const data = await res.json().catch(() => ({}))
