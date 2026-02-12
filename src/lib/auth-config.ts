@@ -26,6 +26,11 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
+        // Guest login
+        if (credentials.email === 'guest@lisbon-events.guest' && credentials.password === 'guest') {
+          return { id: 'guest', email: 'guest@lisbon-events.guest', name: 'Guest' }
+        }
+
         const user = getUserByEmail(credentials.email)
         if (!user || !user.password_hash) {
           return null
@@ -49,6 +54,9 @@ export const authOptions: NextAuthOptions = {
       try {
         if (!user.email) return false
         
+        // Skip DB for guest
+        if (user.email === 'guest@lisbon-events.guest') return true
+        
         // Find or create user in database
         let dbUser = getUserByEmail(user.email)
         if (!dbUser) {
@@ -63,7 +71,11 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       try {
-        // Add user ID to session
+        if (session.user?.email === 'guest@lisbon-events.guest') {
+          (session.user as any).id = 'guest'
+          session.user.name = 'Guest'
+          return session
+        }
         if (session.user?.email) {
           const dbUser = getUserByEmail(session.user.email)
           if (dbUser) {

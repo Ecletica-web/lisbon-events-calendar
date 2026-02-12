@@ -43,7 +43,6 @@ import { loadSavedViewsFromDB, saveViewToDB } from '@/lib/savedViewsSync'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
 import EventCardsSlider from '@/components/EventCardsSlider'
 import MobileDaySliders from '@/components/MobileDaySliders'
-import NearMeSlider from '@/components/NearMeSlider'
 import EventModal from './components/EventModal'
 import EventListView from './components/EventListView'
 
@@ -1345,22 +1344,17 @@ function CalendarPageContent() {
                 />
               </div>
             ) : (
-              <>
-                <MobileDaySliders
-                  events={events}
-                  onEventClick={setSelectedEvent}
-                  selectedCategories={selectedCategories}
-                  selectedTags={selectedTags}
-                  freeOnly={freeOnly}
-                  excludeExhibitions={excludeExhibitions}
-                  excludeContinuous={excludeContinuous}
-                  onCategoriesChange={setSelectedCategories}
-                  onTagsChange={setSelectedTags}
-                />
-                {!loading && filteredEvents.length > 0 && (
-                  <NearMeSlider events={filteredEvents} venuesWithCoords={venuesWithCoords} onEventClick={setSelectedEvent} />
-                )}
-              </>
+              <MobileDaySliders
+                events={events}
+                onEventClick={setSelectedEvent}
+                selectedCategories={selectedCategories}
+                selectedTags={selectedTags}
+                freeOnly={freeOnly}
+                excludeExhibitions={excludeExhibitions}
+                excludeContinuous={excludeContinuous}
+                onCategoriesChange={setSelectedCategories}
+                onTagsChange={setSelectedTags}
+              />
             )}
           </div>
 
@@ -1368,24 +1362,22 @@ function CalendarPageContent() {
           <div className="hidden md:block">
               {/* Desktop: Event Cards Slider - Above Calendar (only show when not in list view) */}
               {!showListView && !loading && filteredEvents.length > 0 && (
-                <>
-                  <div className="w-full mb-6">
-                    <EventCardsSlider
-                      events={events}
-                      onEventClick={setSelectedEvent}
-                      selectedCategories={selectedCategories}
-                      selectedTags={selectedTags}
-                      freeOnly={freeOnly}
-                      excludeExhibitions={excludeExhibitions}
-                      excludeContinuous={excludeContinuous}
-                      onCategoriesChange={setSelectedCategories}
-                      onTagsChange={setSelectedTags}
-                      mode="slider"
-                      dateFocus={dateFocus}
-                    />
-                  </div>
-                  <NearMeSlider events={filteredEvents} venuesWithCoords={venuesWithCoords} onEventClick={setSelectedEvent} />
-                </>
+                <div className="w-full mb-6">
+                  <EventCardsSlider
+                    events={events}
+                    onEventClick={setSelectedEvent}
+                    selectedCategories={selectedCategories}
+                    selectedTags={selectedTags}
+                    freeOnly={freeOnly}
+                    excludeExhibitions={excludeExhibitions}
+                    excludeContinuous={excludeContinuous}
+                    onCategoriesChange={setSelectedCategories}
+                    onTagsChange={setSelectedTags}
+                    mode="slider"
+                    dateFocus={dateFocus}
+                    venuesWithCoords={venuesWithCoords}
+                  />
+                </div>
               )}
 
               {loading ? (

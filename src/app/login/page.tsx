@@ -104,6 +104,25 @@ export default function LoginPage() {
           </button>
         </div>
 
+        <button
+          onClick={async () => {
+            setError('')
+            setLoading(true)
+            const result = await signIn('credentials', {
+              email: 'guest@lisbon-events.guest',
+              password: 'guest',
+              redirect: false,
+            })
+            if (result?.error) setError(result.error)
+            else if (result?.ok) router.push('/calendar')
+            setLoading(false)
+          }}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-2 text-slate-600 border-2 border-dashed border-gray-300 px-4 py-3 rounded-xl hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 transition-all mb-6"
+        >
+          Continue as guest
+        </button>
+
         <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-300"></div>
