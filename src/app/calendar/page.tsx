@@ -12,7 +12,6 @@ import {
   filterEvents,
   getAllTags,
   getAllCategories,
-  getAllVenues,
   toCanonicalTagKey,
   type NormalizedEvent,
   type VenueOption,
@@ -220,13 +219,10 @@ function CalendarPageContent() {
     return () => clearTimeout(timeoutId)
   }, [calendarView, dateFocus, searchQuery, selectedCategories, selectedTags, selectedVenues, freeOnly, excludeExhibitions, excludeContinuous, router])
 
-  // Memoize all tags, categories, and venues (use CSV venues when loaded, else canonical fallback)
+  // Memoize all tags, categories, and venues (strictly CSV venues only, no canonical fallback)
   const allTags = useMemo(() => getAllTags(events), [events])
   const allCategories = useMemo(() => getAllCategories(events), [events])
-  const allVenues = useMemo(
-    () => (venues.length > 0 ? venues : getAllVenues(events)),
-    [venues, events]
-  )
+  const allVenues = useMemo(() => venues, [venues])
 
   // Last updated = max last_seen_at among loaded events (trust/freshness cue)
   const lastUpdated = useMemo(() => {

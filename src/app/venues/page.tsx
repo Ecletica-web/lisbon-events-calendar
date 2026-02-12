@@ -123,14 +123,14 @@ export default function VenuesPage() {
         {loading ? (
           <div className="text-slate-400">Loading venues...</div>
         ) : (
-          <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
             {filteredVenues.map((v) => {
               const count = getEventCount(v)
               return (
                 <Link
                   key={v.venue_id}
                   href={`/venues/${encodeURIComponent(v.slug)}`}
-                  className="block rounded-lg bg-slate-800/60 border border-slate-700/50 overflow-hidden hover:bg-slate-700/50 transition-colors"
+                  className="block rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden hover:bg-slate-700/50 transition-colors"
                 >
                   <div className="aspect-[16/10] bg-slate-700/50 flex-shrink-0">
                     <img
@@ -140,30 +140,30 @@ export default function VenuesPage() {
                       onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
                     />
                   </div>
-                  <div className="p-2.5">
-                    <h2 className="font-semibold text-sm text-white truncate">{v.name}</h2>
+                  <div className="p-4">
+                    <h2 className="font-semibold text-lg text-white">{v.name}</h2>
                     {(v.neighborhood || v.venue_address) && (
-                      <p className="text-slate-400 text-xs mt-0.5 truncate">
+                      <p className="text-slate-400 text-sm mt-0.5">
                         {[v.neighborhood, v.venue_address].filter(Boolean).join(' · ')}
                       </p>
                     )}
                     {v.description_short && (
-                      <p className="text-slate-300 text-xs mt-1 line-clamp-2">{v.description_short}</p>
+                      <p className="text-slate-300 text-sm mt-2 line-clamp-2">{v.description_short}</p>
                     )}
                     {v.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {v.tags.slice(0, 3).map((tag) => (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {v.tags.map((tag) => (
                           <span
                             key={tag}
-                            className="px-1.5 py-0.5 rounded text-[10px] bg-slate-700/60 text-slate-200"
+                            className="px-2 py-0.5 rounded text-xs bg-slate-700/60 text-slate-200"
                           >
                             {tag}
                           </span>
                         ))}
                       </div>
                     )}
-                    <p className="text-slate-400 text-xs mt-1">
-                      {count} upcoming
+                    <p className="text-slate-400 text-sm mt-2">
+                      {count} upcoming {count === 1 ? 'event' : 'events'}
                     </p>
                   </div>
                 </Link>
