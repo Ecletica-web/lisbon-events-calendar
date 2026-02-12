@@ -1,10 +1,12 @@
-import Papa from 'papaparse'
 import { normalizeCategory, normalizeCategories } from '@/lib/categoryNormalization'
 import { CANONICAL_VENUES, venueNameToSlug, normalizeHandle } from '@/data/canonicalVenues'
+import {
+  loadEvents,
+  filterEventsForListing,
+} from '@/data/loaders/eventsLoader'
+import type { Event } from '@/models/Event'
 
-/**
- * Raw event schema from data source
- */
+/** Legacy RawEvent kept for type compatibility; actual parsing is in eventsLoader */
 export interface RawEvent {
   event_id: string
   title: string
@@ -15,6 +17,7 @@ export interface RawEvent {
   timezone?: string
   is_all_day?: string | boolean
   opens_at?: string
+  venue_id?: string
   venue_name?: string
   venue_address?: string
   neighborhood?: string
@@ -56,40 +59,44 @@ export interface NormalizedEvent {
     // Descriptions
     descriptionShort?: string
     descriptionLong?: string
-    
-    // Venue (venueKey = canonical key for dedupe & cap per location)
+
+    // Venue (venueId primary; venueKey for dedupe & cap)
+    venueId?: string
     venueName?: string
     venueAddress?: string
     venueKey?: string
     neighborhood?: string
     city?: string
-    
+
     // Geo
     latitude?: number
     longitude?: number
-    
+
     // Tags & Category
     tags: string[]
     category?: string
-    
+
     // Pricing
     priceMin?: number
     priceMax?: number
     currency?: string
     isFree?: boolean
-    
+
     // Event details
     ageRestriction?: string
     language?: string
     ticketUrl?: string
     imageUrl?: string
-    
+
+    // Status (scheduled, postponed, sold_out, etc.)
+    status?: string
+
     // Source
     sourceName?: string
     sourceUrl?: string
     sourceEventId?: string
     confidenceScore?: number
-    
+
     // Metadata
     timezone?: string
     opensAt?: string
@@ -101,79 +108,99 @@ export interface NormalizedEvent {
   }
 }
 
+const IMAGE_PROXY = 'https://images.weserv.nl/?url='
+const MAX_EVENTS_PER_VENUE = 15
+
+function sanitizeImageUrl(url?: string): string | undefined {
+  if (!url) return undefined
+  const lower = url.toLowerCase()
+  if (lower.includes('images.example.com')) return undefined
+  if (lower.includes('cdninstagram') || lower.includes('fbcdn.net')) {
+    return IMAGE_PROXY + encodeURIComponent(url)
+  }
+  return url
+}
+
 /**
- * Fetch events from Google Sheets CSV
+ * Convert Event domain object to FullCalendar NormalizedEvent
+ */
+function eventToNormalizedEvent(e: Event): NormalizedEvent {
+  // Venue key: prefer venue_id, else canonical match, else fallback key
+  const canonicalKey = matchEventToCanonicalVenue(e.venue_name, e.source_name)
+  const fallbackKey = toCanonicalVenueKey(e.venue_name, e.venue_address)
+  const venueKey = e.venue_id || canonicalKey || fallbackKey || undefined
+
+  const startDate = new Date(e.start_datetime)
+  let opensAt: string | undefined
+  if (startDate.getUTCHours() !== 0 || startDate.getUTCMinutes() !== 0) {
+    opensAt = `${String(startDate.getUTCHours()).padStart(2, '0')}:${String(startDate.getUTCMinutes()).padStart(2, '0')}`
+  }
+
+  return {
+    id: e.event_id,
+    title: e.title,
+    start: e.start_datetime,
+    end: e.end_datetime,
+    allDay: false,
+    extendedProps: {
+      descriptionShort: e.description_short,
+      descriptionLong: e.description_long,
+      venueId: e.venue_id,
+      venueName: e.venue_name,
+      venueAddress: e.venue_address,
+      venueKey,
+      neighborhood: e.neighborhood,
+      city: e.city,
+      latitude: e.latitude,
+      longitude: e.longitude,
+      tags: e.tags,
+      category: e.category,
+      priceMin: e.price_min,
+      priceMax: e.price_max,
+      currency: e.currency,
+      isFree: e.is_free,
+      ageRestriction: e.age_restriction,
+      language: e.language,
+      ticketUrl: e.ticket_url,
+      imageUrl: sanitizeImageUrl(e.primary_image_url),
+      status: e.status,
+      sourceName: e.source_name,
+      sourceUrl: e.source_url,
+      sourceEventId: e.source_event_id,
+      confidenceScore: e.confidence_score,
+      timezone: e.timezone,
+      opensAt,
+      lastSeenAt: e.last_seen_at,
+      createdAt: e.created_at,
+      updatedAt: e.updated_at,
+      dedupeKey: e.dedupe_key,
+    },
+  }
+}
+
+/**
+ * Fetch events from Google Sheets CSV.
+ * Uses new loader; filters to scheduled, sold_out, postponed; dedupes; caps per venue.
  */
 export async function fetchEvents(): Promise<NormalizedEvent[]> {
-  // Use window.location to get env var in client-side
-  const csvUrl = typeof window !== 'undefined' 
-    ? process.env.NEXT_PUBLIC_EVENTS_CSV_URL
-    : process.env.NEXT_PUBLIC_EVENTS_CSV_URL
+  const csvUrl = process.env.NEXT_PUBLIC_EVENTS_CSV_URL
 
   if (!csvUrl) {
-    console.error('NEXT_PUBLIC_EVENTS_CSV_URL is not set. Please check your .env.local file.')
+    console.warn('NEXT_PUBLIC_EVENTS_CSV_URL is not set. Please check your .env.local file.')
     return []
   }
 
-  console.log('Fetching events from:', csvUrl)
-
   try {
-    const response = await fetch(csvUrl, { cache: 'no-store' })
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch CSV: ${response.statusText}`)
+    const { events: domainEvents, quarantined } = await loadEvents(csvUrl)
+    if (quarantined.length > 0) {
+      console.warn(`[eventsAdapter] Quarantined ${quarantined.length} bad rows`)
     }
 
-    const csvText = await response.text()
-    
-    return new Promise((resolve, reject) => {
-      Papa.parse<RawEvent>(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          try {
-            // Log CSV structure for debugging
-            if (results.data.length > 0) {
-              console.log('CSV columns found:', Object.keys(results.data[0]))
-              console.log('Total rows:', results.data.length)
-            }
+    const listingEvents = filterEventsForListing(domainEvents)
+    const normalized = listingEvents.map(eventToNormalizedEvent)
 
-            const normalized = results.data
-              .filter((row) => {
-                // Skip rows without required fields (event_id, title, start_datetime)
-                return !!(row.event_id && row.title && row.start_datetime)
-              })
-              .map((row) => normalizeEvent(row))
-              .filter((event) => {
-                // Only show active events
-                return event !== null
-              })
-              .filter((event): event is NormalizedEvent => event !== null)
-            
-            console.log(`Normalized ${normalized.length} events from ${results.data.length} rows`)
-            
-            // Deduplicate by dedupe_key, event_id, then title+start+venue
-            const deduped = deduplicateEvents(normalized)
-            console.log(`After deduplication: ${deduped.length} events`)
-
-            // Cap per venue so one location doesn't dominate
-            const capped = capEventsPerVenue(deduped, MAX_EVENTS_PER_VENUE)
-            if (capped.length < deduped.length) {
-              console.log(`After cap per venue (max ${MAX_EVENTS_PER_VENUE}): ${capped.length} events`)
-            }
-
-            resolve(capped)
-          } catch (error) {
-            console.error('Error processing CSV data:', error)
-            reject(error)
-          }
-        },
-        error: (error: Error) => {
-          console.error('PapaParse error:', error)
-          reject(error)
-        },
-      })
-    })
+    const capped = capEventsPerVenue(normalized, MAX_EVENTS_PER_VENUE)
+    return capped.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
   } catch (error) {
     console.error('Error fetching events:', error)
     return []
@@ -181,30 +208,17 @@ export async function fetchEvents(): Promise<NormalizedEvent[]> {
 }
 
 /**
- * Parse opening time from description (e.g. "14:00-20:00", "opens 14:00", "daily 14:00")
- * Returns "HH:MM" or null
+ * Fetch all events (including cancelled/archived) for detail pages.
+ * Draft events are still excluded.
  */
-function parseOpeningTimeFromDescription(desc: string | undefined): string | null {
-  if (!desc) return null
-  const text = desc.toLowerCase()
-  // Match "14:00-20:00", "14:00 - 20:00", "14:00–20:00" (first time is opening)
-  const rangeMatch = text.match(/\b(\d{1,2}):(\d{2})\s*[-–]\s*\d{1,2}:\d{2}\b/)
-  if (rangeMatch) return `${rangeMatch[1].padStart(2, '0')}:${rangeMatch[2]}`
-  // Match "opens at 14:00", "opens 14:00", "open 14:00", "daily 14:00"
-  const opensMatch = text.match(/(?:opens?\s+(?:at\s+)?|daily\s+)(\d{1,2}):(\d{2})\b/)
-  if (opensMatch) return `${opensMatch[1].padStart(2, '0')}:${opensMatch[2]}`
-  // Match standalone "14:00" or "14h"
-  const timeMatch = text.match(/\b(\d{1,2}):(\d{2})\b/)
-  if (timeMatch) return `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`
-  const hourMatch = text.match(/\b(\d{1,2})h\b/)
-  if (hourMatch) return `${hourMatch[1].padStart(2, '0')}:00`
-  return null
+export async function fetchAllEventsForDetail(): Promise<NormalizedEvent[]> {
+  const csvUrl = process.env.NEXT_PUBLIC_EVENTS_CSV_URL
+  if (!csvUrl) return []
+
+  const { events } = await loadEvents(csvUrl)
+  const visible = events.filter((e) => e.status !== 'draft')
+  return visible.map(eventToNormalizedEvent).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 }
-
-const IMAGE_PROXY = 'https://images.weserv.nl/?url='
-
-/** Max events to show per venue (cap so one location doesn't dominate) */
-const MAX_EVENTS_PER_VENUE = 15
 
 /**
  * Match event to canonical venue by venue_name or source_name (handle). Returns canonical key or undefined.
@@ -239,261 +253,6 @@ function toCanonicalVenueKey(venueName?: string, venueAddress?: string): string 
 }
 
 /**
- * Use fallback for placeholder; proxy Instagram CDN URLs so they load (they block direct embedding)
- */
-function sanitizeImageUrl(url?: string): string | undefined {
-  if (!url) return undefined
-  const lower = url.toLowerCase()
-  if (lower.includes('images.example.com')) return undefined
-  if (lower.includes('cdninstagram') || lower.includes('fbcdn.net')) {
-    return IMAGE_PROXY + encodeURIComponent(url)
-  }
-  return url
-}
-
-/**
- * Normalize a raw event to FullCalendar format
- */
-function normalizeEvent(row: RawEvent): NormalizedEvent | null {
-  // Filter out inactive events - accept 'active', 'scheduled', and 'needs_review'
-  const status = row.status?.toLowerCase()
-  if (status && status !== 'active' && status !== 'scheduled' && status !== 'needs_review') {
-    return null
-  }
-
-  // Normalize timezone
-  const timezone = row.timezone?.trim() || 'Europe/Lisbon'
-
-  // Normalize dates
-  let startDate: string
-  let endDate: string | undefined
-
-  try {
-    // Ensure start_datetime is valid
-    const start = new Date(row.start_datetime)
-    if (isNaN(start.getTime())) {
-      console.warn(`Invalid start_datetime for event ${row.event_id}: ${row.start_datetime}`)
-      return null
-    }
-    startDate = start.toISOString()
-
-    if (row.end_datetime) {
-      const end = new Date(row.end_datetime)
-      if (!isNaN(end.getTime())) {
-        endDate = end.toISOString()
-      }
-    }
-  } catch (error) {
-    console.warn(`Date parsing error for event ${row.event_id}:`, error)
-    return null
-  }
-
-  // Normalize all-day flag - we never use allDay for display; events show at opening time
-  const wasAllDay = normalizeBoolean(row.is_all_day, false)
-
-  // For all-day events: get opening time and convert to time-bounded (no full-day slot)
-  let opensAt: string | undefined
-  if (wasAllDay) {
-    const start = new Date(startDate)
-    const startHour = start.getUTCHours()
-    const startMin = start.getUTCMinutes()
-    const isMidnight = startHour === 0 && startMin === 0
-
-    if (isMidnight) {
-      // Try opens_at column (e.g. "14:00", "14"), then parse description
-      const sheetOpens = row.opens_at?.trim()
-      let parsed: string | null = null
-      if (sheetOpens) {
-        const m = sheetOpens.match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?$/)
-        if (m) parsed = `${m[1].padStart(2, '0')}:${(m[2] || '00').padStart(2, '0')}`
-      }
-      if (!parsed) parsed = parseOpeningTimeFromDescription(row.description_short || row.description_long)
-      const [openH, openM] = (parsed || '10:00').split(':').map(Number)
-      opensAt = `${String(openH).padStart(2, '0')}:${String(openM || 0).padStart(2, '0')}`
-      // Adjust start to opening time on start date
-      const startOnly = new Date(start)
-      startOnly.setUTCHours(openH, openM || 0, 0, 0)
-      startDate = startOnly.toISOString()
-      // If we have end, keep it; else end 1h after start for calendar display
-      if (!endDate) {
-        const endOnly = new Date(startOnly)
-        endOnly.setUTCHours(endOnly.getUTCHours() + 1, 0, 0, 0)
-        endDate = endOnly.toISOString()
-      }
-    } else {
-      // Start already has a time - use it as opens
-      opensAt = `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}`
-    }
-  }
-
-  // Normalize tags
-  const tags = normalizeTags(row.tags)
-
-  // Normalize category
-  const category = row.category?.trim().toLowerCase() || undefined
-
-  // Normalize prices
-  const priceMin = normalizeNumber(row.price_min)
-  const priceMax = normalizeNumber(row.price_max)
-  const currency = row.currency?.trim().toUpperCase() || undefined
-
-  // Normalize is_free
-  let isFree = normalizeBoolean(row.is_free, false)
-  // Infer free if prices are null/zero
-  if (!isFree && priceMin === null && priceMax === null) {
-    // Don't guess - leave as false if not explicitly set
-  }
-
-  // Normalize geo coordinates
-  const latitude = normalizeNumber(row.latitude)
-  const longitude = normalizeNumber(row.longitude)
-
-  // Normalize confidence score
-  const confidenceScore = normalizeNumber(row.confidence_score)
-
-  return {
-    id: row.event_id,
-    title: row.title,
-    start: startDate,
-    end: endDate,
-    allDay: false,
-    extendedProps: {
-      descriptionShort: row.description_short?.trim() || undefined,
-      descriptionLong: row.description_long?.trim() || undefined,
-      venueName: row.venue_name?.trim() || undefined,
-      venueAddress: row.venue_address?.trim() || undefined,
-      venueKey: matchEventToCanonicalVenue(row.venue_name?.trim(), row.source_name?.trim()) || toCanonicalVenueKey(row.venue_name?.trim(), row.venue_address?.trim()) || undefined,
-      neighborhood: row.neighborhood?.trim() || undefined,
-      city: row.city?.trim() || undefined,
-      latitude: latitude || undefined,
-      longitude: longitude || undefined,
-      tags,
-      category,
-      priceMin: priceMin || undefined,
-      priceMax: priceMax || undefined,
-      currency,
-      isFree,
-      ageRestriction: row.age_restriction?.trim() || undefined,
-      language: row.language?.trim() || undefined,
-      ticketUrl: row.ticket_url?.trim() || undefined,
-      imageUrl: sanitizeImageUrl(row.image_url?.trim()),
-      sourceName: row.source_name?.trim() || undefined,
-      sourceUrl: row.source_url?.trim() || undefined,
-      sourceEventId: row.source_event_id?.trim() || undefined,
-      confidenceScore: confidenceScore || undefined,
-      timezone,
-      opensAt,
-      recurrenceRule: row.recurrence_rule?.trim() || undefined,
-      lastSeenAt: row.last_seen_at?.trim() || undefined,
-      createdAt: row.created_at?.trim() || undefined,
-      updatedAt: row.updated_at?.trim() || undefined,
-      dedupeKey: row.dedupe_key?.trim() || undefined,
-    },
-  }
-}
-
-/**
- * Normalize tags from string or array to string[]
- */
-function normalizeTags(tags?: string | string[]): string[] {
-  if (!tags) return []
-
-  if (Array.isArray(tags)) {
-    return tags
-      .map((tag) => String(tag).trim().toLowerCase())
-      .filter((tag) => tag.length > 0)
-  }
-
-  // Comma-separated string
-  return tags
-    .split(',')
-    .map((tag) => tag.trim().toLowerCase())
-    .filter((tag) => tag.length > 0)
-}
-
-/**
- * Normalize boolean from string or boolean
- */
-function normalizeBoolean(value?: string | boolean, defaultValue: boolean = false): boolean {
-  if (value === undefined || value === null) return defaultValue
-  if (typeof value === 'boolean') return value
-  const str = String(value).trim().toLowerCase()
-  return str === 'true' || str === '1' || str === 'yes'
-}
-
-/**
- * Normalize number from string or number
- */
-function normalizeNumber(value?: string | number): number | null {
-  if (value === undefined || value === null || value === '') return null
-  if (typeof value === 'number') {
-    return isNaN(value) ? null : value
-  }
-  const parsed = parseFloat(String(value).trim())
-  return isNaN(parsed) ? null : parsed
-}
-
-/**
- * Deduplicate events using priority rules
- */
-function deduplicateEvents(events: NormalizedEvent[]): NormalizedEvent[] {
-  const dedupeMap = new Map<string, NormalizedEvent>()
-  const eventIdMap = new Map<string, NormalizedEvent>()
-  const fallbackMap = new Map<string, NormalizedEvent>()
-
-  for (const event of events) {
-    // Priority 1: dedupe_key from raw data
-    const dedupeKey = event.extendedProps.dedupeKey
-    
-    if (dedupeKey) {
-      const existing = dedupeMap.get(dedupeKey)
-      if (!existing || shouldKeepNewer(event, existing)) {
-        dedupeMap.set(dedupeKey, event)
-      }
-      continue
-    }
-
-    // Priority 2: event_id
-    const existingById = eventIdMap.get(event.id)
-    if (!existingById || shouldKeepNewer(event, existingById)) {
-      eventIdMap.set(event.id, event)
-    }
-
-    // Priority 3: title + start + venue key (fallback) - same event at same location
-    const venueKey = event.extendedProps.venueKey || event.extendedProps.venueName?.toLowerCase().trim() || ''
-    const fallbackKey = `${event.title}|${event.start}|${venueKey}`
-    const existingFallback = fallbackMap.get(fallbackKey)
-    if (!existingFallback || shouldKeepNewer(event, existingFallback)) {
-      fallbackMap.set(fallbackKey, event)
-    }
-  }
-
-  // Merge results, prioritizing dedupe_key > event_id > fallback
-  const result = new Map<string, NormalizedEvent>()
-
-  // Add dedupe_key events
-  for (const event of dedupeMap.values()) {
-    result.set(event.id, event)
-  }
-
-  // Add event_id events (if not already added)
-  for (const event of eventIdMap.values()) {
-    if (!result.has(event.id)) {
-      result.set(event.id, event)
-    }
-  }
-
-  // Add fallback events (if not already added)
-  for (const event of fallbackMap.values()) {
-    if (!result.has(event.id)) {
-      result.set(event.id, event)
-    }
-  }
-
-  return Array.from(result.values())
-}
-
-/**
  * Cap events per venue so one location doesn't dominate (keeps soonest by start date)
  */
 function capEventsPerVenue(events: NormalizedEvent[], maxPerVenue: number): NormalizedEvent[] {
@@ -513,23 +272,6 @@ function capEventsPerVenue(events: NormalizedEvent[], maxPerVenue: number): Norm
 }
 
 /**
- * Determine if new event should replace existing based on updated_at
- */
-function shouldKeepNewer(newEvent: NormalizedEvent, existing: NormalizedEvent): boolean {
-  const newUpdated = newEvent.extendedProps.updatedAt
-  const existingUpdated = existing.extendedProps.updatedAt
-
-  if (!newUpdated) return false
-  if (!existingUpdated) return true
-
-  try {
-    return new Date(newUpdated) > new Date(existingUpdated)
-  } catch {
-    return false
-  }
-}
-
-/**
  * Filter events by search query, tags, category, and other filters
  */
 export function filterEvents(
@@ -543,6 +285,8 @@ export function filterEvents(
     freeOnly?: boolean
     language?: string
     ageRestriction?: string
+    /** Optional: filter to events in this collection (event IDs from collection_items) */
+    collectionEventIds?: Set<string>
   }
 ): NormalizedEvent[] {
   let filtered = events
@@ -556,7 +300,12 @@ export function filterEvents(
     freeOnly = false,
     language,
     ageRestriction,
+    collectionEventIds,
   } = options
+
+  if (collectionEventIds && collectionEventIds.size > 0) {
+    filtered = filtered.filter((e) => collectionEventIds.has(e.id))
+  }
 
   // Text search (title, venue, tags, category)
   if (searchQuery.trim()) {
@@ -583,9 +332,10 @@ export function filterEvents(
   }
 
   // Venue/location filtering (OR logic - event must be at ANY of the selected venues)
+  // Matches venueKey (canonical or venue_id) or venueId
   if (selectedVenues.length > 0) {
     filtered = filtered.filter((event) => {
-      const eventVenueKey = event.extendedProps.venueKey || toCanonicalVenueKey(event.extendedProps.venueName, event.extendedProps.venueAddress)
+      const eventVenueKey = event.extendedProps.venueKey || event.extendedProps.venueId || toCanonicalVenueKey(event.extendedProps.venueName, event.extendedProps.venueAddress)
       return eventVenueKey && selectedVenues.includes(eventVenueKey)
     })
   }
