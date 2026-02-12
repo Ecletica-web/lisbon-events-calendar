@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession, signOut } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { FEATURE_FLAGS } from '@/lib/featureFlags'
 
 interface Follow {
   id: string
@@ -19,15 +21,35 @@ interface NotificationSettings {
   timezone: string
 }
 
+interface SavedViewSummary {
+  id: string
+  name: string
+  share_slug?: string
+  is_public?: boolean
+}
+
+interface PersonaSummary {
+  id: string
+  title: string
+  share_slug?: string
+  is_public?: boolean
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const { data: session, status } = useSession()
   const [follows, setFollows] = useState<Follow[]>([])
   const [settings, setSettings] = useState<NotificationSettings | null>(null)
+  const [savedViews, setSavedViews] = useState<SavedViewSummary[]>([])
+  const [personas, setPersonas] = useState<PersonaSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [showImportPrompt, setShowImportPrompt] = useState(false)
 
   useEffect(() => {
+    if (!FEATURE_FLAGS.PROFILE_AUTH) {
+      router.replace('/')
+      return
+    }
     if (status === 'loading') return
     
     if (status === 'unauthenticated' || !session?.user) {
@@ -37,6 +59,8 @@ export default function ProfilePage() {
 
     loadFollows()
     loadSettings()
+    loadSavedViews()
+    if (FEATURE_FLAGS.PERSONAS) loadPersonas()
     checkForLocalViews()
   }, [session, status, router])
 
@@ -82,6 +106,40 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.error('Error loading settings:', error)
+    }
+  }
+
+  const loadSavedViews = async () => {
+    try {
+      const res = await fetch('/api/saved-views')
+      if (res.ok) {
+        const { views } = await res.json()
+        setSavedViews(views.map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          share_slug: v.share_slug,
+          is_public: v.is_public,
+        })))
+      }
+    } catch (e) {
+      console.error('Error loading saved views:', e)
+    }
+  }
+
+  const loadPersonas = async () => {
+    try {
+      const res = await fetch('/api/personas')
+      if (res.ok) {
+        const { personas: p } = await res.json()
+        setPersonas(p.map((x: any) => ({
+          id: x.id,
+          title: x.title,
+          share_slug: x.share_slug,
+          is_public: x.is_public,
+        })))
+      }
+    } catch (e) {
+      console.error('Error loading personas:', e)
     }
   }
 
@@ -191,6 +249,66 @@ export default function ProfilePage() {
                 Dismiss
               </button>
             </div>
+          </div>
+        )}
+
+        {/* My Saved Views */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4">My Saved Views</h2>
+          {savedViews.length === 0 ? (
+            <p className="text-gray-500">No saved views yet. Save views from the calendar.</p>
+          ) : (
+            <div className="space-y-2">
+              {savedViews.map((v) => (
+                <div
+                  key={v.id}
+                  className="flex items-center justify-between p-3 border border-gray-200 rounded"
+                >
+                  <Link href="/calendar" className="font-medium hover:underline">
+                    {v.name}
+                  </Link>
+                  {v.is_public && v.share_slug && (
+                    <Link
+                      href={`/v/${v.share_slug}`}
+                      className="text-xs text-indigo-600 hover:underline"
+                    >
+                      Share link
+                    </Link>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* My Personas */}
+        {FEATURE_FLAGS.PERSONAS && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-semibold mb-4">My Personas</h2>
+            {personas.length === 0 ? (
+              <p className="text-gray-500">No personas yet. Create personas from the calendar.</p>
+            ) : (
+              <div className="space-y-2">
+                {personas.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between p-3 border border-gray-200 rounded"
+                  >
+                    <Link href={`/p/${p.share_slug || p.id}`} className="font-medium hover:underline">
+                      {p.title}
+                    </Link>
+                    {p.is_public && p.share_slug && (
+                      <Link
+                        href={`/p/${p.share_slug}`}
+                        className="text-xs text-indigo-600 hover:underline"
+                      >
+                        Share link
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

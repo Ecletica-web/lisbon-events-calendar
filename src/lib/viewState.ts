@@ -150,6 +150,33 @@ export function mergeViewState(partial: Partial<ViewState>): ViewState {
 }
 
 /**
+ * Persona rules (from PersonaRow.rules_json)
+ */
+export interface PersonaRulesInput {
+  includeTags?: string[]
+  excludeTags?: string[]
+  includeCategories?: string[]
+  excludeCategories?: string[]
+  includeVenues?: string[]
+  freeOnly?: boolean
+}
+
+/**
+ * Convert persona rules to partial ViewState (for applying persona to calendar)
+ * MVP: maps include* and freeOnly; exclude* requires filter-layer support (future)
+ */
+export function personaRulesToViewState(rules: PersonaRulesInput): Partial<ViewState> {
+  const state: Partial<ViewState> = {}
+  if (rules.includeTags?.length) state.selectedTags = rules.includeTags
+  if (rules.includeCategories?.length) state.selectedCategories = rules.includeCategories
+  if (rules.includeVenues?.length) state.selectedVenues = rules.includeVenues
+  if (rules.freeOnly === true) {
+    state.toggles = { ...DEFAULT_VIEW_STATE.toggles, freeOnly: true }
+  }
+  return state
+}
+
+/**
  * Check if view state is different from default
  */
 export function isViewStateDefault(state: ViewState): boolean {

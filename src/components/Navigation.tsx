@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
+import { FEATURE_FLAGS } from '@/lib/featureFlags'
 
 export default function Navigation() {
   const { data: session, status } = useSession()
@@ -163,7 +164,7 @@ export default function Navigation() {
           {/* Navigation Links - Desktop */}
           <div className="hidden md:flex items-center gap-1 md:gap-2">
             {navLinks}
-            {status === 'loading' ? (
+            {FEATURE_FLAGS.PROFILE_AUTH && (status === 'loading' ? (
               <div className="text-sm text-slate-400">Loading...</div>
             ) : user ? (
               <>
@@ -239,12 +240,12 @@ export default function Navigation() {
                   Sign Up
                 </Link>
               </>
-            )}
+            ))}
           </div>
 
           {/* Mobile hamburger */}
           <div className="flex md:hidden items-center gap-2">
-            {status !== 'loading' && !user && (
+            {FEATURE_FLAGS.PROFILE_AUTH && status !== 'loading' && !user && (
               <>
                 <Link
                   href="/login"
@@ -285,7 +286,7 @@ export default function Navigation() {
           <div className="md:hidden border-t border-slate-700/50 bg-slate-900/95 backdrop-blur-xl">
             <div className="py-3 px-4 space-y-1">
               {navLinks}
-              {status === 'loading' ? (
+              {FEATURE_FLAGS.PROFILE_AUTH && (status === 'loading' ? (
                 <div className="px-4 py-2 text-sm text-slate-400">Loading...</div>
               ) : user ? (
                 <>
@@ -306,7 +307,24 @@ export default function Navigation() {
                     Logout
                   </button>
                 </>
-              ) : null}
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="block text-slate-300 hover:text-white px-4 py-3 rounded-lg hover:bg-slate-800/80"
+                    onClick={() => setShowMobileNav(false)}
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    href="/signup"
+                    className="block text-slate-300 hover:text-white px-4 py-3 rounded-lg hover:bg-slate-800/80"
+                    onClick={() => setShowMobileNav(false)}
+                  >
+                    Sign Up
+                  </Link>
+                </>
+              ))}
             </div>
           </div>
         )}

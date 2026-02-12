@@ -38,14 +38,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     
-    const { name, state } = await request.json()
+    const { name, state, isPublic } = await request.json()
     
     if (!name || !state) {
       return NextResponse.json({ error: 'Name and state are required' }, { status: 400 })
     }
     
     const stateJson = JSON.stringify(state as ViewState)
-    const view = createSavedView(userId, name, stateJson)
+    const view = createSavedView(userId, name, stateJson, !!isPublic)
     
     return NextResponse.json({ view })
   } catch (error) {
@@ -64,7 +64,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     
-    const { id, name, state, isDefault } = await request.json()
+    const { id, name, state, isDefault, isPublic } = await request.json()
     
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
@@ -73,6 +73,7 @@ export async function PATCH(request: NextRequest) {
     const updates: any = {}
     if (name !== undefined) updates.name = name
     if (state !== undefined) updates.state_json = JSON.stringify(state)
+    if (isPublic !== undefined) updates.is_public = !!isPublic
     if (isDefault !== undefined) {
       updates.is_default = isDefault
       if (isDefault) {

@@ -35,15 +35,23 @@ export default function VenueDetailPage() {
 
   const venue = venues.find((v) => v.slug === slug || v.venue_id === slug)
   const now = Date.now()
+  const venueMatchKeys = new Set<string>([slug, venue?.venue_id, venue?.slug].filter(Boolean) as string[])
   const upcomingEvents = events
     .filter((e) => {
-      const key =
-        e.extendedProps.venueId ||
-        e.extendedProps.venueKey ||
-        e.extendedProps.venueName?.toLowerCase().trim().replace(/\s+/g, '-') ||
-        ''
-      const matches = key === slug || e.extendedProps.venueKey === slug || e.extendedProps.venueId === slug
-      return matches && new Date(e.start).getTime() >= now
+      const eventVenueId = e.extendedProps.venueId
+      const eventVenueKey = e.extendedProps.venueKey
+      const eventKeyFromName = (e.extendedProps.venueName || '')
+        .toLowerCase()
+        .trim()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '') || ''
+      const matches =
+        (eventVenueId && venueMatchKeys.has(eventVenueId)) ||
+        (eventVenueKey && venueMatchKeys.has(eventVenueKey)) ||
+        (eventKeyFromName && venueMatchKeys.has(eventKeyFromName))
+      return !!matches && new Date(e.start).getTime() >= now
     })
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 

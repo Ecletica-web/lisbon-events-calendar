@@ -10,6 +10,33 @@ export interface SavedViewRow {
   name: string
   state_json: string // JSON string of ViewState
   is_default: boolean
+  is_public: boolean
+  share_slug: string // stable slug for /v/[slug], unique
+  created_at: string
+  updated_at: string
+}
+
+/** Persona rules applied as filter presets */
+export interface PersonaRules {
+  includeTags?: string[]
+  excludeTags?: string[]
+  includeCategories?: string[]
+  excludeCategories?: string[]
+  includeVenues?: string[]
+  freeOnly?: boolean
+  language?: string
+  timeWindow?: { start?: string; end?: string }
+}
+
+export interface PersonaRow {
+  id: string
+  owner_user_id: string
+  title: string
+  slug: string
+  description_short?: string
+  rules_json: string
+  is_public: boolean
+  share_slug: string
   created_at: string
   updated_at: string
 }

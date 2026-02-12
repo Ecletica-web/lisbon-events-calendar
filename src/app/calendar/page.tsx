@@ -15,6 +15,7 @@ import {
   toCanonicalTagKey,
   type NormalizedEvent,
   type VenueOption,
+  type VenueForDisplay,
 } from '@/lib/eventsAdapter'
 import { getCategoryColor, generateColorFromString } from '@/lib/categoryColors'
 import { generateColorShade } from '@/lib/colorShades'
@@ -25,6 +26,8 @@ import {
   serializeViewStateToURL,
   deserializeViewStateFromURL,
   mergeViewState,
+  personaRulesToViewState,
+  type PersonaRulesInput,
 } from '@/lib/viewState'
 import {
   getSavedViews,
@@ -37,14 +40,112 @@ import {
 } from '@/lib/savedViews'
 import { useSession } from 'next-auth/react'
 import { loadSavedViewsFromDB, saveViewToDB } from '@/lib/savedViewsSync'
+import { FEATURE_FLAGS } from '@/lib/featureFlags'
 import EventCardsSlider from '@/components/EventCardsSlider'
 import MobileDaySliders from '@/components/MobileDaySliders'
+import NearMeSlider from '@/components/NearMeSlider'
 import EventModal from './components/EventModal'
 import EventListView from './components/EventListView'
+
+function ListToolbar({
+  calendarView,
+  dateFocus,
+  onDateChange,
+  showListView,
+  onShowListViewChange,
+}: {
+  calendarView: ViewState['viewMode']
+  dateFocus: string
+  onDateChange: (d: string) => void
+  showListView: boolean
+  onShowListViewChange: (v: boolean) => void
+}) {
+  const getPeriodTitle = () => {
+    const focusDate = new Date(dateFocus)
+    if (calendarView === 'dayGridMonth') {
+      return focusDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+    }
+    if (calendarView === 'timeGridWeek') {
+      const start = new Date(focusDate)
+      const dayOfWeek = start.getDay()
+      const diff = start.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
+      start.setDate(diff)
+      const end = new Date(start)
+      end.setDate(end.getDate() + 6)
+      return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    }
+    return focusDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  }
+  const goPrev = () => {
+    const d = new Date(dateFocus)
+    if (calendarView === 'dayGridMonth') d.setMonth(d.getMonth() - 1)
+    else if (calendarView === 'timeGridWeek') d.setDate(d.getDate() - 7)
+    else d.setDate(d.getDate() - 1)
+    onDateChange(d.toISOString().split('T')[0])
+  }
+  const goNext = () => {
+    const d = new Date(dateFocus)
+    if (calendarView === 'dayGridMonth') d.setMonth(d.getMonth() + 1)
+    else if (calendarView === 'timeGridWeek') d.setDate(d.getDate() + 7)
+    else d.setDate(d.getDate() + 1)
+    onDateChange(d.toISOString().split('T')[0])
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-800/60 rounded-xl border border-slate-700/50 px-4 py-3 mb-4">
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-0 bg-slate-800/80 rounded-lg p-1 border border-slate-700/50">
+          <button
+            onClick={() => onShowListViewChange(false)}
+            className="px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white transition-all"
+          >
+            Calendar
+          </button>
+          <button
+            onClick={() => onShowListViewChange(true)}
+            className="px-3 py-1.5 rounded-md text-xs font-medium bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg"
+          >
+            List
+          </button>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={goPrev}
+            className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition-colors"
+            aria-label="Previous period"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button
+            onClick={goNext}
+            className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition-colors"
+            aria-label="Next period"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          <span className="text-sm font-semibold text-slate-200 min-w-[140px] text-center">
+            {getPeriodTitle()}
+          </span>
+        </div>
+      </div>
+      <button
+        onClick={() => onDateChange(new Date().toISOString().split('T')[0])}
+        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700/60 text-slate-300 hover:bg-slate-600/60 hover:text-white transition-colors"
+      >
+        Today
+      </button>
+    </div>
+  )
+}
 
 function CalendarPageContent() {
   const [events, setEvents] = useState<NormalizedEvent[]>([])
   const [venues, setVenues] = useState<VenueOption[]>([])
+  const [venuesWithCoords, setVenuesWithCoords] = useState<VenueForDisplay[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [tagSearchQuery, setTagSearchQuery] = useState('')
@@ -64,6 +165,9 @@ function CalendarPageContent() {
   const [showSavedViewsMenu, setShowSavedViewsMenu] = useState(false)
   const [editingViewId, setEditingViewId] = useState<string | null>(null)
   const [editingViewName, setEditingViewName] = useState('')
+  const [sharedContext, setSharedContext] = useState<{ slug: string; by?: string; name?: string; type: 'view' | 'persona' } | null>(null)
+  const [personas, setPersonas] = useState<{ id: string; title: string; rules_json: string }[]>([])
+  const [activePersonaId, setActivePersonaId] = useState<string | null>(null)
   // Initialize sidebar as minimized on mobile, open on desktop
   const [sidebarMinimized, setSidebarMinimized] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -104,6 +208,7 @@ function CalendarPageContent() {
           console.warn('No events found. Check CSV URL and data structure.')
         }
         setEvents(fetchedEvents)
+        setVenuesWithCoords(fetchedVenues)
         // Use CSV venues for filter when available; map to VenueOption { key, name }
         const venueOptions: VenueOption[] = fetchedVenues.length > 0
           ? fetchedVenues
@@ -121,6 +226,28 @@ function CalendarPageContent() {
     }
     load()
   }, [])
+
+  // Hydrate shared context from URL
+  useEffect(() => {
+    const slug = searchParams.get('sharedSlug')
+    const by = searchParams.get('sharedBy') || undefined
+    const name = searchParams.get('sharedName') || undefined
+    const type = searchParams.get('sharedType')
+    if (slug && (type === 'view' || type === 'persona')) {
+      setSharedContext({ slug, by, name, type: type as 'view' | 'persona' })
+    } else {
+      setSharedContext(null)
+    }
+  }, [searchParams])
+
+  // Load personas when PERSONAS flag is on
+  useEffect(() => {
+    if (!FEATURE_FLAGS.PERSONAS || !session?.user) return
+    fetch('/api/personas')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => data?.personas && setPersonas(data.personas))
+      .catch(() => {})
+  }, [session?.user])
 
   // Hydrate from URL on mount and load saved views
   useEffect(() => {
@@ -184,7 +311,7 @@ function CalendarPageContent() {
     setSavedViews(getSavedViews())
   }
 
-  // Sync to URL (debounced)
+  // Sync to URL (debounced), preserving shared context params
   useEffect(() => {
     const currentState: ViewState = {
       viewMode: calendarView,
@@ -206,10 +333,20 @@ function CalendarPageContent() {
     // Clear existing params
     url.search = ''
     
-    // Add new params
+    // Add view state params
     Object.entries(params).forEach(([key, value]) => {
       url.searchParams.set(key, value)
     })
+    
+    // Preserve shared context params
+    const sharedSlug = searchParams.get('sharedSlug')
+    const sharedBy = searchParams.get('sharedBy')
+    const sharedType = searchParams.get('sharedType')
+    const sharedName = searchParams.get('sharedName')
+    if (sharedSlug) url.searchParams.set('sharedSlug', sharedSlug)
+    if (sharedBy) url.searchParams.set('sharedBy', sharedBy)
+    if (sharedType) url.searchParams.set('sharedType', sharedType)
+    if (sharedName) url.searchParams.set('sharedName', sharedName)
     
     // Update URL without page reload (debounced)
     const timeoutId = setTimeout(() => {
@@ -217,7 +354,7 @@ function CalendarPageContent() {
     }, 500)
     
     return () => clearTimeout(timeoutId)
-  }, [calendarView, dateFocus, searchQuery, selectedCategories, selectedTags, selectedVenues, freeOnly, excludeExhibitions, excludeContinuous, router])
+  }, [calendarView, dateFocus, searchQuery, selectedCategories, selectedTags, selectedVenues, freeOnly, excludeExhibitions, excludeContinuous, router, searchParams])
 
   // Memoize all tags, categories, and venues (strictly CSV venues only, no canonical fallback)
   const allTags = useMemo(() => getAllTags(events), [events])
@@ -552,6 +689,60 @@ function CalendarPageContent() {
     setEditingViewName(view.name)
   }
 
+  const handleApplyPersona = (persona: { id: string; title: string; rules_json: string }) => {
+    const rules: PersonaRulesInput = typeof persona.rules_json === 'string'
+      ? JSON.parse(persona.rules_json) : persona.rules_json
+    const partial = personaRulesToViewState(rules)
+    const merged = mergeViewState(partial)
+    setSelectedTags(merged.selectedTags)
+    setSelectedCategories(merged.selectedCategories)
+    setSelectedVenues(merged.selectedVenues)
+    setFreeOnly(merged.toggles.freeOnly)
+    setActivePersonaId(persona.id)
+  }
+
+  const handleClearPersona = () => {
+    setActivePersonaId(null)
+  }
+
+  const handleDismissSharedBanner = () => {
+    setSharedContext(null)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('sharedSlug')
+    url.searchParams.delete('sharedBy')
+    url.searchParams.delete('sharedType')
+    url.searchParams.delete('sharedName')
+    router.replace(url.pathname + url.search, { scroll: false })
+  }
+
+  const handleCreatePersona = async () => {
+    const title = prompt('Enter a name for this persona:')
+    if (!title || !title.trim()) return
+    const rules: PersonaRulesInput = {
+      includeTags: selectedTags.length ? selectedTags : undefined,
+      includeCategories: selectedCategories.length ? selectedCategories : undefined,
+      includeVenues: selectedVenues.length ? selectedVenues : undefined,
+      freeOnly: freeOnly || undefined,
+    }
+    try {
+      const res = await fetch('/api/personas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title.trim(), rules }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to create persona')
+      }
+      const { persona } = await res.json()
+      setPersonas((prev) => [...prev, { id: persona.id, title: persona.title, rules_json: persona.rules_json }])
+      setActivePersonaId(persona.id)
+    } catch (e) {
+      console.error('Create persona error:', e)
+      alert(e instanceof Error ? e.message : 'Failed to create persona')
+    }
+  }
+
   const handleSaveRename = () => {
     if (!editingViewId || !editingViewName.trim()) {
       setEditingViewId(null)
@@ -584,6 +775,33 @@ function CalendarPageContent() {
 
   return (
     <div className="min-h-screen bg-slate-900/95 backdrop-blur-sm">
+
+      {/* Shared view/persona banner */}
+      {FEATURE_FLAGS.SHARED_VIEWS && sharedContext && (
+        <div className="bg-indigo-900/40 border-b border-indigo-700/50 px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+          <span className="text-sm text-slate-200">
+            {sharedContext.type === 'view' ? 'View' : 'Persona'}{' '}
+            {sharedContext.name && `"${sharedContext.name}"`}
+            {sharedContext.by && ` by @${sharedContext.by}`}
+          </span>
+          <div className="flex items-center gap-2">
+            {session?.user && (
+              <button
+                onClick={handleSaveView}
+                className="px-3 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
+              >
+                Save a copy
+              </button>
+            )}
+            <button
+              onClick={handleDismissSharedBanner}
+              className="px-3 py-1.5 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-slate-700/50 transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col md:flex-row">
         {/* Left Sidebar */}
@@ -909,6 +1127,49 @@ function CalendarPageContent() {
             )}
           </div>
 
+          {/* Personas */}
+          {FEATURE_FLAGS.PERSONAS && session?.user && (
+            <div className="mb-4 border-t border-slate-700/50 pt-4">
+              <div className="text-xs md:text-sm font-semibold text-slate-200 mb-2">Personas</div>
+              <button
+                onClick={handleCreatePersona}
+                className="w-full mb-2 px-3 py-2 text-xs border border-slate-600/50 rounded-lg hover:bg-slate-700/80 font-medium text-slate-300 transition-colors"
+              >
+                Create persona from current filters
+              </button>
+              {personas.length > 0 && (
+                <>
+                  <select
+                    value={activePersonaId || ''}
+                    onChange={(e) => {
+                      const id = e.target.value
+                      if (!id) {
+                        handleClearPersona()
+                        return
+                      }
+                      const p = personas.find((x) => x.id === id)
+                      if (p) handleApplyPersona(p)
+                    }}
+                    className="w-full border border-slate-600/50 rounded-lg px-3 py-2 text-sm bg-slate-900/80 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  >
+                    <option value="">Apply persona...</option>
+                    {personas.map((p) => (
+                      <option key={p.id} value={p.id}>{p.title}</option>
+                    ))}
+                  </select>
+                  {activePersonaId && (
+                    <button
+                      onClick={handleClearPersona}
+                      className="mt-1 text-xs text-indigo-400 hover:text-indigo-300"
+                    >
+                      Clear persona
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {/* Saved Views */}
           <div className="mb-4 border-t border-slate-700/50 pt-4">
             <div className="flex items-center justify-between mb-2 md:mb-3">
@@ -1084,17 +1345,22 @@ function CalendarPageContent() {
                 />
               </div>
             ) : (
-              <MobileDaySliders
-                events={events}
-                onEventClick={setSelectedEvent}
-                selectedCategories={selectedCategories}
-                selectedTags={selectedTags}
-                freeOnly={freeOnly}
-                excludeExhibitions={excludeExhibitions}
-                excludeContinuous={excludeContinuous}
-                onCategoriesChange={setSelectedCategories}
-                onTagsChange={setSelectedTags}
-              />
+              <>
+                <MobileDaySliders
+                  events={events}
+                  onEventClick={setSelectedEvent}
+                  selectedCategories={selectedCategories}
+                  selectedTags={selectedTags}
+                  freeOnly={freeOnly}
+                  excludeExhibitions={excludeExhibitions}
+                  excludeContinuous={excludeContinuous}
+                  onCategoriesChange={setSelectedCategories}
+                  onTagsChange={setSelectedTags}
+                />
+                {!loading && filteredEvents.length > 0 && (
+                  <NearMeSlider events={filteredEvents} venuesWithCoords={venuesWithCoords} onEventClick={setSelectedEvent} />
+                )}
+              </>
             )}
           </div>
 
@@ -1102,21 +1368,24 @@ function CalendarPageContent() {
           <div className="hidden md:block">
               {/* Desktop: Event Cards Slider - Above Calendar (only show when not in list view) */}
               {!showListView && !loading && filteredEvents.length > 0 && (
-                <div className="w-full mb-6">
-                  <EventCardsSlider
-                    events={events}
-                    onEventClick={setSelectedEvent}
-                    selectedCategories={selectedCategories}
-                    selectedTags={selectedTags}
-                    freeOnly={freeOnly}
-                    excludeExhibitions={excludeExhibitions}
-                    excludeContinuous={excludeContinuous}
-                    onCategoriesChange={setSelectedCategories}
-                    onTagsChange={setSelectedTags}
-                    mode="slider"
-                    dateFocus={dateFocus}
-                  />
-                </div>
+                <>
+                  <div className="w-full mb-6">
+                    <EventCardsSlider
+                      events={events}
+                      onEventClick={setSelectedEvent}
+                      selectedCategories={selectedCategories}
+                      selectedTags={selectedTags}
+                      freeOnly={freeOnly}
+                      excludeExhibitions={excludeExhibitions}
+                      excludeContinuous={excludeContinuous}
+                      onCategoriesChange={setSelectedCategories}
+                      onTagsChange={setSelectedTags}
+                      mode="slider"
+                      dateFocus={dateFocus}
+                    />
+                  </div>
+                  <NearMeSlider events={filteredEvents} venuesWithCoords={venuesWithCoords} onEventClick={setSelectedEvent} />
+                </>
               )}
 
               {loading ? (
@@ -1139,39 +1408,41 @@ function CalendarPageContent() {
                 </div>
               ) : (
                 <div className="relative">
-                  {/* Calendar/List Toggle - Desktop only, positioned just left of month/week/day buttons */}
-                  <div className="fixed top-2 right-[200px] z-50 hidden md:block">
-                    <div className="flex items-center gap-2 bg-slate-800/80 rounded-lg p-1 border border-slate-700/50">
-                      <button
-                        onClick={() => setShowListView(false)}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                          !showListView
-                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                            : 'text-slate-300 hover:text-white'
-                        }`}
-                      >
-                        Calendar
-                      </button>
-                      <button
-                        onClick={() => setShowListView(true)}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                          showListView
-                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                            : 'text-slate-300 hover:text-white'
-                        }`}
-                      >
-                        List
-                      </button>
+                  {/* Calendar/List Toggle - Desktop: fixed when calendar view, inline with date nav when list view */}
+                  {!showListView && (
+                    <div className="fixed top-2 right-[200px] z-50 hidden md:block">
+                      <div className="flex items-center gap-2 bg-slate-800/80 rounded-lg p-1 border border-slate-700/50">
+                        <button
+                          onClick={() => setShowListView(false)}
+                          className="px-3 py-1.5 rounded-md text-xs font-medium bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg"
+                        >
+                          Calendar
+                        </button>
+                        <button
+                          onClick={() => setShowListView(true)}
+                          className="px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white transition-all"
+                        >
+                          List
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                   {showListView ? (
-                    <div className="pt-12">
+                    <div className="mb-4">
+                      <ListToolbar
+                        calendarView={calendarView}
+                        dateFocus={dateFocus}
+                        onDateChange={setDateFocus}
+                        showListView={showListView}
+                        onShowListViewChange={setShowListView}
+                      />
                       <EventListView
                         events={filteredEvents}
                         calendarView={calendarView}
                         dateFocus={dateFocus}
                         onDateChange={setDateFocus}
                         onEventClick={handleEventClick}
+                        hideDateNav
                       />
                     </div>
                   ) : (

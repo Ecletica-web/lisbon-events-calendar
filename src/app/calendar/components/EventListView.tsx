@@ -10,6 +10,8 @@ interface EventListViewProps {
   dateFocus: string
   onEventClick: (info: { event: { id: string } }) => void
   onDateChange?: (newDateFocus: string) => void
+  /** When true, parent renders the date nav (e.g. in combined toolbar); this component only renders events */
+  hideDateNav?: boolean
 }
 
 export default function EventListView({
@@ -18,6 +20,7 @@ export default function EventListView({
   dateFocus,
   onEventClick,
   onDateChange,
+  hideDateNav = false,
 }: EventListViewProps) {
   const getDateRange = () => {
     const focusDate = new Date(dateFocus)
@@ -143,7 +146,7 @@ export default function EventListView({
   if (filteredEvents.length === 0) {
     return (
       <div className="space-y-6">
-        {onDateChange && (
+        {onDateChange && !hideDateNav && (
           <div className="flex items-center justify-between gap-4 flex-wrap bg-slate-800/60 rounded-xl border border-slate-700/50 px-4 py-3">
             <div className="flex items-center gap-2">
               <button
@@ -185,7 +188,7 @@ export default function EventListView({
 
   return (
     <div className="space-y-6">
-      {onDateChange && (
+      {onDateChange && !hideDateNav && (
         <div className="flex items-center justify-between gap-4 flex-wrap bg-slate-800/60 rounded-xl border border-slate-700/50 px-4 py-3">
           <div className="flex items-center gap-2">
             <button

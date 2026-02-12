@@ -447,6 +447,8 @@ export interface VenueForDisplay {
   website_url?: string
   instagram_handle?: string
   tags: string[]
+  latitude?: number
+  longitude?: number
 }
 
 /**
@@ -481,6 +483,8 @@ export async function fetchVenues(): Promise<VenueForDisplay[]> {
       website_url: v.website_url,
       instagram_handle: v.instagram_handle,
       tags: v.tags,
+      latitude: v.latitude,
+      longitude: v.longitude,
     }))
   }
   // Fallback when CSV empty/fails (e.g. env not set on Vercel, parse error)

@@ -1,12 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
+import { FEATURE_FLAGS } from '@/lib/featureFlags'
 
 export default function SignupPage() {
   const router = useRouter()
+
+  useEffect(() => {
+    if (!FEATURE_FLAGS.PROFILE_AUTH) router.replace('/')
+  }, [router])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')

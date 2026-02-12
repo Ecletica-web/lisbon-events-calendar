@@ -5,7 +5,7 @@
 
 import fs from 'fs'
 import path from 'path'
-import { SavedViewRow, FollowRow, NotificationSettingsRow, UserRow } from './schema'
+import { SavedViewRow, FollowRow, NotificationSettingsRow, UserRow, PersonaRow } from './schema'
 
 const DB_DIR = path.join(process.cwd(), 'data')
 const DB_FILES = {
@@ -13,6 +13,32 @@ const DB_FILES = {
   savedViews: path.join(DB_DIR, 'saved_views.json'),
   follows: path.join(DB_DIR, 'follows.json'),
   notificationSettings: path.join(DB_DIR, 'notification_settings.json'),
+  personas: path.join(DB_DIR, 'personas.json'),
+}
+
+function generateShareSlug(): string {
+  return `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+}
+
+// Migrate saved_views: add is_public, share_slug if missing
+function migrateSavedViews(): void {
+  try {
+    const views = readFile<SavedViewRow & { is_public?: boolean; share_slug?: string }>(DB_FILES.savedViews)
+    let changed = false
+    for (const v of views) {
+      if ((v as any).is_public === undefined) {
+        ;(v as any).is_public = false
+        changed = true
+      }
+      if (!(v as any).share_slug) {
+        ;(v as any).share_slug = generateShareSlug()
+        changed = true
+      }
+    }
+    if (changed) writeFile(DB_FILES.savedViews, views as SavedViewRow[])
+  } catch {
+    // Ignore migration errors
+  }
 }
 
 // Ensure data directory exists
@@ -28,16 +54,14 @@ if (typeof window === 'undefined') {
         if (!fs.existsSync(file)) {
           fs.writeFileSync(file, JSON.stringify([], null, 2), 'utf-8')
         } else {
-          // Verify file is valid JSON, if not, reset it
           try {
             const content = fs.readFileSync(file, 'utf-8')
             if (content.trim() === '') {
               fs.writeFileSync(file, JSON.stringify([], null, 2), 'utf-8')
             } else {
-              JSON.parse(content) // Validate JSON
+              JSON.parse(content)
             }
           } catch {
-            // File is corrupted, reset it
             fs.writeFileSync(file, JSON.stringify([], null, 2), 'utf-8')
           }
         }
@@ -45,6 +69,7 @@ if (typeof window === 'undefined') {
         console.error(`Error initializing database file ${file}:`, fileError)
       }
     })
+    migrateSavedViews()
   } catch (error) {
     console.error('Error initializing database:', error)
   }
@@ -132,7 +157,8 @@ export function getSavedViewById(id: string, userId: string): SavedViewRow | nul
 export function createSavedView(
   userId: string,
   name: string,
-  stateJson: string
+  stateJson: string,
+  isPublic = false
 ): SavedViewRow {
   const views = readFile<SavedViewRow>(DB_FILES.savedViews)
   const newView: SavedViewRow = {
@@ -141,6 +167,8 @@ export function createSavedView(
     name,
     state_json: stateJson,
     is_default: false,
+    is_public: isPublic,
+    share_slug: generateShareSlug(),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }
@@ -152,7 +180,7 @@ export function createSavedView(
 export function updateSavedView(
   id: string,
   userId: string,
-  updates: Partial<Pick<SavedViewRow, 'name' | 'state_json' | 'is_default'>>
+  updates: Partial<Pick<SavedViewRow, 'name' | 'state_json' | 'is_default' | 'is_public'>>
 ): SavedViewRow | null {
   const views = readFile<SavedViewRow>(DB_FILES.savedViews)
   const index = views.findIndex((v) => v.id === id && v.user_id === userId)
@@ -177,6 +205,15 @@ export function deleteSavedView(id: string, userId: string): boolean {
   
   writeFile(DB_FILES.savedViews, filtered)
   return true
+}
+
+export function getSavedViewByShareSlug(shareSlug: string): (SavedViewRow & { owner_name?: string }) | null {
+  const views = readFile<SavedViewRow & { is_public?: boolean; share_slug?: string }>(DB_FILES.savedViews)
+  const view = views.find((v) => v.is_public === true && v.share_slug === shareSlug) || null
+  if (!view) return null
+  const users = readFile<UserRow>(DB_FILES.users)
+  const owner = users.find((u) => u.id === view.user_id)
+  return { ...view, owner_name: owner?.name || owner?.email }
 }
 
 export function setDefaultSavedView(id: string, userId: string): void {
@@ -246,6 +283,98 @@ export function getNotificationSettings(userId: string): NotificationSettingsRow
   return settings.find((s) => s.user_id === userId) || null
 }
 
+// Personas
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || `p${Date.now().toString(36)}`
+}
+
+export function getPersonasByUserId(userId: string): PersonaRow[] {
+  const personas = readFile<PersonaRow>(DB_FILES.personas)
+  return personas.filter((p) => p.owner_user_id === userId)
+}
+
+export function getPersonaById(id: string, userId: string): PersonaRow | null {
+  const personas = readFile<PersonaRow>(DB_FILES.personas)
+  return personas.find((p) => p.id === id && p.owner_user_id === userId) || null
+}
+
+export function createPersona(
+  userId: string,
+  title: string,
+  rulesJson: string,
+  descriptionShort?: string,
+  isPublic = false
+): PersonaRow {
+  const personas = readFile<PersonaRow>(DB_FILES.personas)
+  const baseSlug = slugify(title)
+  let slug = baseSlug
+  let i = 0
+  while (personas.some((p) => p.owner_user_id === userId && p.slug === slug)) {
+    slug = `${baseSlug}-${++i}`
+  }
+  const newPersona: PersonaRow = {
+    id: `persona-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    owner_user_id: userId,
+    title,
+    slug,
+    description_short: descriptionShort,
+    rules_json: rulesJson,
+    is_public: isPublic,
+    share_slug: generateShareSlug().replace(/^s/, 'p'),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+  personas.push(newPersona)
+  writeFile(DB_FILES.personas, personas)
+  return newPersona
+}
+
+export function updatePersona(
+  id: string,
+  userId: string,
+  updates: Partial<Pick<PersonaRow, 'title' | 'slug' | 'description_short' | 'rules_json' | 'is_public'>>
+): PersonaRow | null {
+  const personas = readFile<PersonaRow>(DB_FILES.personas)
+  const index = personas.findIndex((p) => p.id === id && p.owner_user_id === userId)
+  if (index === -1) return null
+  personas[index] = { ...personas[index], ...updates, updated_at: new Date().toISOString() }
+  writeFile(DB_FILES.personas, personas)
+  return personas[index]
+}
+
+export function deletePersona(id: string, userId: string): boolean {
+  const personas = readFile<PersonaRow>(DB_FILES.personas)
+  const filtered = personas.filter((p) => !(p.id === id && p.owner_user_id === userId))
+  if (filtered.length === personas.length) return false
+  writeFile(DB_FILES.personas, filtered)
+  return true
+}
+
+export function getPersonaByShareSlug(shareSlug: string): (PersonaRow & { owner_name?: string }) | null {
+  const personas = readFile<PersonaRow>(DB_FILES.personas)
+  const persona = personas.find((p) => p.is_public && p.share_slug === shareSlug) || null
+  if (!persona) return null
+  const users = readFile<UserRow>(DB_FILES.users)
+  const owner = users.find((u) => u.id === persona.owner_user_id)
+  return { ...persona, owner_name: owner?.name || owner?.email }
+}
+
+export function getPublicPersonasByUserId(userId: string): PersonaRow[] {
+  const personas = readFile<PersonaRow>(DB_FILES.personas)
+  return personas.filter((p) => p.owner_user_id === userId && p.is_public)
+}
+
+export function getPublicSavedViewsByUserId(userId: string): SavedViewRow[] {
+  const views = readFile<SavedViewRow & { is_public?: boolean }>(DB_FILES.savedViews)
+  return views.filter((v) => v.user_id === userId && v.is_public === true)
+}
+
+// Notification Settings
 export function createOrUpdateNotificationSettings(
   userId: string,
   updates: Partial<Omit<NotificationSettingsRow, 'user_id' | 'updated_at'>>
