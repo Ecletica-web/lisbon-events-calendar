@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useMemo, useRef, Suspense } from 'react'
-import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
@@ -39,412 +38,8 @@ import { useSession } from 'next-auth/react'
 import { loadSavedViewsFromDB, saveViewToDB } from '@/lib/savedViewsSync'
 import EventCardsSlider from '@/components/EventCardsSlider'
 import MobileDaySliders from '@/components/MobileDaySliders'
-
-interface EventModalProps {
-  event: NormalizedEvent | null
-  onClose: () => void
-}
-
-interface EventListViewProps {
-  events: NormalizedEvent[]
-  calendarView: ViewState['viewMode']
-  dateFocus: string
-  onEventClick: (info: any) => void
-}
-
-function EventModal({ event, onClose }: EventModalProps) {
-  const contentRef = useRef<HTMLDivElement>(null)
-
-  // When modal opens: scroll content to top; avoid body lock (can freeze mobile)
-  useEffect(() => {
-    if (!event) return
-    contentRef.current?.scrollTo(0, 0)
-  }, [event])
-
-  if (!event) return null
-
-  const startDate = new Date(event.start)
-  const endDate = event.end ? new Date(event.end) : null
-  const props = event.extendedProps
-  const categoryColor = getCategoryColor(props.category)
-
-  const formatDateTime = (date: Date, opts?: { timeStyle?: 'short' | undefined }) => {
-    const timezone = props.timezone || 'Europe/Lisbon'
-    return new Intl.DateTimeFormat('en-GB', {
-      dateStyle: 'full',
-      timeStyle: opts?.timeStyle ?? 'short',
-      timeZone: timezone,
-    }).format(date)
-  }
-
-  const formatPrice = () => {
-    if (props.isFree) return 'Free'
-    if (props.priceMin !== undefined && props.priceMax !== undefined) {
-      if (props.priceMin === props.priceMax) {
-        return `${props.priceMin} ${props.currency || 'EUR'}`
-      }
-      return `${props.priceMin} - ${props.priceMax} ${props.currency || 'EUR'}`
-    }
-    if (props.priceMin !== undefined) {
-      return `From ${props.priceMin} ${props.currency || 'EUR'}`
-    }
-    return null
-  }
-
-  const modalContent = (
-    <div
-      className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] overflow-hidden p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="event-modal-title"
-    >
-      <div
-        ref={contentRef}
-        className="bg-slate-800/95 backdrop-blur-xl rounded-lg p-4 max-w-md w-full mx-4 my-8 max-h-[85vh] min-h-0 overflow-y-auto overflow-x-hidden border border-slate-700/50 shadow-2xl overscroll-contain flex-shrink-0"
-        style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <img
-          src={props.imageUrl || '/lisboa.png'}
-          alt={event.title}
-          className="w-full h-24 object-cover rounded-md mb-3"
-          onError={(e) => {
-            e.currentTarget.src = '/lisboa.png'
-          }}
-        />
-        
-        <h2 id="event-modal-title" className="text-lg font-bold mb-3 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">{event.title}</h2>
-        
-        <div className="space-y-2 mb-3 text-slate-200 text-xs">
-          <div>
-            <strong className="text-slate-100 text-xs">Date/Time:</strong>
-            <div className="text-slate-300 text-xs">
-              {props.opensAt ? (
-                <>
-                  {formatDateTime(startDate, { timeStyle: undefined })}
-                  {endDate && ` – ${formatDateTime(endDate, { timeStyle: undefined })}`}
-                  <span className="text-slate-400"> · Opens {props.opensAt}</span>
-                </>
-              ) : (
-                <>
-                  {formatDateTime(startDate)}
-                  {endDate && ` – ${formatDateTime(endDate)}`}
-                </>
-              )}
-            </div>
-            <div className="text-xs text-slate-400 mt-0.5">
-              Timezone: {props.timezone || 'Europe/Lisbon'}
-            </div>
-          </div>
-
-          {props.descriptionShort && (
-            <div>
-              <strong className="text-slate-100 text-xs">Description:</strong>
-              <p className="mt-0.5 text-slate-300 text-xs">{props.descriptionShort}</p>
-            </div>
-          )}
-
-          {props.descriptionLong && (
-            <div>
-              <strong className="text-slate-100 text-xs">Full Description:</strong>
-              <p className="mt-0.5 whitespace-pre-wrap text-slate-300 text-xs">{props.descriptionLong}</p>
-            </div>
-          )}
-
-          {props.venueName && (
-            <div>
-              <strong className="text-slate-100 text-xs">Venue:</strong> <span className="text-slate-300 text-xs">{props.venueName}</span>
-              {props.venueAddress && (
-                <div className="text-xs text-slate-400 mt-0.5">{props.venueAddress}</div>
-              )}
-              {props.neighborhood && (
-                <div className="text-xs text-slate-400">{props.neighborhood}</div>
-              )}
-              {props.city && (
-                <div className="text-xs text-slate-400">{props.city}</div>
-              )}
-            </div>
-          )}
-
-          {formatPrice() && (
-            <div>
-              <strong className="text-slate-100 text-xs">Price:</strong> <span className="text-slate-300 text-xs">{formatPrice()}</span>
-            </div>
-          )}
-
-          {props.category && (
-            <div>
-              <strong className="text-slate-100 text-xs">Category:</strong>{' '}
-              <span
-                className="px-1.5 py-0.5 rounded text-xs text-white font-medium"
-                style={{ backgroundColor: categoryColor }}
-              >
-                {props.category}
-              </span>
-            </div>
-          )}
-
-          {props.tags.length > 0 && (
-            <div>
-              <strong className="text-slate-100 text-xs">Tags:</strong>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {props.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="bg-slate-700/80 border border-slate-600/50 px-1.5 py-0.5 rounded text-xs text-slate-300"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {props.language && (
-            <div>
-              <strong className="text-slate-100 text-xs">Language:</strong> <span className="text-slate-300 text-xs">{props.language}</span>
-            </div>
-          )}
-
-          {props.ageRestriction && (
-            <div>
-              <strong className="text-slate-100 text-xs">Age Restriction:</strong> <span className="text-slate-300 text-xs">{props.ageRestriction}</span>
-            </div>
-          )}
-
-          {props.ticketUrl && (
-            <div>
-              <strong className="text-slate-100 text-xs">Tickets:</strong>{' '}
-              <a
-                href={props.ticketUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-indigo-400 hover:text-indigo-300 hover:underline text-xs"
-              >
-                Buy Tickets
-              </a>
-            </div>
-          )}
-
-          {props.sourceUrl && (
-            <div>
-              <strong className="text-slate-100 text-xs">Source:</strong>{' '}
-              <a
-                href={props.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-indigo-400 hover:text-indigo-300 hover:underline text-xs"
-              >
-                View Source
-              </a>
-              {props.sourceName && (
-                <span className="text-xs text-slate-400 ml-2">({props.sourceName})</span>
-              )}
-            </div>
-          )}
-        </div>
-
-        <button
-          onClick={onClose}
-          className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 px-3 py-1.5 rounded-md text-xs font-medium text-white transition-all shadow-md hover:shadow-lg mt-3"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  )
-
-  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent
-}
-
-// Event List View Component
-function EventListView({ events, calendarView, dateFocus, onEventClick }: EventListViewProps) {
-  // Get date range based on current view
-  const getDateRange = () => {
-    const focusDate = new Date(dateFocus)
-    const year = focusDate.getFullYear()
-    const month = focusDate.getMonth()
-    const day = focusDate.getDate()
-    
-    if (calendarView === 'dayGridMonth') {
-      // Month view: show all events in the month
-      const start = new Date(year, month, 1)
-      const end = new Date(year, month + 1, 0, 23, 59, 59)
-      return { start, end }
-    } else if (calendarView === 'timeGridWeek') {
-      // Week view: show events in the week (Monday to Sunday)
-      const start = new Date(focusDate)
-      const dayOfWeek = start.getDay()
-      const diff = start.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1) // Monday
-      start.setDate(diff)
-      start.setHours(0, 0, 0, 0)
-      const end = new Date(start)
-      end.setDate(end.getDate() + 7)
-      return { start, end }
-    } else {
-      // Day view: show events for the specific day
-      const start = new Date(year, month, day, 0, 0, 0)
-      const end = new Date(year, month, day, 23, 59, 59)
-      return { start, end }
-    }
-  }
-
-  const { start, end } = getDateRange()
-  
-  // Filter and sort events by date range
-  const filteredEvents = events
-    .filter(event => {
-      const eventDate = new Date(event.start)
-      return eventDate >= start && eventDate <= end
-    })
-    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-
-  // Group events by day
-  const eventsByDay = new Map<string, NormalizedEvent[]>()
-  filteredEvents.forEach(event => {
-    const eventDate = new Date(event.start)
-    const dayKey = eventDate.toISOString().split('T')[0]
-    if (!eventsByDay.has(dayKey)) {
-      eventsByDay.set(dayKey, [])
-    }
-    eventsByDay.get(dayKey)!.push(event)
-  })
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const today = new Date()
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    
-    const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-    const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    const tomorrowDay = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate())
-
-    if (dateDay.getTime() === todayDay.getTime()) {
-      return 'Today'
-    } else if (dateDay.getTime() === tomorrowDay.getTime()) {
-      return 'Tomorrow'
-    } else {
-      return date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-    }
-  }
-
-  const formatTime = (event: NormalizedEvent) => {
-    const opensAt = event.extendedProps?.opensAt
-    if (opensAt) return `Opens ${opensAt}`
-    const start = new Date(event.start)
-    const end = event.end ? new Date(event.end) : null
-    const startTime = start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-    if (end) {
-      const endTime = end.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-      return `${startTime} – ${endTime}`
-    }
-    return startTime
-  }
-
-  if (filteredEvents.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-slate-400">No events in this period</div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-6">
-      {Array.from(eventsByDay.entries()).map(([dayKey, dayEvents]) => (
-        <div key={dayKey} className="bg-slate-800/60 backdrop-blur-xl rounded-xl border border-slate-700/50 overflow-hidden">
-          {/* Day Header */}
-          <div className="bg-slate-900/80 px-4 py-3 border-b border-slate-700/50">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-200">
-                {formatDate(dayKey)}
-              </div>
-              <div className="text-xs text-slate-400">
-                {dayEvents.length} event{dayEvents.length !== 1 ? 's' : ''}
-              </div>
-            </div>
-          </div>
-
-          {/* Events List */}
-          <div className="divide-y divide-slate-700/50">
-            {dayEvents.map((event) => {
-              const categoryColor = getCategoryColor(event.extendedProps.category)
-              const priceStr = event.extendedProps.isFree
-                ? 'Free'
-                : event.extendedProps.priceMin != null
-                  ? `${event.extendedProps.priceMin}${event.extendedProps.priceMax && event.extendedProps.priceMax !== event.extendedProps.priceMin ? `–${event.extendedProps.priceMax}` : ''} ${event.extendedProps.currency === 'EUR' ? '€' : event.extendedProps.currency || '€'}`
-                  : null
-              return (
-                <div
-                  key={event.id}
-                  onClick={() => onEventClick({ event })}
-                  className="px-4 py-4 hover:bg-slate-700/30 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-start gap-3 md:gap-4">
-                    {/* Thumbnail - bigger on mobile */}
-                    <div className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20 rounded-lg overflow-hidden bg-slate-700/50">
-                      <img
-                        src={event.extendedProps.imageUrl || '/lisboa.png'}
-                        alt={event.title}
-                        className="w-full h-full object-cover"
-                        onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
-                      />
-                    </div>
-
-                    {/* Event Details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-0.5">
-                        <h3 className="text-base font-semibold text-white leading-tight">
-                          {event.title}
-                        </h3>
-                        {priceStr && (
-                          <span className={`flex-shrink-0 text-xs font-medium tabular-nums ${event.extendedProps.isFree ? 'text-green-400' : 'text-slate-300'}`}>
-                            {priceStr}
-                          </span>
-                        )}
-                      </div>
-                      {/* Time - compact */}
-                      <div className="text-xs font-medium text-slate-300 tabular-nums mb-1">
-                        {formatTime(event)}
-                      </div>
-                      {event.extendedProps.venueName && (
-                        <div className="text-sm text-slate-300 mb-2">
-                          {event.extendedProps.venueName}
-                        </div>
-                      )}
-
-                      {/* Category & Tags */}
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {event.extendedProps.category && (
-                          <span
-                            className="px-2 py-0.5 rounded text-xs font-medium text-white"
-                            style={{ backgroundColor: categoryColor }}
-                          >
-                            {event.extendedProps.category}
-                          </span>
-                        )}
-                        {event.extendedProps.tags.slice(0, 3).map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-2 py-0.5 rounded text-xs bg-slate-700/60 text-slate-200 border border-slate-600/50"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
+import EventModal from './components/EventModal'
+import EventListView from './components/EventListView'
 
 function CalendarPageContent() {
   const [events, setEvents] = useState<NormalizedEvent[]>([])
@@ -617,6 +212,17 @@ function CalendarPageContent() {
   const allTags = useMemo(() => getAllTags(events), [events])
   const allCategories = useMemo(() => getAllCategories(events), [events])
   const allVenues = useMemo(() => getAllVenues(events), [events])
+
+  // Last updated = max last_seen_at among loaded events (trust/freshness cue)
+  const lastUpdated = useMemo(() => {
+    if (!events.length) return null
+    const max = events.reduce<string | null>((m, e) => {
+      const t = e.extendedProps?.lastSeenAt
+      if (!t) return m
+      return !m || t > m ? t : m
+    }, null)
+    return max
+  }, [events])
 
   // Filter tags based on search
   const filteredTags = useMemo(() => {
@@ -1029,9 +635,14 @@ function CalendarPageContent() {
               </button>
             </div>
             {!loading && (
-              <div className="text-xs text-slate-400 mt-2 font-medium">
-                {filteredEvents.length} of {events.length} events
-                {activeFiltersCount > 0 && ` (${activeFiltersCount} filter${activeFiltersCount > 1 ? 's' : ''} active)`}
+              <div className="text-xs text-slate-400 mt-2 font-medium space-y-1">
+                <div>
+                  {filteredEvents.length} of {events.length} events
+                  {activeFiltersCount > 0 && ` (${activeFiltersCount} filter${activeFiltersCount > 1 ? 's' : ''} active)`}
+                </div>
+                {lastUpdated && (
+                  <div>Last updated: {new Date(lastUpdated).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                )}
               </div>
             )}
           </div>

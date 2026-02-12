@@ -3,15 +3,25 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { fetchVenues, fetchEvents } from '@/lib/eventsAdapter'
+import { fetchPromoters, fetchEvents } from '@/lib/eventsAdapter'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import { getCategoryColor } from '@/lib/categoryColors'
 
-export default function VenueDetailPage() {
+const IMAGE_PROXY = 'https://images.weserv.nl/?url='
+function sanitize(url?: string): string | undefined {
+  if (!url) return undefined
+  const lower = url.toLowerCase()
+  if (lower.includes('cdninstagram') || lower.includes('fbcdn.net')) {
+    return IMAGE_PROXY + encodeURIComponent(url)
+  }
+  return url
+}
+
+export default function PromoterDetailPage() {
   const params = useParams()
   const slug = typeof params.slug === 'string' ? params.slug : ''
 
-  const [venues, setVenues] = useState<Awaited<ReturnType<typeof fetchVenues>>>([])
+  const [promoters, setPromoters] = useState<Awaited<ReturnType<typeof fetchPromoters>>>([])
   const [events, setEvents] = useState<NormalizedEvent[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -19,12 +29,12 @@ export default function VenueDetailPage() {
     async function load() {
       setLoading(true)
       try {
-        const [v, e] = await Promise.all([fetchVenues(), fetchEvents()])
-        setVenues(v)
+        const [p, e] = await Promise.all([fetchPromoters(), fetchEvents()])
+        setPromoters(p)
         setEvents(e)
       } catch (err) {
         console.error('Failed to load:', err)
-        setVenues([])
+        setPromoters([])
         setEvents([])
       } finally {
         setLoading(false)
@@ -33,29 +43,25 @@ export default function VenueDetailPage() {
     load()
   }, [])
 
-  const venue = venues.find((v) => v.slug === slug || v.venue_id === slug)
+  const promoter = promoters.find((p) => p.slug === slug || p.promoter_id === slug)
   const now = Date.now()
   const upcomingEvents = events
     .filter((e) => {
-      const key =
-        e.extendedProps.venueId ||
-        e.extendedProps.venueKey ||
-        e.extendedProps.venueName?.toLowerCase().trim().replace(/\s+/g, '-') ||
-        ''
-      const matches = key === slug || e.extendedProps.venueKey === slug || e.extendedProps.venueId === slug
+      const pid = e.extendedProps.promoterId || e.extendedProps.promoterName
+      const matches = pid === promoter?.promoter_id || pid === promoter?.slug || pid === slug
       return matches && new Date(e.start).getTime() >= now
     })
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 
-  const displayName = venue?.name || upcomingEvents[0]?.extendedProps.venueName || slug
+  const displayName = promoter?.name || slug
 
-  if (!venue && upcomingEvents.length === 0 && !loading) {
+  if (!promoter && !loading) {
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-xl font-bold mb-4">Venue not found</h1>
-          <Link href="/venues" className="text-indigo-400 hover:text-indigo-300">
-            ← Back to Venues
+          <h1 className="text-xl font-bold mb-4">Promoter not found</h1>
+          <Link href="/promoters" className="text-indigo-400 hover:text-indigo-300">
+            ← Back to Promoters
           </Link>
         </div>
       </div>
@@ -69,80 +75,62 @@ export default function VenueDetailPage() {
     <div className="min-h-screen bg-slate-900 text-slate-100">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Link
-          href="/venues"
+          href="/promoters"
           className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
         >
-          ← Back to Venues
+          ← Back to Promoters
         </Link>
 
-        {/* Richer header */}
-        <div className="mb-8 rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden">
-          <div className="aspect-[21/9] bg-slate-700/50 flex-shrink-0">
-            {venue?.primary_image_url ? (
-              <img
-                src={venue.primary_image_url}
-                alt=""
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-slate-500 text-6xl" />
-            )}
-          </div>
-          <div className="p-6">
-            <h1 className="text-2xl font-bold mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              {displayName}
-            </h1>
-            {(venue?.neighborhood || venue?.venue_address) && (
-              <p className="text-slate-300">
-                {[venue?.neighborhood, venue?.venue_address].filter(Boolean).join(' · ')}
-              </p>
-            )}
-            {venue?.description_short && (
-              <p className="text-slate-300 mt-3">{venue.description_short}</p>
-            )}
-            <div className="flex flex-wrap gap-4 mt-4">
-              {venue?.website_url && (
-                <a
-                  href={venue.website_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-indigo-400 hover:text-indigo-300 text-sm font-medium"
-                >
-                  Website
-                </a>
+        {promoter && (
+          <div className="mb-8 rounded-lg bg-slate-800/60 border border-slate-700/50 overflow-hidden">
+            <div className="flex flex-col md:flex-row gap-4 p-4">
+              {promoter.primary_image_url && (
+                <img
+                  src={sanitize(promoter.primary_image_url) || promoter.primary_image_url}
+                  alt=""
+                  className="w-full md:w-48 h-32 object-cover rounded-lg flex-shrink-0"
+                />
               )}
-              {venue?.instagram_handle && (
-                <a
-                  href={`https://instagram.com/${venue.instagram_handle.replace(/^@/, '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-indigo-400 hover:text-indigo-300 text-sm font-medium"
-                >
-                  Instagram
-                </a>
-              )}
-            </div>
-            {venue && venue.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-4">
-                {venue.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="px-2 py-0.5 rounded text-xs bg-slate-700/60 text-slate-200"
-                  >
-                    {tag}
-                  </span>
-                ))}
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                  {displayName}
+                </h1>
+                {promoter.description_short && (
+                  <p className="text-slate-300 mt-2">{promoter.description_short}</p>
+                )}
+                <div className="flex gap-4 mt-3 text-sm">
+                  {promoter.website_url && (
+                    <a
+                      href={promoter.website_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-400 hover:text-indigo-300"
+                    >
+                      Website
+                    </a>
+                  )}
+                  {promoter.instagram_handle && (
+                    <a
+                      href={`https://instagram.com/${promoter.instagram_handle.replace(/^@/, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-400 hover:text-indigo-300"
+                    >
+                      Instagram
+                    </a>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         <h2 className="text-lg font-semibold mb-4">Upcoming events</h2>
 
         {loading ? (
           <div className="text-slate-400">Loading events...</div>
         ) : upcomingEvents.length === 0 ? (
-          <p className="text-slate-400">No upcoming events at this venue.</p>
+          <p className="text-slate-400">No upcoming events.</p>
         ) : (
           <ul className="space-y-4">
             {upcomingEvents.map((event) => {
@@ -166,10 +154,8 @@ export default function VenueDetailPage() {
                         {formatDate(new Date(event.start))}
                         {event.end && ` – ${formatDate(new Date(event.end))}`}
                       </p>
-                      {event.extendedProps.descriptionShort && (
-                        <p className="text-slate-300 text-sm mt-2 line-clamp-2">
-                          {event.extendedProps.descriptionShort}
-                        </p>
+                      {event.extendedProps.venueName && (
+                        <p className="text-slate-300 text-sm mt-1">{event.extendedProps.venueName}</p>
                       )}
                       <div className="flex flex-wrap gap-2 mt-2">
                         {event.extendedProps.category && (

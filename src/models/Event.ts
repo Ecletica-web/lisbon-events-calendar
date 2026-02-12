@@ -25,6 +25,8 @@ export interface Event {
   status: EventStatus
   venue_id?: string
   venue_name?: string
+  /** Raw venue name from CSV when venue_id is "unknown" (for manual review) */
+  venue_name_raw?: string
   venue_address?: string
   neighborhood?: string
   city?: string
@@ -47,7 +49,17 @@ export interface Event {
   image_credit?: string
   source_url?: string
   confidence_score?: number
+  promoter_id?: string
+  promoter_name?: string
+  /** Ledger-lite audit fields */
+  first_seen_at?: string
   last_seen_at?: string
+  changed_at?: string
+  change_hash?: string
+  source_count?: number
+  sources?: string[]
+  /** Fingerprint for dedupe (sha1 of title|dateBucket|timeBucket|venue_id) */
+  fingerprint?: string
   created_at?: string
   updated_at?: string
   _error?: string

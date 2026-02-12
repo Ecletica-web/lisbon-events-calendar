@@ -1,21 +1,28 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
-import { fetchEvents, getAllVenues, type NormalizedEvent } from '@/lib/eventsAdapter'
+import { fetchVenues, fetchEvents, type VenueForDisplay } from '@/lib/eventsAdapter'
+import { useDebounce } from '@/lib/useDebounce'
 
 export default function VenuesPage() {
-  const [events, setEvents] = useState<NormalizedEvent[]>([])
+  const [venues, setVenues] = useState<VenueForDisplay[]>([])
+  const [events, setEvents] = useState<Awaited<ReturnType<typeof fetchEvents>>>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const debouncedSearch = useDebounce(searchQuery, 300)
 
   useEffect(() => {
     async function load() {
       setLoading(true)
       try {
-        const data = await fetchEvents()
-        setEvents(data)
-      } catch (e) {
-        console.error('Failed to load events:', e)
+        const [v, e] = await Promise.all([fetchVenues(), fetchEvents()])
+        setVenues(v)
+        setEvents(e)
+      } catch (err) {
+        console.error('Failed to load venues/events:', err)
+        setVenues([])
         setEvents([])
       } finally {
         setLoading(false)
@@ -24,19 +31,53 @@ export default function VenuesPage() {
     load()
   }, [])
 
-  const venues = getAllVenues()
   const now = Date.now()
-
-  // Count upcoming events per venue
-  const eventCountByVenue = new Map<string, number>()
-  for (const e of events) {
-    const key = e.extendedProps.venueKey || e.extendedProps.venueId || e.extendedProps.venueName?.toLowerCase().trim() || ''
-    if (!key) continue
-    const start = new Date(e.start).getTime()
-    if (start >= now) {
-      eventCountByVenue.set(key, (eventCountByVenue.get(key) || 0) + 1)
+  const eventCountByVenue = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const e of events) {
+      const key =
+        e.extendedProps.venueId ||
+        e.extendedProps.venueKey ||
+        e.extendedProps.venueName?.toLowerCase().trim().replace(/\s+/g, '-') ||
+        ''
+      if (!key) continue
+      if (new Date(e.start).getTime() >= now) {
+        m.set(key, (m.get(key) || 0) + 1)
+      }
     }
+    return m
+  }, [events])
+
+  const allTags = useMemo(() => {
+    const s = new Set<string>()
+    venues.forEach((v) => v.tags.forEach((t) => s.add(t)))
+    return Array.from(s).sort()
+  }, [venues])
+
+  const filteredVenues = useMemo(() => {
+    let list = venues
+    const q = debouncedSearch.trim().toLowerCase()
+    if (q) {
+      list = list.filter(
+        (v) =>
+          v.name.toLowerCase().includes(q) ||
+          (v.neighborhood || '').toLowerCase().includes(q) ||
+          (v.venue_address || '').toLowerCase().includes(q) ||
+          v.tags.some((t) => t.toLowerCase().includes(q))
+      )
+    }
+    if (selectedTags.length > 0) {
+      list = list.filter((v) => selectedTags.some((t) => v.tags.includes(t)))
+    }
+    return list
+  }, [venues, debouncedSearch, selectedTags])
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
   }
+
+  const getEventCount = (v: VenueForDisplay) =>
+    eventCountByVenue.get(v.venue_id) || eventCountByVenue.get(v.slug) || 0
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
@@ -52,27 +93,90 @@ export default function VenuesPage() {
           Venues
         </h1>
 
+        <div className="mb-6 space-y-3">
+          <input
+            type="text"
+            placeholder="Search venues (name, neighborhood, tags)..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full border border-slate-600/50 rounded-lg px-4 py-2 bg-slate-800/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+          />
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {allTags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    selectedTags.includes(tag)
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-700/60 text-slate-300 hover:bg-slate-600/60'
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {loading ? (
           <div className="text-slate-400">Loading venues...</div>
         ) : (
-          <ul className="space-y-2">
-            {venues.map((v) => {
-              const count = eventCountByVenue.get(v.key) || 0
+          <div className="grid gap-4 sm:grid-cols-2">
+            {filteredVenues.map((v) => {
+              const count = getEventCount(v)
               return (
-                <li key={v.key}>
-                  <Link
-                    href={`/venues/${encodeURIComponent(v.key)}`}
-                    className="flex justify-between items-center py-3 px-4 rounded-lg bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/50 transition-colors"
-                  >
-                    <span className="font-medium">{v.name}</span>
-                    <span className="text-slate-400 text-sm">
+                <Link
+                  key={v.venue_id}
+                  href={`/venues/${encodeURIComponent(v.slug)}`}
+                  className="block rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden hover:bg-slate-700/50 transition-colors"
+                >
+                  <div className="aspect-[16/10] bg-slate-700/50 flex-shrink-0">
+                    {v.primary_image_url ? (
+                      <img
+                        src={v.primary_image_url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-500 text-4xl" />
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h2 className="font-semibold text-lg text-white">{v.name}</h2>
+                    {(v.neighborhood || v.venue_address) && (
+                      <p className="text-slate-400 text-sm mt-0.5">
+                        {[v.neighborhood, v.venue_address].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                    {v.description_short && (
+                      <p className="text-slate-300 text-sm mt-2 line-clamp-2">{v.description_short}</p>
+                    )}
+                    {v.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {v.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="px-2 py-0.5 rounded text-xs bg-slate-700/60 text-slate-200"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-slate-400 text-sm mt-2">
                       {count} upcoming {count === 1 ? 'event' : 'events'}
-                    </span>
-                  </Link>
-                </li>
+                    </p>
+                  </div>
+                </Link>
               )
             })}
-          </ul>
+          </div>
+        )}
+
+        {!loading && filteredVenues.length === 0 && (
+          <p className="text-slate-400">No venues match your filters.</p>
         )}
       </div>
     </div>

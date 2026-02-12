@@ -1,73 +1,52 @@
 /**
  * Events loader — fetches and normalizes events from CSV/Sheets
- * Supports new schema and backward compatibility with legacy columns.
  */
 
 import Papa from 'papaparse'
 import type { Event, EventStatus } from '@/models/Event'
 import { isEventVisibleInListing } from '@/models/Event'
-import { normalizeTags, normalizeBoolean, normalizeNumber } from './utils'
+import { normalizeEventTags, normalizeBoolean, normalizeNumber, simpleHash } from './utils'
+import { resolveEventColumn } from '@/data/schema/eventColumns'
+import type { VenueIndex } from '@/data/venueIndex'
+import { resolveVenue } from '@/data/venueIndex'
 
-/** Raw row from CSV — supports new schema + backward compat (id, image_url, etc.) */
 export interface RawEventRow {
   [key: string]: string | number | boolean | string[] | undefined
-
-  // New schema
-  event_id?: string
-  source_name?: string
-  source_event_id?: string
-  dedupe_key?: string
-  title?: string
-  description_short?: string
-  description_long?: string
-  start_datetime?: string
-  end_datetime?: string
-  timezone?: string
-  is_all_day?: string | boolean
-  status?: string
-  venue_id?: string
-  venue_name?: string
-  venue_address?: string
-  neighborhood?: string
-  city?: string
-  region?: string
-  country?: string
-  postal_code?: string
-  latitude?: string | number
-  longitude?: string | number
-  category?: string
-  tags?: string | string[]
-  price_min?: string | number
-  price_max?: string | number
-  currency?: string
-  is_free?: string | boolean
-  age_restriction?: string
-  language?: string
-  ticket_url?: string
-  primary_image_id?: string
-  primary_image_url?: string
-  image_credit?: string
-  source_url?: string
-  confidence_score?: string | number
-  last_seen_at?: string
-  created_at?: string
-  updated_at?: string
-
-  // Legacy backward compat
-  id?: string
-  image_url?: string
-  opens_at?: string
-  recurrence_rule?: string
 }
+
+export type QuarantineReason =
+  | 'missing_event_id'
+  | 'missing_title'
+  | 'missing_start_datetime'
+  | 'invalid_datetime'
+  | 'venue_resolution_failed'
+  | 'parse_error'
+  | 'unknown'
 
 export interface LoadEventsResult {
   events: Event[]
-  quarantined: { row: RawEventRow; error: string }[]
+  quarantined: { row: RawEventRow; error: string; reason: QuarantineReason }[]
+  stats: {
+    totalRows: number
+    loaded: number
+    quarantined: number
+    duplicatesMerged: number
+    unknownVenues: number
+  }
 }
 
 const DEFAULT_TIMEZONE = 'Europe/Lisbon'
 
-/** Map legacy/alternate status strings to canonical EventStatus */
+function getRaw(row: RawEventRow, col: string): string | number | boolean | string[] | undefined {
+  const resolved = resolveEventColumn(col)
+  return row[resolved] ?? row[col]
+}
+
+function getStr(row: RawEventRow, col: string): string | undefined {
+  const v = getRaw(row, col)
+  return v?.toString().trim() || undefined
+}
+
 function normalizeStatus(raw?: string): EventStatus {
   if (!raw || typeof raw !== 'string') return 'scheduled'
   const s = raw.trim().toLowerCase()
@@ -100,60 +79,111 @@ function parseOpeningTimeFromDescription(desc: string | undefined): string | nul
   return null
 }
 
+/** Core fields for change_hash */
+function getChangeHashInput(e: {
+  title: string
+  start_datetime: string
+  end_datetime?: string
+  venue_id?: string
+  status: string
+  price_min?: number
+  price_max?: number
+  ticket_url?: string
+}): string {
+  return [
+    e.title.toLowerCase().trim(),
+    e.start_datetime,
+    e.end_datetime ?? '',
+    e.venue_id ?? '',
+    e.status,
+    String(e.price_min ?? ''),
+    String(e.price_max ?? ''),
+    e.ticket_url ?? '',
+  ].join('|')
+}
+
+/** Normalize title for fingerprint (lowercase, remove emojis/punct, collapse spaces) */
+function normalizeTitleForFingerprint(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[\p{Emoji}\p{Symbol}]/gu, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Date bucket YYYY-MM-DD; time bucket 30-min or "allday" */
+function getDateAndTimeBucket(startIso: string, isAllDay: boolean): { date: string; time: string } {
+  const d = new Date(startIso)
+  const date = startIso.slice(0, 10)
+  if (isAllDay) return { date, time: 'allday' }
+  const h = d.getUTCHours()
+  const m = d.getUTCMinutes()
+  const bucket = Math.floor(m / 30) * 30
+  const time = `${String(h).padStart(2, '0')}:${String(bucket).padStart(2, '0')}`
+  return { date, time }
+}
+
+function computeFingerprint(
+  title: string,
+  startIso: string,
+  isAllDay: boolean,
+  venueId: string
+): string {
+  const titleNorm = normalizeTitleForFingerprint(title)
+  const { date, time } = getDateAndTimeBucket(startIso, isAllDay)
+  const input = `${titleNorm}|${date}|${time}|${venueId}`
+  return simpleHash(input)
+}
+
+const nowIso = () => new Date().toISOString()
+
 /**
  * Normalize raw CSV row to Event domain object.
- * Sets _error and returns null if row is invalid (missing required fields).
  */
-export function normalizeEvent(raw: RawEventRow): Event | null {
-  // Backward compat: id -> event_id
-  const eventId = raw.event_id?.toString().trim() || raw.id?.toString().trim()
-  const title = raw.title?.toString().trim()
-  const startDatetime = raw.start_datetime?.toString().trim()
+export function normalizeEvent(
+  raw: RawEventRow,
+  venueIndex?: VenueIndex | null,
+  allowedEventTags?: string[] | null
+): Event | null {
+  const eventId = getStr(raw, 'event_id') || getStr(raw, 'id')
+  const title = getStr(raw, 'title')
+  const startDatetime = getStr(raw, 'start_datetime')
 
-  if (!eventId || !title || !startDatetime) {
-    return null
-  }
+  if (!eventId) return null
+  if (!title) return null
+  if (!startDatetime) return null
 
-  const errors: string[] = []
-
-  // Parse dates
   let startDate: Date
   try {
     startDate = new Date(startDatetime)
-    if (isNaN(startDate.getTime())) {
-      errors.push(`Invalid start_datetime: ${startDatetime}`)
-      return null
-    }
+    if (isNaN(startDate.getTime())) return null
   } catch {
-    errors.push('start_datetime parse failed')
     return null
   }
 
   let endDatetime: string | undefined
-  if (raw.end_datetime) {
+  const endRaw = getStr(raw, 'end_datetime')
+  if (endRaw) {
     try {
-      const end = new Date(raw.end_datetime.toString().trim())
-      if (!isNaN(end.getTime())) {
-        endDatetime = end.toISOString()
-      }
+      const end = new Date(endRaw)
+      if (!isNaN(end.getTime())) endDatetime = end.toISOString()
     } catch {
       // ignore
     }
   }
 
-  const timezone = raw.timezone?.toString().trim() || DEFAULT_TIMEZONE
-  const wasAllDay = normalizeBoolean(raw.is_all_day, false)
+  const timezone = getStr(raw, 'timezone') || DEFAULT_TIMEZONE
+  const wasAllDay = normalizeBoolean(getRaw(raw, 'is_all_day'), false)
   let finalStart = startDate.toISOString()
   let finalEnd = endDatetime
 
-  // All-day handling: convert to time-bounded using opens_at or parsed time
   if (wasAllDay) {
     const startHour = startDate.getUTCHours()
     const startMin = startDate.getUTCMinutes()
     const isMidnight = startHour === 0 && startMin === 0
-
     if (isMidnight) {
-      const sheetOpens = raw.opens_at?.toString().trim()
+      const sheetOpens = getStr(raw, 'opens_at')
       let parsed: string | null = null
       if (sheetOpens) {
         const m = sheetOpens.match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?$/)
@@ -161,7 +191,7 @@ export function normalizeEvent(raw: RawEventRow): Event | null {
       }
       if (!parsed) {
         parsed = parseOpeningTimeFromDescription(
-          (raw.description_short || raw.description_long)?.toString()
+          getStr(raw, 'description_short') || getStr(raw, 'description_long')
         )
       }
       const [openH, openM] = (parsed || '10:00').split(':').map(Number)
@@ -176,124 +206,177 @@ export function normalizeEvent(raw: RawEventRow): Event | null {
     }
   }
 
-  const status = normalizeStatus(raw.status?.toString())
-  const tags = normalizeTags(raw.tags)
-  const priceMin = normalizeNumber(raw.price_min)
-  const priceMax = normalizeNumber(raw.price_max)
-  const latitude = normalizeNumber(raw.latitude)
-  const longitude = normalizeNumber(raw.longitude)
-  const confidenceScore = normalizeNumber(raw.confidence_score)
+  const status = normalizeStatus(getStr(raw, 'status'))
+  const tags = normalizeEventTags(getRaw(raw, 'tags'), allowedEventTags, 5)
+  const priceMin = normalizeNumber(getRaw(raw, 'price_min'))
+  const priceMax = normalizeNumber(getRaw(raw, 'price_max'))
+  const latitude = normalizeNumber(getRaw(raw, 'latitude'))
+  const longitude = normalizeNumber(getRaw(raw, 'longitude'))
+  const confidenceScore = normalizeNumber(getRaw(raw, 'confidence_score'))
+  const primaryImageUrl = getStr(raw, 'primary_image_url') || getStr(raw, 'image_url')
 
-  // Backward compat: image_url -> primary_image_url
-  const primaryImageUrl =
-    raw.primary_image_url?.toString().trim() || raw.image_url?.toString().trim()
+  const venueNameRaw = getStr(raw, 'venue_name')
+  const venueIdRaw = getStr(raw, 'venue_id')
+  const sourceNameRaw = getStr(raw, 'source_name')
+
+  let venue_id: string | undefined
+  let venue_name: string | undefined
+  let venue_name_raw: string | undefined
+  let unknownVenue = false
+
+  if (venueIndex) {
+    const res = resolveVenue(venueIndex, venueIdRaw, venueNameRaw, sourceNameRaw)
+    if (res.resolved) {
+      venue_id = res.venue_id
+      venue_name = res.venue_name
+    } else {
+      venue_id = 'unknown'
+      venue_name_raw = res.venue_name_raw
+      unknownVenue = true
+    }
+  } else {
+    venue_id = venueIdRaw || undefined
+    venue_name = venueNameRaw || undefined
+  }
+
+  const changeHashInput = getChangeHashInput({
+    title,
+    start_datetime: finalStart,
+    end_datetime: finalEnd,
+    venue_id: venue_id ?? '',
+    status,
+    price_min: priceMin ?? undefined,
+    price_max: priceMax ?? undefined,
+    ticket_url: getStr(raw, 'ticket_url'),
+  })
+  const change_hash = simpleHash(changeHashInput)
+
+  const fingerprint = computeFingerprint(
+    title,
+    finalStart,
+    false,
+    venue_id ?? 'unknown'
+  )
+
+  const first_seen_at = getStr(raw, 'first_seen_at') || nowIso()
+  const last_seen_at = getStr(raw, 'last_seen_at') || nowIso()
+  const changed_at = getStr(raw, 'changed_at') || nowIso()
+  const source_name = getStr(raw, 'source_name')
+  const sources = source_name ? [source_name] : []
+  const source_count = sources.length
 
   const event: Event = {
     event_id: eventId,
-    source_name: raw.source_name?.toString().trim() || undefined,
-    source_event_id: raw.source_event_id?.toString().trim() || undefined,
-    dedupe_key: raw.dedupe_key?.toString().trim() || undefined,
+    source_name,
+    source_event_id: getStr(raw, 'source_event_id'),
+    dedupe_key: getStr(raw, 'dedupe_key'),
     title,
-    description_short: raw.description_short?.toString().trim() || undefined,
-    description_long: raw.description_long?.toString().trim() || undefined,
+    description_short: getStr(raw, 'description_short'),
+    description_long: getStr(raw, 'description_long'),
     start_datetime: finalStart,
     end_datetime: finalEnd,
     timezone,
-    is_all_day: false, // we convert to time-bounded
+    is_all_day: false,
     status,
-    venue_id: raw.venue_id?.toString().trim() || undefined,
-    venue_name: raw.venue_name?.toString().trim() || undefined,
-    venue_address: raw.venue_address?.toString().trim() || undefined,
-    neighborhood: raw.neighborhood?.toString().trim() || undefined,
-    city: raw.city?.toString().trim() || undefined,
-    region: raw.region?.toString().trim() || undefined,
-    country: raw.country?.toString().trim() || undefined,
-    postal_code: raw.postal_code?.toString().trim() || undefined,
+    venue_id,
+    venue_name,
+    venue_name_raw,
+    venue_address: getStr(raw, 'venue_address'),
+    neighborhood: getStr(raw, 'neighborhood'),
+    city: getStr(raw, 'city'),
+    region: getStr(raw, 'region'),
+    country: getStr(raw, 'country'),
+    postal_code: getStr(raw, 'postal_code'),
     latitude: latitude ?? undefined,
     longitude: longitude ?? undefined,
-    category: raw.category?.toString().trim().toLowerCase() || undefined,
+    category: getStr(raw, 'category')?.toLowerCase(),
     tags,
     price_min: priceMin ?? undefined,
     price_max: priceMax ?? undefined,
-    currency: raw.currency?.toString().trim().toUpperCase() || undefined,
-    is_free: normalizeBoolean(raw.is_free, false),
-    age_restriction: raw.age_restriction?.toString().trim() || undefined,
-    language: raw.language?.toString().trim() || undefined,
-    ticket_url: raw.ticket_url?.toString().trim() || undefined,
-    primary_image_id: raw.primary_image_id?.toString().trim() || undefined,
-    primary_image_url: primaryImageUrl || undefined,
-    image_credit: raw.image_credit?.toString().trim() || undefined,
-    source_url: raw.source_url?.toString().trim() || undefined,
+    currency: getStr(raw, 'currency')?.toUpperCase(),
+    is_free: normalizeBoolean(getRaw(raw, 'is_free'), false),
+    age_restriction: getStr(raw, 'age_restriction'),
+    language: getStr(raw, 'language'),
+    ticket_url: getStr(raw, 'ticket_url'),
+    primary_image_id: getStr(raw, 'primary_image_id'),
+    primary_image_url: primaryImageUrl,
+    image_credit: getStr(raw, 'image_credit'),
+    source_url: getStr(raw, 'source_url'),
     confidence_score: confidenceScore ?? undefined,
-    last_seen_at: raw.last_seen_at?.toString().trim() || undefined,
-    created_at: raw.created_at?.toString().trim() || undefined,
-    updated_at: raw.updated_at?.toString().trim() || undefined,
-  }
-
-  if (errors.length > 0) {
-    event._error = errors.join('; ')
+    promoter_id: getStr(raw, 'promoter_id') ?? undefined,
+    promoter_name: getStr(raw, 'promoter_name') ?? undefined,
+    first_seen_at,
+    last_seen_at,
+    changed_at,
+    change_hash,
+    source_count,
+    sources,
+    fingerprint,
+    created_at: getStr(raw, 'created_at'),
+    updated_at: getStr(raw, 'updated_at'),
   }
 
   return event
 }
 
-/** Dedupe strategy: event_id > dedupe_key > (title + start_datetime + venue_id) */
+function scoreEvent(e: Event): number {
+  let s = 0
+  if (e.event_id) s += 100
+  if (e.confidence_score != null) s += e.confidence_score * 10
+  if (e.ticket_url) s += 2
+  if (e.primary_image_url) s += 1
+  const descLen = (e.description_short?.length ?? 0) + (e.description_long?.length ?? 0)
+  if (descLen > 100) s += 1
+  return s
+}
+
+/** Dedupe: group by fingerprint; within group pick best row; merge sources. */
 export function deduplicateEvents(events: Event[]): Event[] {
-  const byEventId = new Map<string, Event>()
-  const byDedupeKey = new Map<string, Event>()
-  const byFallback = new Map<string, Event>()
+  const byFingerprint = new Map<string, Event[]>()
 
   for (const e of events) {
-    if (e.dedupe_key) {
-      const existing = byDedupeKey.get(e.dedupe_key)
-      if (!existing || shouldKeepNewer(e, existing)) {
-        byDedupeKey.set(e.dedupe_key, e)
+    const fp = e.fingerprint || simpleHash(`${e.title}|${e.start_datetime}|${e.venue_id ?? ''}`)
+    if (!byFingerprint.has(fp)) byFingerprint.set(fp, [])
+    byFingerprint.get(fp)!.push(e)
+  }
+
+  const result: Event[] = []
+  for (const group of byFingerprint.values()) {
+    const best = group.reduce((a, b) => (scoreEvent(b) > scoreEvent(a) ? b : a))
+    if (group.length > 1) {
+      const allSources = new Set<string>()
+      let maxSourceCount = 0
+      for (const ev of group) {
+        ev.sources?.forEach((s) => allSources.add(s))
+        if (ev.source_count) maxSourceCount = Math.max(maxSourceCount, ev.source_count)
       }
-      continue
+      best.sources = Array.from(allSources)
+      best.source_count = Math.max(best.source_count ?? 0, allSources.size, maxSourceCount)
     }
-
-    const existingById = byEventId.get(e.event_id)
-    if (!existingById || shouldKeepNewer(e, existingById)) {
-      byEventId.set(e.event_id, e)
-    }
-
-    const venuePart = e.venue_id || e.venue_name || ''
-    const fallbackKey = `${e.title}|${e.start_datetime}|${venuePart}`
-    const existingFallback = byFallback.get(fallbackKey)
-    if (!existingFallback || shouldKeepNewer(e, existingFallback)) {
-      byFallback.set(fallbackKey, e)
-    }
+    const id = best.event_id || best.fingerprint || simpleHash(JSON.stringify(best))
+    result.push({ ...best, event_id: best.event_id || id })
   }
 
-  const result = new Map<string, Event>()
-  for (const e of byDedupeKey.values()) result.set(e.event_id, e)
-  for (const e of byEventId.values()) {
-    if (!result.has(e.event_id)) result.set(e.event_id, e)
-  }
-  for (const e of byFallback.values()) {
-    if (!result.has(e.event_id)) result.set(e.event_id, e)
-  }
-
-  return Array.from(result.values())
+  return result
 }
 
-function shouldKeepNewer(a: Event, b: Event): boolean {
-  const aUp = a.updated_at ? new Date(a.updated_at).getTime() : 0
-  const bUp = b.updated_at ? new Date(b.updated_at).getTime() : 0
-  return aUp >= bUp
-}
-
-/** Filter events for default listing (scheduled, sold_out, postponed) */
 export function filterEventsForListing(events: Event[]): Event[] {
   return events.filter((e) => isEventVisibleInListing(e.status))
 }
 
-/**
- * Load events from CSV URL.
- * Quarantines bad rows; does not throw.
- */
-export async function loadEvents(csvUrl: string): Promise<LoadEventsResult> {
-  const quarantined: { row: RawEventRow; error: string }[] = []
+export async function loadEvents(
+  csvUrl: string,
+  venueIndex?: VenueIndex | null,
+  allowedEventTags?: string[] | null
+): Promise<LoadEventsResult> {
+  const quarantined: { row: RawEventRow; error: string; reason: QuarantineReason }[] = []
+  const stats = {
+    totalRows: 0,
+    loaded: 0,
+    quarantined: 0,
+    duplicatesMerged: 0,
+    unknownVenues: 0,
+  }
 
   try {
     const response = await fetch(csvUrl, { cache: 'no-store' })
@@ -306,34 +389,76 @@ export async function loadEvents(csvUrl: string): Promise<LoadEventsResult> {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
+          stats.totalRows = results.data.length
           const events: Event[] = []
+          let unknownVenues = 0
+
           for (const row of results.data) {
-            const event = normalizeEvent(row)
-            if (event) {
-              events.push(event)
-            } else {
-              const err =
-                !row.event_id && !row.id
-                  ? 'Missing event_id/id'
-                  : !row.title
-                    ? 'Missing title'
-                    : !row.start_datetime
-                      ? 'Missing start_datetime'
-                      : 'Invalid row'
-              quarantined.push({ row, error: err })
+            const eventId = getStr(row, 'event_id') || getStr(row, 'id')
+            const title = getStr(row, 'title')
+            const startDatetime = getStr(row, 'start_datetime')
+
+            let reason: QuarantineReason = 'unknown'
+            if (!eventId) reason = 'missing_event_id'
+            else if (!title) reason = 'missing_title'
+            else if (!startDatetime) reason = 'missing_start_datetime'
+
+            if (reason !== 'unknown') {
+              quarantined.push({
+                row,
+                error: reason.replace(/_/g, ' '),
+                reason,
+              })
+              continue
+            }
+
+            try {
+              const event = normalizeEvent(row, venueIndex, allowedEventTags)
+              if (event) {
+                events.push(event)
+                if (event.venue_id === 'unknown') unknownVenues++
+              } else {
+                quarantined.push({
+                  row,
+                  error: 'Invalid datetime or parse error',
+                  reason: 'invalid_datetime',
+                })
+              }
+            } catch {
+              quarantined.push({ row, error: 'Parse error', reason: 'parse_error' })
             }
           }
+
+          stats.loaded = events.length
+          stats.quarantined = quarantined.length
+          stats.unknownVenues = unknownVenues
+
+          const beforeDedupe = events.length
           const deduped = deduplicateEvents(events)
-          resolve({ events: deduped, quarantined })
+          stats.duplicatesMerged = beforeDedupe - deduped.length
+
+          resolve({
+            events: deduped,
+            quarantined,
+            stats,
+          })
         },
         error: (err: Error) => {
           console.error('[eventsLoader] PapaParse error:', err)
-          resolve({ events: [], quarantined: [{ row: {}, error: String(err) }] })
+          resolve({
+            events: [],
+            quarantined: [{ row: {}, error: String(err), reason: 'parse_error' }],
+            stats: { ...stats, totalRows: 0 },
+          })
         },
       })
     })
   } catch (err) {
     console.error('[eventsLoader] Fetch error:', err)
-    return { events: [], quarantined: [{ row: {}, error: String(err) }] }
+    return {
+      events: [],
+      quarantined: [{ row: {}, error: String(err), reason: 'parse_error' }],
+      stats: { ...stats, totalRows: 0 },
+    }
   }
 }

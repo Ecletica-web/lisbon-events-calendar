@@ -139,6 +139,12 @@ export default function Navigation() {
             >
               Venues
             </Link>
+            <Link
+              href="/promoters"
+              className="text-xs md:text-sm font-medium text-slate-300 hover:text-white px-2 md:px-3 py-1.5 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all duration-200"
+            >
+              Promoters
+            </Link>
 
             {status === 'loading' ? (
               <div className="text-sm text-slate-400">Loading...</div>

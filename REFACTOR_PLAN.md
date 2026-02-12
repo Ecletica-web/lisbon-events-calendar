@@ -205,3 +205,22 @@ Run `npm run dev` and verify:
 | Bad rows crash build | Quarantine bad rows, log _error, continue |
 | FullCalendar API change | Keep NormalizedEvent shape; adapters map from Event |
 | Collections overkill | Implement as optional; UI hooks only if collections exist |
+
+---
+
+## 7. Refactor Completed (A–G)
+
+### Done
+
+- **A) Schema freeze**: `docs/SCHEMA.md`, `docs/VENUES.md`, `src/data/schema/eventColumns.ts`, `src/data/schema/venueColumns.ts`
+- **B) Ledger-lite**: `first_seen_at`, `last_seen_at`, `changed_at`, `change_hash`, `source_count`, `sources` on Event; computed in eventsLoader
+- **C) Venue identity + aliases**: Venue model with `slug`, `aliases`, `instagram_handle`; `VenueIndex`; `resolveVenue()`; venues CSV optional
+- **D) Fingerprint dedupe**: `fingerprint` = hash(title_norm|date|time|venue_id); dedupe by fingerprint, pick best row, merge sources
+- **E) Calendar page split**: `EventModal.tsx`, `EventListView.tsx` extracted; orphan code removed
+- **F) Trust/freshness cues**: Event modal shows status label + source link; calendar page shows "Last updated" (max `last_seen_at`)
+- **G) Quarantine + sanity-check**: Quarantine includes `reason`; `/api/sanity-check` returns stats + `quarantinedByReason`; `npm run sanity-check` prints (requires dev server)
+
+### Left / Optional
+
+- Further split: `FiltersPanel.tsx`, `CalendarView.tsx`, `useViewState.ts`, `useEventsData.ts`, `MobileCards.tsx` (page is still large but functional)
+- `getAllVenues()` could merge venues from CSV + canonicalVenues for richer filter list

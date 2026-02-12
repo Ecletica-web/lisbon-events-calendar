@@ -4,6 +4,13 @@ import {
   loadEvents,
   filterEventsForListing,
 } from '@/data/loaders/eventsLoader'
+import { loadVenues } from '@/data/loaders/venuesLoader'
+import { loadEventTags } from '@/data/loaders/eventTagsLoader'
+import { loadVenueTags } from '@/data/loaders/venueTagsLoader'
+import { loadPromoters } from '@/data/loaders/promotersLoader'
+import { buildVenueIndex } from '@/data/venueIndex'
+import type { Venue } from '@/models/Venue'
+import type { Promoter } from '@/models/Promoter'
 import type { Event } from '@/models/Event'
 
 /** Legacy RawEvent kept for type compatibility; actual parsing is in eventsLoader */
@@ -96,6 +103,8 @@ export interface NormalizedEvent {
     sourceUrl?: string
     sourceEventId?: string
     confidenceScore?: number
+    promoterId?: string
+    promoterName?: string
 
     // Metadata
     timezone?: string
@@ -125,10 +134,10 @@ function sanitizeImageUrl(url?: string): string | undefined {
  * Convert Event domain object to FullCalendar NormalizedEvent
  */
 function eventToNormalizedEvent(e: Event): NormalizedEvent {
-  // Venue key: prefer venue_id, else canonical match, else fallback key
-  const canonicalKey = matchEventToCanonicalVenue(e.venue_name, e.source_name)
-  const fallbackKey = toCanonicalVenueKey(e.venue_name, e.venue_address)
-  const venueKey = e.venue_id || canonicalKey || fallbackKey || undefined
+  const displayVenueName = e.venue_name ?? e.venue_name_raw
+  const canonicalKey = matchEventToCanonicalVenue(displayVenueName, e.source_name)
+  const fallbackKey = toCanonicalVenueKey(displayVenueName, e.venue_address)
+  const venueKey = e.venue_id && e.venue_id !== 'unknown' ? e.venue_id : canonicalKey || fallbackKey || undefined
 
   const startDate = new Date(e.start_datetime)
   let opensAt: string | undefined
@@ -145,8 +154,8 @@ function eventToNormalizedEvent(e: Event): NormalizedEvent {
     extendedProps: {
       descriptionShort: e.description_short,
       descriptionLong: e.description_long,
-      venueId: e.venue_id,
-      venueName: e.venue_name,
+      venueId: e.venue_id !== 'unknown' ? e.venue_id : undefined,
+      venueName: displayVenueName,
       venueAddress: e.venue_address,
       venueKey,
       neighborhood: e.neighborhood,
@@ -168,6 +177,8 @@ function eventToNormalizedEvent(e: Event): NormalizedEvent {
       sourceUrl: e.source_url,
       sourceEventId: e.source_event_id,
       confidenceScore: e.confidence_score,
+      promoterId: e.promoter_id,
+      promoterName: e.promoter_name,
       timezone: e.timezone,
       opensAt,
       lastSeenAt: e.last_seen_at,
@@ -180,7 +191,7 @@ function eventToNormalizedEvent(e: Event): NormalizedEvent {
 
 /**
  * Fetch events from Google Sheets CSV.
- * Uses new loader; filters to scheduled, sold_out, postponed; dedupes; caps per venue.
+ * Loads venues first, builds VenueIndex, resolves venue_id. Filters to scheduled, sold_out, postponed.
  */
 export async function fetchEvents(): Promise<NormalizedEvent[]> {
   const csvUrl = process.env.NEXT_PUBLIC_EVENTS_CSV_URL
@@ -191,9 +202,18 @@ export async function fetchEvents(): Promise<NormalizedEvent[]> {
   }
 
   try {
-    const { events: domainEvents, quarantined } = await loadEvents(csvUrl)
+    const [eventTags, venueTags] = await Promise.all([
+      loadEventTags(process.env.NEXT_PUBLIC_EVENT_TAGS_CSV_URL),
+      loadVenueTags(process.env.NEXT_PUBLIC_VENUE_TAGS_CSV_URL),
+    ])
+    const allowedEventTags = eventTags.length > 0 ? eventTags : null
+    const allowedVenueTags = venueTags.length > 0 ? venueTags : null
+    const { venues } = await loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags)
+    const venueIndex = buildVenueIndex(venues)
+
+    const { events: domainEvents, quarantined, stats } = await loadEvents(csvUrl, venueIndex, allowedEventTags)
     if (quarantined.length > 0) {
-      console.warn(`[eventsAdapter] Quarantined ${quarantined.length} bad rows`)
+      console.warn(`[eventsAdapter] Quarantined ${quarantined.length} rows:`, stats)
     }
 
     const listingEvents = filterEventsForListing(domainEvents)
@@ -215,7 +235,15 @@ export async function fetchAllEventsForDetail(): Promise<NormalizedEvent[]> {
   const csvUrl = process.env.NEXT_PUBLIC_EVENTS_CSV_URL
   if (!csvUrl) return []
 
-  const { events } = await loadEvents(csvUrl)
+  const [eventTags, venueTags] = await Promise.all([
+    loadEventTags(process.env.NEXT_PUBLIC_EVENT_TAGS_CSV_URL),
+    loadVenueTags(process.env.NEXT_PUBLIC_VENUE_TAGS_CSV_URL),
+  ])
+  const allowedEventTags = eventTags.length > 0 ? eventTags : null
+  const allowedVenueTags = venueTags.length > 0 ? venueTags : null
+  const { venues } = await loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags)
+  const venueIndex = buildVenueIndex(venues)
+  const { events } = await loadEvents(csvUrl, venueIndex, allowedEventTags)
   const visible = events.filter((e) => e.status !== 'draft')
   return visible.map(eventToNormalizedEvent).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 }
@@ -280,6 +308,7 @@ export function filterEvents(
     searchQuery?: string
     selectedTags?: string[]
     selectedVenues?: string[]
+    selectedPromoters?: string[]
     category?: string
     categories?: string[]
     freeOnly?: boolean
@@ -295,6 +324,7 @@ export function filterEvents(
     searchQuery = '',
     selectedTags = [],
     selectedVenues = [],
+    selectedPromoters = [],
     category,
     categories,
     freeOnly = false,
@@ -328,6 +358,14 @@ export function filterEvents(
       return selectedTags.some((selectedTag) =>
         event.extendedProps.tags.some((eventTag) => tagsMatch(eventTag, selectedTag))
       )
+    })
+  }
+
+  // Promoter filtering (OR logic)
+  if (selectedPromoters.length > 0) {
+    filtered = filtered.filter((event) => {
+      const pid = event.extendedProps.promoterId || event.extendedProps.promoterName
+      return pid && selectedPromoters.includes(pid)
     })
   }
 
@@ -385,6 +423,57 @@ export function filterEvents(
   }
 
   return filtered
+}
+
+/** Venue for display (cards, detail page) */
+export interface VenueForDisplay {
+  venue_id: string
+  name: string
+  slug: string
+  neighborhood?: string
+  venue_address?: string
+  description_short?: string
+  primary_image_url?: string
+  website_url?: string
+  instagram_handle?: string
+  tags: string[]
+}
+
+/**
+ * Fetch venues for /venues page. Uses CSV if set, else canonical fallback.
+ */
+export async function fetchVenues(): Promise<VenueForDisplay[]> {
+  const venueTagsUrl = process.env.NEXT_PUBLIC_VENUE_TAGS_CSV_URL
+  const venueTags = venueTagsUrl ? await loadVenueTags(venueTagsUrl) : []
+  const allowedVenueTags = venueTags.length > 0 ? venueTags : null
+  const { venues } = await loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags)
+  if (venues.length > 0) {
+    return venues.map((v) => ({
+      venue_id: v.venue_id,
+      name: v.name,
+      slug: v.slug,
+      neighborhood: v.neighborhood,
+      venue_address: v.venue_address,
+      description_short: v.description_short,
+      primary_image_url: sanitizeImageUrl(v.primary_image_url),
+      website_url: v.website_url,
+      instagram_handle: v.instagram_handle,
+      tags: v.tags,
+    }))
+  }
+  return CANONICAL_VENUES.map((c) => ({
+    venue_id: c.key,
+    name: c.name,
+    slug: c.key,
+    tags: [],
+  }))
+}
+
+/**
+ * Fetch promoters for /promoters page.
+ */
+export async function fetchPromoters(): Promise<Promoter[]> {
+  return loadPromoters(process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL)
 }
 
 /**
@@ -450,6 +539,29 @@ export function getAllCategories(events: NormalizedEvent[]): string[] {
   })
   // Normalize categories to merge duplicates like "art" and "arts"
   return normalizeCategories(Array.from(categorySet))
+}
+
+/**
+ * Promoter option for filter UI
+ */
+export interface PromoterOption {
+  id: string
+  name: string
+}
+
+/**
+ * Get unique promoters from events (for filter UI)
+ */
+export function getAllPromoters(events: NormalizedEvent[]): PromoterOption[] {
+  const seen = new Map<string, string>()
+  for (const e of events) {
+    const id = e.extendedProps.promoterId || e.extendedProps.promoterName
+    const name = e.extendedProps.promoterName || id
+    if (id && !seen.has(id)) seen.set(id, name || id)
+  }
+  return Array.from(seen.entries())
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /**
