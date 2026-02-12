@@ -191,13 +191,23 @@ function eventToNormalizedEvent(e: Event): NormalizedEvent {
 
 /**
  * Fetch events from Google Sheets CSV.
- * Loads venues first, builds VenueIndex, resolves venue_id. Filters to scheduled, sold_out, postponed.
+ * Client-side: fetches from /api/events (avoids CORS). Server-side: loads directly from CSV.
  */
 export async function fetchEvents(): Promise<NormalizedEvent[]> {
-  const csvUrl = process.env.NEXT_PUBLIC_EVENTS_CSV_URL
+  if (typeof window !== 'undefined') {
+    try {
+      const res = await fetch('/api/events')
+      if (!res.ok) throw new Error('Failed to fetch events')
+      return res.json()
+    } catch (error) {
+      console.error('Error fetching events:', error)
+      return []
+    }
+  }
 
+  const csvUrl = process.env.NEXT_PUBLIC_EVENTS_CSV_URL
   if (!csvUrl) {
-    console.warn('NEXT_PUBLIC_EVENTS_CSV_URL is not set. Please check your .env.local file.')
+    console.warn('NEXT_PUBLIC_EVENTS_CSV_URL is not set.')
     return []
   }
 

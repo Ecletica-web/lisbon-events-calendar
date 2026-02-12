@@ -22,11 +22,18 @@ export async function GET() {
   }
 
   try {
+    const { loadEventTags } = await import('@/data/loaders/eventTagsLoader')
+    const { loadVenueTags } = await import('@/data/loaders/venueTagsLoader')
+    const [eventTags, venueTags] = await Promise.all([
+      loadEventTags(process.env.NEXT_PUBLIC_EVENT_TAGS_CSV_URL),
+      loadVenueTags(process.env.NEXT_PUBLIC_VENUE_TAGS_CSV_URL),
+    ])
+    const allowedEventTags = eventTags.length > 0 ? eventTags : null
+    const allowedVenueTags = venueTags.length > 0 ? venueTags : null
     const venuesUrl = process.env.NEXT_PUBLIC_VENUES_CSV_URL
-    const { venues } = await loadVenues(venuesUrl)
+    const { venues } = await loadVenues(venuesUrl, allowedVenueTags)
     const venueIndex = buildVenueIndex(venues)
-
-    const { events, quarantined, stats } = await loadEvents(csvUrl, venueIndex)
+    const { events, quarantined, stats } = await loadEvents(csvUrl, venueIndex, allowedEventTags)
 
     const quarantinedByReason: Record<QuarantineReason, number> = {
       missing_event_id: 0,
