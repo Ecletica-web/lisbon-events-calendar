@@ -49,7 +49,7 @@ export default function PromotersPage() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <Link
           href="/calendar"
           className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
@@ -73,15 +73,14 @@ export default function PromotersPage() {
                 <li key={p.promoter_id}>
                   <Link
                     href={`/promoters/${encodeURIComponent(p.slug)}`}
-                    className="flex items-center gap-4 py-3 px-4 rounded-lg bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/50 transition-colors"
+                    className="flex items-center gap-3 sm:gap-4 py-3 px-3 sm:px-4 rounded-lg bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/50 transition-colors"
                   >
-                    {p.primary_image_url && (
-                      <img
-                        src={sanitize(p.primary_image_url) || p.primary_image_url}
-                        alt=""
-                        className="w-12 h-12 rounded object-cover flex-shrink-0"
-                      />
-                    )}
+                    <img
+                      src={sanitize(p.primary_image_url) || p.primary_image_url || '/lisboa.png'}
+                      alt=""
+                      className="w-12 h-12 rounded object-cover flex-shrink-0"
+                      onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
+                    />
                     <div className="flex-1 min-w-0">
                       <span className="font-medium">{p.name}</span>
                       {p.description_short && (

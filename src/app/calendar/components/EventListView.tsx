@@ -9,6 +9,7 @@ interface EventListViewProps {
   calendarView: ViewState['viewMode']
   dateFocus: string
   onEventClick: (info: { event: { id: string } }) => void
+  onDateChange?: (newDateFocus: string) => void
 }
 
 export default function EventListView({
@@ -16,6 +17,7 @@ export default function EventListView({
   calendarView,
   dateFocus,
   onEventClick,
+  onDateChange,
 }: EventListViewProps) {
   const getDateRange = () => {
     const focusDate = new Date(dateFocus)
@@ -90,16 +92,132 @@ export default function EventListView({
     return startTime
   }
 
+  const getPeriodTitle = () => {
+    const focusDate = new Date(dateFocus)
+    if (calendarView === 'dayGridMonth') {
+      return focusDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+    }
+    if (calendarView === 'timeGridWeek') {
+      const start = new Date(focusDate)
+      const dayOfWeek = start.getDay()
+      const diff = start.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
+      start.setDate(diff)
+      const end = new Date(start)
+      end.setDate(end.getDate() + 6)
+      return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    }
+    return focusDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  }
+
+  const goPrev = () => {
+    if (!onDateChange) return
+    const d = new Date(dateFocus)
+    if (calendarView === 'dayGridMonth') {
+      d.setMonth(d.getMonth() - 1)
+    } else if (calendarView === 'timeGridWeek') {
+      d.setDate(d.getDate() - 7)
+    } else {
+      d.setDate(d.getDate() - 1)
+    }
+    onDateChange(d.toISOString().split('T')[0])
+  }
+
+  const goNext = () => {
+    if (!onDateChange) return
+    const d = new Date(dateFocus)
+    if (calendarView === 'dayGridMonth') {
+      d.setMonth(d.getMonth() + 1)
+    } else if (calendarView === 'timeGridWeek') {
+      d.setDate(d.getDate() + 7)
+    } else {
+      d.setDate(d.getDate() + 1)
+    }
+    onDateChange(d.toISOString().split('T')[0])
+  }
+
+  const goToday = () => {
+    if (!onDateChange) return
+    onDateChange(new Date().toISOString().split('T')[0])
+  }
+
   if (filteredEvents.length === 0) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-slate-400">No events in this period</div>
+      <div className="space-y-6">
+        {onDateChange && (
+          <div className="flex items-center justify-between gap-4 flex-wrap bg-slate-800/60 rounded-xl border border-slate-700/50 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={goPrev}
+                className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition-colors"
+                aria-label="Previous period"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                onClick={goNext}
+                className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition-colors"
+                aria-label="Next period"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              <span className="text-sm font-semibold text-slate-200 min-w-[140px] text-center">
+                {getPeriodTitle()}
+              </span>
+            </div>
+            <button
+              onClick={goToday}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700/60 text-slate-300 hover:bg-slate-600/60 hover:text-white transition-colors"
+            >
+              Today
+            </button>
+          </div>
+        )}
+        <div className="flex items-center justify-center h-96">
+          <div className="text-slate-400">No events in this period</div>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
+      {onDateChange && (
+        <div className="flex items-center justify-between gap-4 flex-wrap bg-slate-800/60 rounded-xl border border-slate-700/50 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goPrev}
+              className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition-colors"
+              aria-label="Previous period"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              onClick={goNext}
+              className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition-colors"
+              aria-label="Next period"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            <span className="text-sm font-semibold text-slate-200 min-w-[140px] text-center">
+              {getPeriodTitle()}
+            </span>
+          </div>
+          <button
+            onClick={goToday}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700/60 text-slate-300 hover:bg-slate-600/60 hover:text-white transition-colors"
+          >
+            Today
+          </button>
+        </div>
+      )}
       {Array.from(eventsByDay.entries()).map(([dayKey, dayEvents]) => (
         <div
           key={dayKey}

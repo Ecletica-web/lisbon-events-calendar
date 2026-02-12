@@ -67,7 +67,7 @@ export default function VenueDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <Link
           href="/venues"
           className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
@@ -76,19 +76,16 @@ export default function VenueDetailPage() {
         </Link>
 
         {/* Richer header */}
-        <div className="mb-8 rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden">
-          <div className="aspect-[21/9] bg-slate-700/50 flex-shrink-0">
-            {venue?.primary_image_url ? (
-              <img
-                src={venue.primary_image_url}
-                alt=""
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-slate-500 text-6xl" />
-            )}
+        <div className="mb-6 sm:mb-8 rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden">
+          <div className="aspect-[16/10] sm:aspect-[21/9] bg-slate-700/50 flex-shrink-0">
+            <img
+              src={venue?.primary_image_url || '/lisboa.png'}
+              alt=""
+              className="w-full h-full object-cover"
+              onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
+            />
           </div>
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <h1 className="text-2xl font-bold mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
               {displayName}
             </h1>
@@ -152,15 +149,14 @@ export default function VenueDetailPage() {
                   key={event.id}
                   className="rounded-lg bg-slate-800/60 border border-slate-700/50 overflow-hidden"
                 >
-                  <div className="p-4 flex gap-4">
-                    {event.extendedProps.imageUrl && (
-                      <img
-                        src={event.extendedProps.imageUrl}
-                        alt=""
-                        className="w-24 h-24 object-cover rounded flex-shrink-0"
-                      />
-                    )}
-                    <div>
+                  <div className="p-4 flex flex-col sm:flex-row gap-4">
+                    <img
+                      src={event.extendedProps.imageUrl || '/lisboa.png'}
+                      alt=""
+                      className="w-full sm:w-24 h-40 sm:h-24 object-cover rounded flex-shrink-0"
+                      onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
+                    />
+                    <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-lg">{event.title}</h3>
                       <p className="text-slate-400 text-sm mt-1">
                         {formatDate(new Date(event.start))}

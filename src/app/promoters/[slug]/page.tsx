@@ -73,7 +73,7 @@ export default function PromoterDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <Link
           href="/promoters"
           className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
@@ -84,13 +84,12 @@ export default function PromoterDetailPage() {
         {promoter && (
           <div className="mb-8 rounded-lg bg-slate-800/60 border border-slate-700/50 overflow-hidden">
             <div className="flex flex-col md:flex-row gap-4 p-4">
-              {promoter.primary_image_url && (
-                <img
-                  src={sanitize(promoter.primary_image_url) || promoter.primary_image_url}
-                  alt=""
-                  className="w-full md:w-48 h-32 object-cover rounded-lg flex-shrink-0"
-                />
-              )}
+              <img
+                src={sanitize(promoter.primary_image_url) || promoter.primary_image_url || '/lisboa.png'}
+                alt=""
+                className="w-full md:w-48 h-32 object-cover rounded-lg flex-shrink-0"
+                onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
+              />
               <div className="flex-1">
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                   {displayName}
@@ -140,15 +139,14 @@ export default function PromoterDetailPage() {
                   key={event.id}
                   className="rounded-lg bg-slate-800/60 border border-slate-700/50 overflow-hidden"
                 >
-                  <div className="p-4 flex gap-4">
-                    {event.extendedProps.imageUrl && (
-                      <img
-                        src={event.extendedProps.imageUrl}
-                        alt=""
-                        className="w-24 h-24 object-cover rounded flex-shrink-0"
-                      />
-                    )}
-                    <div>
+                  <div className="p-4 flex flex-col sm:flex-row gap-4">
+                    <img
+                      src={event.extendedProps.imageUrl || '/lisboa.png'}
+                      alt=""
+                      className="w-full sm:w-24 h-40 sm:h-24 object-cover rounded flex-shrink-0"
+                      onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
+                    />
+                    <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-lg">{event.title}</h3>
                       <p className="text-slate-400 text-sm mt-1">
                         {formatDate(new Date(event.start))}

@@ -1073,6 +1073,7 @@ function CalendarPageContent() {
                   events={filteredEvents}
                   calendarView={calendarView}
                   dateFocus={dateFocus}
+                  onDateChange={setDateFocus}
                   onEventClick={(info: any) => {
                     // For mobile list view, info might be the event directly or a FullCalendar event object
                     const event = info.event ? filteredEvents.find((e) => e.id === info.event.id) : info
@@ -1169,6 +1170,7 @@ function CalendarPageContent() {
                         events={filteredEvents}
                         calendarView={calendarView}
                         dateFocus={dateFocus}
+                        onDateChange={setDateFocus}
                         onEventClick={handleEventClick}
                       />
                     </div>

@@ -1,14 +1,49 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 
 export default function Navigation() {
   const { data: session, status } = useSession()
   const [showMenu, setShowMenu] = useState(false)
-  
+  const [showMobileNav, setShowMobileNav] = useState(false)
   const user = session?.user
+
+  // Close mobile nav when resizing to desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) setShowMobileNav(false)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const navLinks = (
+    <>
+      <Link
+        href="/calendar"
+        className="block md:inline text-slate-300 hover:text-white px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all"
+        onClick={() => setShowMobileNav(false)}
+      >
+        Home
+      </Link>
+      <Link
+        href="/venues"
+        className="block md:inline text-slate-300 hover:text-white px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all"
+        onClick={() => setShowMobileNav(false)}
+      >
+        Venues
+      </Link>
+      <Link
+        href="/promoters"
+        className="block md:inline text-slate-300 hover:text-white px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all"
+        onClick={() => setShowMobileNav(false)}
+      >
+        Promoters
+      </Link>
+    </>
+  )
 
   return (
     <nav className="relative bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-50 shadow-2xl overflow-hidden">
@@ -125,27 +160,9 @@ export default function Navigation() {
             </Link>
           </div>
 
-          {/* Navigation Links */}
-          <div className="flex items-center gap-1 md:gap-2">
-            <Link
-              href="/calendar"
-              className="text-xs md:text-sm font-medium text-slate-300 hover:text-white px-2 md:px-3 py-1.5 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all duration-200"
-            >
-              Home
-            </Link>
-            <Link
-              href="/venues"
-              className="text-xs md:text-sm font-medium text-slate-300 hover:text-white px-2 md:px-3 py-1.5 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all duration-200"
-            >
-              Venues
-            </Link>
-            <Link
-              href="/promoters"
-              className="text-xs md:text-sm font-medium text-slate-300 hover:text-white px-2 md:px-3 py-1.5 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all duration-200"
-            >
-              Promoters
-            </Link>
-
+          {/* Navigation Links - Desktop */}
+          <div className="hidden md:flex items-center gap-1 md:gap-2">
+            {navLinks}
             {status === 'loading' ? (
               <div className="text-sm text-slate-400">Loading...</div>
             ) : user ? (
@@ -224,7 +241,75 @@ export default function Navigation() {
               </>
             )}
           </div>
+
+          {/* Mobile hamburger */}
+          <div className="flex md:hidden items-center gap-2">
+            {status !== 'loading' && !user && (
+              <>
+                <Link
+                  href="/login"
+                  className="text-xs text-slate-300 hover:text-white px-2 py-1.5"
+                  onClick={() => setShowMobileNav(false)}
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/signup"
+                  className="text-xs text-white bg-gradient-to-r from-indigo-600 to-purple-600 px-2 py-1.5 rounded"
+                  onClick={() => setShowMobileNav(false)}
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
+            <button
+              onClick={() => setShowMobileNav(!showMobileNav)}
+              className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/80"
+              aria-label="Toggle menu"
+            >
+              {showMobileNav ? (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile nav dropdown */}
+        {showMobileNav && (
+          <div className="md:hidden border-t border-slate-700/50 bg-slate-900/95 backdrop-blur-xl">
+            <div className="py-3 px-4 space-y-1">
+              {navLinks}
+              {status === 'loading' ? (
+                <div className="px-4 py-2 text-sm text-slate-400">Loading...</div>
+              ) : user ? (
+                <>
+                  <Link
+                    href="/profile"
+                    className="block text-slate-300 hover:text-white px-4 py-3 rounded-lg hover:bg-slate-800/80"
+                    onClick={() => setShowMobileNav(false)}
+                  >
+                    Profile
+                  </Link>
+                  <button
+                    onClick={async () => {
+                      await signOut({ callbackUrl: '/calendar' })
+                      setShowMobileNav(false)
+                    }}
+                    className="w-full text-left px-4 py-3 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/80"
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : null}
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   )
