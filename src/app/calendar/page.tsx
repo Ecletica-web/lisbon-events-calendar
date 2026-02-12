@@ -8,12 +8,14 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import listPlugin from '@fullcalendar/list'
 import {
   fetchEvents,
+  fetchVenues,
   filterEvents,
   getAllTags,
   getAllCategories,
   getAllVenues,
   toCanonicalTagKey,
   type NormalizedEvent,
+  type VenueOption,
 } from '@/lib/eventsAdapter'
 import { getCategoryColor, generateColorFromString } from '@/lib/categoryColors'
 import { generateColorShade } from '@/lib/colorShades'
@@ -43,6 +45,7 @@ import EventListView from './components/EventListView'
 
 function CalendarPageContent() {
   const [events, setEvents] = useState<NormalizedEvent[]>([])
+  const [venues, setVenues] = useState<VenueOption[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [tagSearchQuery, setTagSearchQuery] = useState('')
@@ -91,24 +94,33 @@ function CalendarPageContent() {
   }, [sidebarMinimized])
 
   useEffect(() => {
-    async function loadEvents() {
+    async function load() {
       setLoading(true)
       try {
-        console.log('Starting to fetch events...')
-        const fetchedEvents = await fetchEvents()
-        console.log('Fetched events:', fetchedEvents.length)
+        const [fetchedEvents, fetchedVenues] = await Promise.all([
+          fetchEvents(),
+          fetchVenues(),
+        ])
         if (fetchedEvents.length === 0) {
           console.warn('No events found. Check CSV URL and data structure.')
         }
         setEvents(fetchedEvents)
+        // Use CSV venues for filter when available; map to VenueOption { key, name }
+        const venueOptions: VenueOption[] = fetchedVenues.length > 0
+          ? fetchedVenues
+              .map((v) => ({ key: v.venue_id || v.slug, name: v.name }))
+              .sort((a, b) => a.name.localeCompare(b.name))
+          : []
+        setVenues(venueOptions)
       } catch (error) {
-        console.error('Error loading events:', error)
+        console.error('Error loading data:', error)
         setEvents([])
+        setVenues([])
       } finally {
         setLoading(false)
       }
     }
-    loadEvents()
+    load()
   }, [])
 
   // Hydrate from URL on mount and load saved views
@@ -208,10 +220,13 @@ function CalendarPageContent() {
     return () => clearTimeout(timeoutId)
   }, [calendarView, dateFocus, searchQuery, selectedCategories, selectedTags, selectedVenues, freeOnly, excludeExhibitions, excludeContinuous, router])
 
-  // Memoize all tags and categories
+  // Memoize all tags, categories, and venues (use CSV venues when loaded, else canonical fallback)
   const allTags = useMemo(() => getAllTags(events), [events])
   const allCategories = useMemo(() => getAllCategories(events), [events])
-  const allVenues = useMemo(() => getAllVenues(events), [events])
+  const allVenues = useMemo(
+    () => (venues.length > 0 ? venues : getAllVenues(events)),
+    [venues, events]
+  )
 
   // Last updated = max last_seen_at among loaded events (trust/freshness cue)
   const lastUpdated = useMemo(() => {

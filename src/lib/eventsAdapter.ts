@@ -450,9 +450,21 @@ export interface VenueForDisplay {
 }
 
 /**
- * Fetch venues for /venues page. Uses CSV if set, else canonical fallback.
+ * Fetch venues for /venues page and calendar filter. Uses CSV if set, else canonical fallback.
+ * Client-side: fetches from /api/venues (avoids CORS). Server-side: loads directly from CSV.
  */
 export async function fetchVenues(): Promise<VenueForDisplay[]> {
+  if (typeof window !== 'undefined') {
+    try {
+      const res = await fetch('/api/venues')
+      if (!res.ok) throw new Error('Failed to fetch venues')
+      return res.json()
+    } catch (error) {
+      console.error('Error fetching venues:', error)
+      return []
+    }
+  }
+
   const venueTagsUrl = process.env.NEXT_PUBLIC_VENUE_TAGS_CSV_URL
   const venueTags = venueTagsUrl ? await loadVenueTags(venueTagsUrl) : []
   const allowedVenueTags = venueTags.length > 0 ? venueTags : null
