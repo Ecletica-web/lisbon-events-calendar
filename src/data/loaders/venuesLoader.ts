@@ -88,7 +88,9 @@ export async function loadVenues(
       if (!response.ok) {
         throw new Error(`Failed to fetch venues CSV: ${response.statusText}`)
       }
-      const csvText = await response.text()
+      let csvText = await response.text()
+      // Strip BOM (Google Sheets export can include it, breaking first column key)
+      if (csvText.charCodeAt(0) === 0xfeff) csvText = csvText.slice(1)
       return new Promise((resolve) => {
         Papa.parse<RawVenueRow>(csvText, {
           header: true,

@@ -483,8 +483,13 @@ export async function fetchVenues(): Promise<VenueForDisplay[]> {
       tags: v.tags,
     }))
   }
-  // No canonical fallback: strictly use CSV venues only (e.g. 50 from sheet)
-  return []
+  // Fallback when CSV empty/fails (e.g. env not set on Vercel, parse error)
+  return CANONICAL_VENUES.map((c) => ({
+    venue_id: c.key,
+    name: c.name,
+    slug: c.key,
+    tags: [],
+  }))
 }
 
 /**
