@@ -15,6 +15,16 @@ export async function GET(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if (userId === 'guest') {
+      return NextResponse.json({
+        settings: {
+          email_enabled: false,
+          digest_frequency: 'weekly',
+          instant_enabled: false,
+          timezone: 'Europe/Lisbon',
+        },
+      })
+    }
     
     let settings = getNotificationSettings(userId)
     
@@ -38,6 +48,9 @@ export async function PATCH(request: NextRequest) {
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (userId === 'guest') {
+      return NextResponse.json({ error: 'Guest cannot save data.' }, { status: 403 })
     }
     
     const updates = await request.json()

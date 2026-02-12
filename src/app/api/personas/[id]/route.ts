@@ -11,6 +11,9 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if (userId === 'guest') {
+      return NextResponse.json({ error: 'Guest cannot save data.' }, { status: 403 })
+    }
     const { id } = await context.params
     const body = await request.json()
     const { title, slug, descriptionShort, rules, isPublic } = body
@@ -37,6 +40,9 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
     const userId = session?.user?.id
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (userId === 'guest') {
+      return NextResponse.json({ error: 'Guest cannot save data.' }, { status: 403 })
     }
     const { id } = await context.params
     const deleted = deletePersona(id, userId)

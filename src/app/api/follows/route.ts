@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if (userId === 'guest') {
+      return NextResponse.json({ follows: [] })
+    }
     
     const follows = getFollowsByUserId(userId)
     return NextResponse.json({ follows })
@@ -29,6 +32,9 @@ export async function POST(request: NextRequest) {
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (userId === 'guest') {
+      return NextResponse.json({ error: 'Guest cannot save data. Sign in to follow.' }, { status: 403 })
     }
     
     const { type, normalizedValue, displayValue } = await request.json()
@@ -61,6 +67,9 @@ export async function DELETE(request: NextRequest) {
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (userId === 'guest') {
+      return NextResponse.json({ error: 'Guest cannot save data.' }, { status: 403 })
     }
     
     const { searchParams } = new URL(request.url)

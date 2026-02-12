@@ -11,6 +11,9 @@ export async function GET(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if (userId === 'guest') {
+      return NextResponse.json({ personas: [] })
+    }
     const personas = getPersonasByUserId(userId)
     return NextResponse.json({ personas })
   } catch (error) {
@@ -25,6 +28,9 @@ export async function POST(request: NextRequest) {
     const userId = session?.user?.id
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (userId === 'guest') {
+      return NextResponse.json({ error: 'Guest cannot save data. Sign in to create personas.' }, { status: 403 })
     }
     const body = await request.json()
     const { title, descriptionShort, rules, isPublic } = body

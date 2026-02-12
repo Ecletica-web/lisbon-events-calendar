@@ -19,6 +19,9 @@ export async function GET(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if (userId === 'guest') {
+      return NextResponse.json({ views: [] })
+    }
     
     const views = getSavedViewsByUserId(userId)
     return NextResponse.json({ views })
@@ -36,6 +39,9 @@ export async function POST(request: NextRequest) {
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (userId === 'guest') {
+      return NextResponse.json({ error: 'Guest cannot save data. Sign in to save views.' }, { status: 403 })
     }
     
     const { name, state, isPublic } = await request.json()
@@ -62,6 +68,9 @@ export async function PATCH(request: NextRequest) {
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (userId === 'guest') {
+      return NextResponse.json({ error: 'Guest cannot save data.' }, { status: 403 })
     }
     
     const { id, name, state, isDefault, isPublic } = await request.json()
@@ -102,6 +111,9 @@ export async function DELETE(request: NextRequest) {
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (userId === 'guest') {
+      return NextResponse.json({ error: 'Guest cannot save data.' }, { status: 403 })
     }
     
     const { searchParams } = new URL(request.url)

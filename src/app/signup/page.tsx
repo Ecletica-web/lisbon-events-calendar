@@ -112,7 +112,7 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center pt-16 px-4">
-      <div className="max-w-md w-full p-6 md:p-8 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200/50">
+      <div className="max-w-md w-full p-6 md:p-8 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200/50 text-gray-900">
         <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">Sign Up</h1>
         <p className="text-sm text-gray-600 mb-8">
           Create a new account
@@ -189,23 +189,23 @@ export default function SignupPage() {
         {emailOnly ? (
           <form onSubmit={handleEmailOnlySubmit} className="space-y-4">
             <div>
-              <label className="block mb-2 text-sm font-medium">Name (optional)</label>
+              <label className="block mb-2 text-sm font-medium text-gray-900">Name (optional)</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+                className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
                 placeholder="Your name"
               />
             </div>
             <div>
-              <label className="block mb-2 text-sm font-medium">Email</label>
+              <label className="block mb-2 text-sm font-medium text-gray-900">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+                className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
                 placeholder="your@email.com"
               />
             </div>
@@ -224,49 +224,49 @@ export default function SignupPage() {
         ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block mb-2 text-sm font-medium">Name (optional)</label>
+            <label className="block mb-2 text-sm font-medium text-gray-900">Name (optional)</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+              className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
               placeholder="Your name"
             />
           </div>
 
           <div>
-            <label className="block mb-2 text-sm font-medium">Email</label>
+            <label className="block mb-2 text-sm font-medium text-gray-900">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+              className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
               placeholder="your@email.com"
             />
           </div>
 
           <div>
-            <label className="block mb-2 text-sm font-medium">Password</label>
+            <label className="block mb-2 text-sm font-medium text-gray-900">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+              className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
               placeholder="At least 6 characters"
             />
           </div>
 
           <div>
-            <label className="block mb-2 text-sm font-medium">Confirm Password</label>
+            <label className="block mb-2 text-sm font-medium text-gray-900">Confirm Password</label>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+              className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
               placeholder="Confirm your password"
             />
           </div>

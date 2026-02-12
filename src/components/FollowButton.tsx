@@ -71,6 +71,7 @@ export default function FollowButton({
 
   if (!FEATURE_FLAGS.PROFILE_AUTH) return null
   if (status !== 'authenticated' || !session?.user) return null
+  if ((session?.user as any)?.id === 'guest') return null
 
   const sizeClass = size === 'sm' ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'
   const baseClass = `rounded-lg font-medium transition-colors ${sizeClass}`

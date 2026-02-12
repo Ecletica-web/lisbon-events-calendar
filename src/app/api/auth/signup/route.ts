@@ -4,7 +4,13 @@ import { hashPassword } from '@/lib/password'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, name } = await request.json()
+    let body: { email?: string; password?: string; name?: string }
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    }
+    const { email, password, name } = body
     
     if (!email || typeof email !== 'string') {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 })
@@ -41,6 +47,10 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
   } catch (error) {
     console.error('Signup error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json(
+      { error: process.env.NODE_ENV === 'development' ? message : 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
