@@ -18,6 +18,34 @@ export default function SignupPage() {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [emailOnly, setEmailOnly] = useState(false)
+
+  const handleEmailOnlySubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name: name || undefined }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Signup failed')
+      }
+
+      router.push(`/set-password?email=${encodeURIComponent(email)}`)
+    } catch (err: any) {
+      setError(err.message || 'Signup failed. Please try again.')
+      console.error('Signup error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -139,7 +167,61 @@ export default function SignupPage() {
           </div>
         </div>
 
+        {/* Toggle: Full signup vs email only */}
+        <div className="flex gap-2 mb-4 p-1 bg-gray-100 rounded-lg">
+          <button
+            type="button"
+            onClick={() => setEmailOnly(false)}
+            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${!emailOnly ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
+          >
+            Email + password
+          </button>
+          <button
+            type="button"
+            onClick={() => setEmailOnly(true)}
+            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${emailOnly ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
+          >
+            Email only
+          </button>
+        </div>
+
         {/* Signup Form */}
+        {emailOnly ? (
+          <form onSubmit={handleEmailOnlySubmit} className="space-y-4">
+            <div>
+              <label className="block mb-2 text-sm font-medium">Name (optional)</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+                placeholder="Your name"
+              />
+            </div>
+            <div>
+              <label className="block mb-2 text-sm font-medium">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+                placeholder="your@email.com"
+              />
+            </div>
+            {error && <div className="text-red-600 text-sm">{error}</div>}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 transition-all shadow-md hover:shadow-lg font-medium"
+            >
+              {loading ? 'Creating account...' : 'Sign up with email'}
+            </button>
+            <p className="text-xs text-gray-500">
+              You&apos;ll set a password on the next screen
+            </p>
+          </form>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block mb-2 text-sm font-medium">Name (optional)</label>
@@ -201,6 +283,7 @@ export default function SignupPage() {
             {loading ? 'Creating account...' : 'Sign Up'}
           </button>
         </form>
+        )}
 
         <p className="mt-4 text-center text-sm text-gray-600">
           Already have an account?{' '}

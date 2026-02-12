@@ -23,6 +23,22 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+
+      if (res.status === 401 && data.error === 'NO_PASSWORD') {
+        router.push(`/set-password?email=${encodeURIComponent(email)}`)
+        return
+      }
+
+      if (!res.ok) {
+        throw new Error(data.message || data.error || 'Invalid email or password')
+      }
+
       const result = await signIn('credentials', {
         email,
         password,
@@ -30,7 +46,7 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
-        throw new Error(result.error)
+        throw new Error('Could not sign in. Please try again.')
       }
 
       if (result?.ok) {
@@ -172,9 +188,15 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-4 text-center text-sm text-gray-600">
-          Don't have an account?{' '}
+          Don&apos;t have an account?{' '}
           <Link href="/signup" className="text-blue-600 hover:underline">
             Sign up
+          </Link>
+        </p>
+        <p className="mt-2 text-center text-sm text-gray-500">
+          Signed up with email only?{' '}
+          <Link href="/set-password" className="text-blue-600 hover:underline">
+            Set your password
           </Link>
         </p>
       </div>

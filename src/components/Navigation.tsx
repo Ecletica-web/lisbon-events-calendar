@@ -47,9 +47,9 @@ export default function Navigation() {
   )
 
   return (
-    <nav className="relative bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-50 shadow-2xl overflow-hidden">
+    <nav className="relative bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-50 shadow-2xl">
       {/* Animated Neon Waves Background */}
-      <div className="absolute inset-0 opacity-30">
+      <div className="absolute inset-0 opacity-30 overflow-hidden pointer-events-none">
         {/* Wave 1 - Purple/Indigo */}
         <svg
           className="absolute bottom-0 w-full h-full"
@@ -199,10 +199,10 @@ export default function Navigation() {
                   {showMenu && (
                     <>
                       <div
-                        className="fixed inset-0 z-10"
+                        className="fixed inset-0 z-[60]"
                         onClick={() => setShowMenu(false)}
                       />
-                      <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl z-20 overflow-hidden">
+                      <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl z-[70] overflow-hidden">
                         <div className="px-4 py-2 text-xs text-slate-400 border-b border-slate-700/50 bg-slate-900/50">
                           {user.email}
                         </div>

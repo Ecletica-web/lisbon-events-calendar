@@ -10,12 +10,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 })
     }
     
-    if (!password || typeof password !== 'string' || password.length < 6) {
-      return NextResponse.json({ 
-        error: 'Password is required and must be at least 6 characters' 
-      }, { status: 400 })
-    }
-    
     // Check if user already exists
     const existingUser = getUserByEmail(email)
     if (existingUser) {
@@ -24,8 +18,16 @@ export async function POST(request: NextRequest) {
       }, { status: 409 })
     }
     
-    // Hash password
-    const passwordHash = await hashPassword(password)
+    // Password optional for email-only signup
+    let passwordHash: string | undefined
+    if (password && typeof password === 'string') {
+      if (password.length < 6) {
+        return NextResponse.json({ 
+          error: 'Password must be at least 6 characters' 
+        }, { status: 400 })
+      }
+      passwordHash = await hashPassword(password)
+    }
     
     // Create user
     const user = createUser(email, name, passwordHash)

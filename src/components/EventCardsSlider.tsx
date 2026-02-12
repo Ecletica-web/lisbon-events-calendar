@@ -30,7 +30,8 @@ interface EventCardsSliderProps {
   venuesWithCoords?: VenueForDisplay[]
 }
 
-const MAX_NEARBY_KM = 25
+const RADIUS_OPTIONS_KM = [2, 5, 10, 15, 25, 50] as const
+const DEFAULT_RADIUS_KM = 2
 
 type TimeRange = 'today' | 'tomorrow' | 'week' | 'month' | 'nextMonth'
 
@@ -79,6 +80,7 @@ export default function EventCardsSlider({
   const [localCategories, setLocalCategories] = useState<string[]>(selectedCategories)
   const [localTags, setLocalTags] = useState<string[]>(selectedTags)
   const [nearMeEnabled, setNearMeEnabled] = useState(false)
+  const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM)
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null)
   const [locError, setLocError] = useState<string | null>(null)
   const [locLoading, setLocLoading] = useState(false)
@@ -208,7 +210,7 @@ export default function EventCardsSlider({
           event,
           km: haversineDistanceKm(userPos.lat, userPos.lng, coords.lat, coords.lng),
         }))
-        .filter((x) => x.km <= MAX_NEARBY_KM)
+        .filter((x) => x.km <= radiusKm)
       filtered = withCoords.map((x) => x.event)
       const kmMap = new Map(withCoords.map((x) => [x.event.id, x.km]))
       filtered.sort((a, b) => (kmMap.get(a.id) ?? 999) - (kmMap.get(b.id) ?? 999))
@@ -229,7 +231,7 @@ export default function EventCardsSlider({
     }
 
     return filtered.map((e) => ({ event: e, km: undefined }))
-  }, [events, dateRange, localTags, localCategories, freeOnly, excludeExhibitions, excludeContinuous, timeRange, skipFiltering, nearMeEnabled, userPos, venueCoordsMap])
+  }, [events, dateRange, localTags, localCategories, freeOnly, excludeExhibitions, excludeContinuous, timeRange, skipFiltering, nearMeEnabled, radiusKm, userPos, venueCoordsMap])
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (mode !== 'slider') return
@@ -299,6 +301,20 @@ export default function EventCardsSlider({
               >
                 <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${nearMeEnabled ? 'left-5' : 'left-1'}`} />
               </button>
+              {nearMeEnabled && (
+                <select
+                  value={radiusKm}
+                  onChange={(e) => setRadiusKm(Number(e.target.value))}
+                  className="text-xs bg-slate-800 border border-slate-600/50 rounded-md px-2 py-1 text-slate-200 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {RADIUS_OPTIONS_KM.map((r) => (
+                    <option key={r} value={r}>
+                      {r} km
+                    </option>
+                  ))}
+                </select>
+              )}
               {locLoading && <span className="text-xs text-slate-500">Getting location...</span>}
               {locError && nearMeEnabled && <span className="text-xs text-amber-400">{locError}</span>}
             </label>
@@ -317,7 +333,7 @@ export default function EventCardsSlider({
           </div>
           <span className="text-sm text-slate-400">
             {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} match
-            {nearMeEnabled && userPos && ` within ${MAX_NEARBY_KM} km`}
+            {nearMeEnabled && userPos && ` within ${radiusKm} km`}
           </span>
         </div>
       )}

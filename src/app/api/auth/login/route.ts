@@ -20,10 +20,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
     }
     
-    // Check if user has password (email/password auth)
+    // Check if user has password
     if (!user.password_hash) {
       return NextResponse.json({ 
-        error: 'This account was created with OAuth. Please use Google or Facebook to sign in.' 
+        error: 'NO_PASSWORD',
+        message: 'Set your password to sign in, or use Google/Facebook if you signed up that way.',
       }, { status: 401 })
     }
     
