@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { supabaseServer } from '@/lib/supabase/server'
+
+function createUserClient(accessToken: string) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  return createClient(url, anonKey, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+  })
+}
 
 export async function PATCH(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -18,6 +27,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
+    const userClient = createUserClient(bearer)
     const body = await request.json()
     const updates: Record<string, unknown> = {}
 
@@ -62,7 +72,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
-    const { data, error } = await supabaseServer
+    const { data, error } = await userClient
       .from('user_profiles')
       .upsert(
         { id: user.id, ...updates, updated_at: new Date().toISOString() },

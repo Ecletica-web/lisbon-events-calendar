@@ -35,25 +35,24 @@ export default function ProfileEditForm({
     setError(null)
     setUploading(type)
     try {
-      const { data: { session } } = await supabase?.auth.getSession() ?? { data: { session: null } }
-      if (!session?.access_token) {
+      const { data: { user } } = await supabase?.auth.getUser() ?? { data: { user: null } }
+      if (!user) {
         setError('Not signed in')
         return
       }
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('type', type)
-      const res = await fetch('/api/profile/upload', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: formData,
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Upload failed')
-      if (type === 'cover') setCoverUrl(data.url)
-      else setAvatarUrl(data.url)
-    } catch (err: any) {
-      setError(err.message || 'Upload failed')
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const path = `${user.id}/${type}-${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase!.storage
+        .from('profile-images')
+        .upload(path, file, { upsert: true })
+      if (uploadError) throw new Error(uploadError.message)
+      const { data: urlData } = supabase!.storage
+        .from('profile-images')
+        .getPublicUrl(path)
+      if (type === 'cover') setCoverUrl(urlData.publicUrl)
+      else setAvatarUrl(urlData.publicUrl)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
       setUploading(null)
     }

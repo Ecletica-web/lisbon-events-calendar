@@ -35,9 +35,10 @@ interface EventCardsSliderProps {
 const RADIUS_OPTIONS_KM = [2, 5, 10, 15, 25, 50] as const
 const DEFAULT_RADIUS_KM = 2
 
-type TimeRange = 'today' | 'tomorrow' | 'week' | 'month' | 'nextMonth'
+type TimeRange = 'all' | 'today' | 'tomorrow' | 'week' | 'month' | 'nextMonth'
 
-function getDateRangeBounds(range: TimeRange, dateFocus?: string): { start: Date; end: Date } {
+function getDateRangeBounds(range: TimeRange, dateFocus?: string): { start: Date; end: Date } | null {
+  if (range === 'all') return null
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const tomorrow = new Date(today)
@@ -78,7 +79,7 @@ export default function EventCardsSlider({
   dateFocus,
   venuesWithCoords = [],
 }: EventCardsSliderProps) {
-  const [timeRange, setTimeRange] = useState<TimeRange>('month')
+  const [timeRange, setTimeRange] = useState<TimeRange>('all')
   const [localCategories, setLocalCategories] = useState<string[]>(selectedCategories)
   const [localTags, setLocalTags] = useState<string[]>(selectedTags)
   const [nearMeEnabled, setNearMeEnabled] = useState(false)
@@ -175,10 +176,12 @@ export default function EventCardsSlider({
   const filteredEvents = useMemo(() => {
     if (skipFiltering) return events.map((e) => ({ event: e, km: undefined as number | undefined }))
 
-    let filtered = events.filter((event) => {
-      const eventDate = new Date(event.start)
-      return eventDate >= dateRange.start && eventDate < dateRange.end
-    })
+    let filtered = timeRange === 'all'
+      ? [...events]
+      : events.filter((event) => {
+          const eventDate = new Date(event.start)
+          return dateRange && eventDate >= dateRange.start && eventDate < dateRange.end
+        })
 
     filtered = filterEvents(filtered, {
       selectedTags: localTags,
@@ -220,7 +223,7 @@ export default function EventCardsSlider({
       return filtered.map((e) => ({ event: e, km: kmMap.get(e.id) }))
     }
 
-    if (timeRange === 'today') {
+    if (timeRange === 'all' || timeRange === 'today') {
       filtered.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
     } else {
       filtered.sort((a, b) => {
@@ -271,7 +274,7 @@ export default function EventCardsSlider({
   }
 
   const showFullHeader = !hideHeader && !skipFiltering
-  const timeRangeLabel = timeRange === 'today' ? 'today' : timeRange === 'tomorrow' ? 'tomorrow' : timeRange === 'week' ? 'this week' : timeRange === 'month' ? 'this month' : 'next month'
+  const timeRangeLabel = timeRange === 'all' ? 'all' : timeRange === 'today' ? 'today' : timeRange === 'tomorrow' ? 'tomorrow' : timeRange === 'week' ? 'this week' : timeRange === 'month' ? 'this month' : 'next month'
 
   return (
     <div className="w-full mt-6 md:mt-8">
@@ -279,7 +282,7 @@ export default function EventCardsSlider({
         <div className="flex items-center justify-between mb-4 px-4 md:px-6 flex-wrap gap-3">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
             <div className="flex bg-slate-800/80 rounded-lg p-1 border border-slate-700/50 flex-wrap overflow-x-auto scrollbar-hide max-w-full">
-              {(['today', 'tomorrow', 'week', 'month', 'nextMonth'] as const).map((r) => (
+              {(['all', 'today', 'tomorrow', 'week', 'month', 'nextMonth'] as const).map((r) => (
                 <button
                   key={r}
                   onClick={() => setTimeRange(r)}
@@ -287,7 +290,7 @@ export default function EventCardsSlider({
                     timeRange === r ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-300 hover:text-white'
                   }`}
                 >
-                  {r === 'today' ? 'Today' : r === 'tomorrow' ? 'Tomorrow' : r === 'week' ? 'This week' : r === 'month' ? 'This month' : 'Next month'}
+                  {r === 'all' ? 'All' : r === 'today' ? 'Today' : r === 'tomorrow' ? 'Tomorrow' : r === 'week' ? 'This week' : r === 'month' ? 'This month' : 'Next month'}
                 </button>
               ))}
             </div>

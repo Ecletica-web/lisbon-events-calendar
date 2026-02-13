@@ -165,90 +165,62 @@ export default function ProfileSupabaseSections({
       </div>
 
       {/* Upcoming (Going) */}
-      {goingIds.size > 0 && (
-        <div className="mb-10">
-          <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Upcoming (Going)</h2>
-          {(() => {
-            const goingEvents = events
-              .filter((e) => goingIds.has(e.id))
-              .filter((e) => new Date(e.start).getTime() >= now)
-              .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-            if (goingEvents.length === 0) {
-              return <p className="text-slate-500">No upcoming events you&apos;re going to.</p>
-            }
-            return (
-              <EventCardsSlider
-                events={goingEvents}
-                onEventClick={onEventClick}
-                mode="slider"
-                hideHeader={false}
-                skipFiltering={false}
-                venuesWithCoords={venues}
-              />
-            )
-          })()}
-        </div>
-      )}
+      <div className="mb-10">
+        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Upcoming (Going)</h2>
+        <EventCardsSlider
+          events={events
+            .filter((e) => goingIds.has(e.id))
+            .filter((e) => new Date(e.start).getTime() >= now)
+            .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())}
+          onEventClick={onEventClick}
+          mode="slider"
+          hideHeader={false}
+          skipFiltering={false}
+          venuesWithCoords={venues}
+        />
+      </div>
 
       {/* Events at Followed Venues & Promoters */}
       <div className="mb-10">
         <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Events at Your Venues & Promoters</h2>
-        {eventsAtFollowed.length === 0 ? (
-          <p className="text-slate-500">No upcoming events at venues or promoters you follow.</p>
-        ) : (
-          <EventCardsSlider
-            events={eventsAtFollowed}
-            onEventClick={onEventClick}
-            mode="slider"
-            hideHeader={false}
-            skipFiltering={false}
-            venuesWithCoords={venues}
-          />
-        )}
+        <EventCardsSlider
+          events={eventsAtFollowed}
+          onEventClick={onEventClick}
+          mode="slider"
+          hideHeader={false}
+          skipFiltering={false}
+          venuesWithCoords={venues}
+        />
       </div>
 
       {/* Saved Events (formerly Wishlisted) */}
       <div className="mb-10">
         <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Saved Events</h2>
-        {savedEvents.length === 0 ? (
-          <p className="text-slate-500">No saved events yet. Add events to your saved list from the calendar.</p>
-        ) : (
-          <EventCardsSlider
-            events={savedEvents}
-            onEventClick={onEventClick}
-            mode="slider"
-            hideHeader={false}
-            skipFiltering={false}
-            venuesWithCoords={venues}
-          />
-        )}
+        <EventCardsSlider
+          events={savedEvents}
+          onEventClick={onEventClick}
+          mode="slider"
+          hideHeader={false}
+          skipFiltering={false}
+          venuesWithCoords={venues}
+        />
       </div>
 
       {/* Liked Events */}
-      {likedEventIds.size > 0 && (
-        <div className="mb-10">
-          <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Liked Events</h2>
-          {(() => {
-            const likedEvents = events
-              .filter((e) => likedEventIds.has(e.id))
-              .filter((e) => new Date(e.start).getTime() >= now)
-              .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-            if (likedEvents.length === 0) {
-              return <p className="text-slate-500">No upcoming liked events.</p>
-            }
-            return (
-              <EventCardsSlider
-                events={likedEvents}
-                onEventClick={onEventClick}
-                mode="slider"
-                hideHeader={false}
-                skipFiltering={false}
-                venuesWithCoords={venues}
-              />
-            )
-          })()}
-        </div>
-      )}
+      <div className="mb-10">
+        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Liked Events</h2>
+        <EventCardsSlider
+          events={events
+            .filter((e) => likedEventIds.has(e.id))
+            .filter((e) => new Date(e.start).getTime() >= now)
+            .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())}
+          onEventClick={onEventClick}
+          mode="slider"
+          hideHeader={false}
+          skipFiltering={false}
+          venuesWithCoords={venues}
+        />
+      </div>
     </>
   )
 }
