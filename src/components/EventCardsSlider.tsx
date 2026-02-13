@@ -298,8 +298,9 @@ export default function EventCardsSlider({
               {(['all', 'today', 'tomorrow', 'week', 'month', 'nextMonth'] as const).map((r) => (
                 <button
                   key={r}
+                  type="button"
                   onClick={() => setTimeRange(r)}
-                  className={`px-2 sm:px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 text-xs md:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
+                  className={`px-2 sm:px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 text-xs md:text-sm font-medium rounded-md transition-all whitespace-nowrap touch-manipulation ${
                     timeRange === r ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-300 hover:text-white'
                   }`}
                 >

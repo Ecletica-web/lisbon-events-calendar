@@ -227,7 +227,7 @@ export default function ProfilePage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-slate-900/95 text-slate-100">
+    <div className="min-h-screen min-h-[100dvh] bg-slate-900/95 text-slate-100 relative z-0 isolate">
       <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 pt-20 md:pt-28 pb-[calc(2rem+env(safe-area-inset-bottom))]">
         {/* Profile header with cover & avatar (Supabase) */}
         {isSupabaseUser && user && (

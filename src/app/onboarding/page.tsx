@@ -27,9 +27,8 @@ const DEFAULT_PREFS: OnboardingPrefs = {
 const INTRO_LINES = [
   'Hey — welcome to Lisbon Events Calendar.',
   "We're happy you're here.",
-  'We collect a lot of Lisbon events.',
+  'We collect a lot of Lisbon events. Like... A LOT. We dare to say we have all of them',
   "Maybe we missed your family lunch… but we've got most of the rest.",
-  'Let us know what you like so we can filter them for you.',
 ]
 
 function IntroSequence({ onComplete }: { onComplete: () => void }) {
@@ -41,7 +40,7 @@ function IntroSequence({ onComplete }: { onComplete: () => void }) {
     if (isLastLine) {
       onComplete()
     } else {
-      setTimeout(() => setLineIndex((i) => i + 1), 500)
+      setTimeout(() => setLineIndex((i) => i + 1), 280)
     }
   }
 
@@ -57,7 +56,7 @@ function IntroSequence({ onComplete }: { onComplete: () => void }) {
           <TypewriterText
             key={currentLine}
             text={currentLine}
-            speed={90}
+            speed={55}
             onComplete={handleLineComplete}
           />
         </p>
@@ -181,7 +180,7 @@ function OnboardingContent() {
     <div className="min-h-screen min-h-[100dvh] bg-slate-900 text-slate-100 flex flex-col items-center justify-center px-4 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
       <div className="max-w-2xl mx-auto w-full flex flex-col items-center py-6 sm:py-12 md:py-16">
         {step === 0 && (
-          <IntroSequence onComplete={() => setTimeout(() => setStep(1), 1200)} />
+          <IntroSequence onComplete={() => setTimeout(() => setStep(1), 600)} />
         )}
 
         {step === 1 && (
@@ -189,10 +188,9 @@ function OnboardingContent() {
             <h2 className="text-lg sm:text-xl font-bold text-white">What brings you here?</h2>
             <div className="grid gap-2 sm:gap-3">
               {[
-                { id: 'explore', label: "Exploring" },
-                { id: 'plan', label: "Planning something" },
-                { id: 'both', label: 'A bit of both' },
-                { id: 'all', label: 'All events. Every single one.' },
+                { id: 'now', label: 'I want to do something right now!' },
+                { id: 'plan', label: 'Planning.' },
+                { id: 'all', label: 'I want all of the events. (WATCH OUT)' },
               ].map(({ id, label }) => (
                 <button
                   key={id}
@@ -210,7 +208,7 @@ function OnboardingContent() {
                     prefs.intent === id
                       ? 'border-indigo-500 bg-indigo-500/20 text-white'
                       : id === 'all'
-                        ? 'border-slate-600 bg-slate-800/40 text-slate-400 hover:border-slate-500 hover:text-slate-300 italic'
+                        ? 'border-amber-600/60 bg-slate-800/40 text-amber-200/90 hover:border-amber-500 hover:text-amber-100 italic'
                         : 'border-slate-700 bg-slate-800/60 text-slate-200 hover:border-slate-600'
                   }`}
                 >

@@ -29,7 +29,7 @@ export default function RootLayout({
           <SupabaseAuthProvider>
             <UserActionsProvider>
               <Navigation />
-              <main className="relative z-0">
+              <main className="relative z-0 overflow-visible">
                 {children}
               </main>
             </UserActionsProvider>
