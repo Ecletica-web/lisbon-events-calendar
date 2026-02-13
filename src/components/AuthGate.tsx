@@ -61,8 +61,16 @@ export default function AuthGate({
                 : action === 'followPromoter'
                   ? 'follow promoters'
                   : action === 'wishlistEvent'
-                    ? 'save events to your wishlist'
-                    : 'like events'
+                    ? 'save events'
+                    : action === 'likeEvent'
+                      ? 'like events'
+                      : action === 'goingEvent'
+                        ? 'mark events as going'
+                        : action === 'interestedEvent'
+                          ? 'mark events as interested'
+                          : action === 'reminderEvent'
+                            ? 'set reminders'
+                            : 'do this'
             }
           />
         )}
@@ -78,15 +86,23 @@ export default function AuthGate({
       {showModal && (
         <AuthGateModal
           onClose={() => setShowModal(false)}
-          actionLabel={
-            action === 'followVenue'
-              ? 'follow venues'
-              : action === 'followPromoter'
-                ? 'follow promoters'
-                : action === 'wishlistEvent'
-                  ? 'save events to your wishlist'
-                  : 'like events'
-          }
+            actionLabel={
+              action === 'followVenue'
+                ? 'follow venues'
+                : action === 'followPromoter'
+                  ? 'follow promoters'
+                  : action === 'wishlistEvent'
+                    ? 'save events'
+                    : action === 'likeEvent'
+                      ? 'like events'
+                      : action === 'goingEvent'
+                        ? 'mark events as going'
+                        : action === 'interestedEvent'
+                          ? 'mark events as interested'
+                          : action === 'reminderEvent'
+                            ? 'set reminders'
+                            : 'do this'
+            }
         />
       )}
     </>

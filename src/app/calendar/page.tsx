@@ -835,6 +835,14 @@ function CalendarPageContent() {
     setActivePredefinedPersonaId(null)
   }
 
+  // Load persona by personaId from URL (e.g. /calendar?personaId=xxx)
+  useEffect(() => {
+    const personaId = searchParams.get('personaId')
+    if (!personaId || personas.length === 0) return
+    const p = personas.find((x) => x.id === personaId)
+    if (p) handleApplyPersona(p)
+  }, [searchParams, personas])
+
   const handleApplyPredefinedPersona = (persona: typeof PREDEFINED_PERSONAS[0]) => {
     const rules: PersonaRulesInput = {
       includeTags: persona.tags,
@@ -1285,20 +1293,25 @@ function CalendarPageContent() {
                 {PREDEFINED_PERSONAS.map((p) => {
                   const isActive = activePredefinedPersonaId === p.id
                   const accent = p.accentColor || '#6366f1'
+                  const bg = p.bgStyle || `rgba(99,102,241,0.15)`
                   return (
                     <button
                       key={p.id}
                       onClick={() => isActive ? handleClearPersona() : handleApplyPredefinedPersona(p)}
                       title={p.description}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                      className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-medium transition-all border ${
                         isActive
                           ? 'ring-1 ring-offset-1 ring-offset-slate-900'
-                          : 'hover:bg-slate-700/60 border border-transparent'
+                          : 'border-slate-600/30 hover:border-slate-500/50'
                       }`}
-                      style={isActive ? { borderColor: accent, backgroundColor: `${accent}20` } : {}}
+                      style={
+                        isActive
+                          ? { borderColor: accent, background: `${accent}25` }
+                          : { background: bg }
+                      }
                     >
                       <span className={isActive ? 'font-semibold' : ''} style={isActive ? { color: accent } : {}}>
-                        {p.name}
+                        {p.emoji ? `${p.emoji} ` : ''}{p.name}
                       </span>
                     </button>
                   )

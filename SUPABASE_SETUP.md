@@ -17,13 +17,20 @@ When these are set, the app uses **Supabase Auth** (email/password) and persists
 
 ## 2. Database Migration
 
-Run the SQL in `supabase/migrations/001_user_actions.sql` in your Supabase project's SQL Editor. This creates:
+Run the SQL migrations in order in your Supabase project's SQL Editor:
 
-- `user_profiles` – optional profile data synced from auth.users
-- `user_follow_venues` – followed venues (venue_id TEXT)
-- `user_follow_promoters` – followed promoters (promoter_id TEXT)
-- `user_wishlist_events` – wishlisted events (event_id TEXT)
-- `user_like_events` – liked events (event_id TEXT)
+1. **001_user_actions.sql** – Creates:
+   - `user_profiles` – optional profile data synced from auth.users
+   - `user_follow_venues` – followed venues (venue_id TEXT)
+   - `user_follow_promoters` – followed promoters (promoter_id TEXT)
+   - `user_wishlist_events` – wishlisted events (event_id TEXT) – legacy, now using event_user_actions
+   - `user_like_events` – liked events (event_id TEXT)
+
+2. **002_event_user_actions.sql** – Event interactions: going, interested, saved, reminder (and optional went later)
+
+3. **003_user_profiles_extend.sql** – Adds display_name, avatar_url, bio, location, social_link, private_mode to user_profiles
+
+4. **004_wishlist_to_event_actions.sql** – Backfills existing wishlist data into event_user_actions(saved)
 
 All tables use Row Level Security (RLS) so users can only access their own data.
 

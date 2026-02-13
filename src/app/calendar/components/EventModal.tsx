@@ -9,6 +9,8 @@ import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import FollowButton from '@/components/FollowButton'
 import FollowVenueButton from '@/components/FollowVenueButton'
 import EventActionButtons from '@/components/EventActionButtons'
+import EventLikeCount from '@/components/EventLikeCount'
+import EventCounts from '@/components/EventCounts'
 
 interface EventModalProps {
   event: NormalizedEvent | null
@@ -102,7 +104,11 @@ export default function EventModal({ event, onClose }: EventModalProps) {
               </span>
             )}
           </div>
-          <EventActionButtons eventId={event.id} eventTitle={event.title} className="flex-shrink-0" />
+          <EventActionButtons eventId={event.id} eventTitle={event.title} eventStart={event.start} className="flex-shrink-0" />
+        </div>
+        <div className="flex items-center gap-3 flex-wrap mb-3">
+          <EventCounts eventId={event.id} />
+          <EventLikeCount eventId={event.id} />
         </div>
 
         <div className="space-y-2 mb-3 text-slate-200 text-xs">

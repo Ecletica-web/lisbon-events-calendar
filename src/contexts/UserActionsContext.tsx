@@ -21,6 +21,7 @@ import {
   fetchUserActionsBulk,
   type UserActionsBulk,
 } from '@/lib/userActions'
+import { setEventAction, removeEventAction } from '@/lib/eventActions'
 
 interface UserActionsContextValue {
   actions: UserActionsBulk
@@ -38,6 +39,12 @@ interface UserActionsContextValue {
   likeEvent: (eventId: string) => Promise<boolean>
   unlikeEvent: (eventId: string) => Promise<boolean>
   isLiked: (eventId: string) => boolean
+  setGoing: (eventId: string, value: boolean) => Promise<boolean>
+  setInterested: (eventId: string, value: boolean) => Promise<boolean>
+  setReminder: (eventId: string, value: boolean, hoursBefore?: number) => Promise<boolean>
+  isGoing: (eventId: string) => boolean
+  isInterested: (eventId: string) => boolean
+  hasReminder: (eventId: string) => boolean
 }
 
 const defaultBulk: UserActionsBulk = {
@@ -45,6 +52,9 @@ const defaultBulk: UserActionsBulk = {
   followedPromoterIds: new Set(),
   wishlistedEventIds: new Set(),
   likedEventIds: new Set(),
+  goingIds: new Set(),
+  interestedIds: new Set(),
+  reminderIds: new Set(),
 }
 
 const UserActionsContext = createContext<UserActionsContextValue | null>(null)
@@ -260,6 +270,120 @@ export function UserActionsProvider({ children }: { children: ReactNode }) {
     [user?.id]
   )
 
+  const handleSetGoing = useCallback(
+    async (eventId: string, value: boolean): Promise<boolean> => {
+      if (!user?.id) return false
+      const key = eventId
+      if (value) {
+        setActions((prev) => ({
+          ...prev,
+          goingIds: new Set(prev.goingIds).add(key),
+        }))
+        const { error } = await setEventAction(user.id, key, 'going')
+        if (error) {
+          setActions((prev) => {
+            const next = new Set(prev.goingIds)
+            next.delete(key)
+            return { ...prev, goingIds: next }
+          })
+          return false
+        }
+      } else {
+        setActions((prev) => {
+          const next = new Set(prev.goingIds)
+          next.delete(key)
+          return { ...prev, goingIds: next }
+        })
+        const { error } = await removeEventAction(user.id, key, 'going')
+        if (error) {
+          setActions((prev) => ({
+            ...prev,
+            goingIds: new Set(prev.goingIds).add(key),
+          }))
+          return false
+        }
+      }
+      return true
+    },
+    [user?.id]
+  )
+
+  const handleSetInterested = useCallback(
+    async (eventId: string, value: boolean): Promise<boolean> => {
+      if (!user?.id) return false
+      const key = eventId
+      if (value) {
+        setActions((prev) => ({
+          ...prev,
+          interestedIds: new Set(prev.interestedIds).add(key),
+        }))
+        const { error } = await setEventAction(user.id, key, 'interested')
+        if (error) {
+          setActions((prev) => {
+            const next = new Set(prev.interestedIds)
+            next.delete(key)
+            return { ...prev, interestedIds: next }
+          })
+          return false
+        }
+      } else {
+        setActions((prev) => {
+          const next = new Set(prev.interestedIds)
+          next.delete(key)
+          return { ...prev, interestedIds: next }
+        })
+        const { error } = await removeEventAction(user.id, key, 'interested')
+        if (error) {
+          setActions((prev) => ({
+            ...prev,
+            interestedIds: new Set(prev.interestedIds).add(key),
+          }))
+          return false
+        }
+      }
+      return true
+    },
+    [user?.id]
+  )
+
+  const handleSetReminder = useCallback(
+    async (eventId: string, value: boolean, hoursBefore = 24): Promise<boolean> => {
+      if (!user?.id) return false
+      const key = eventId
+      if (value) {
+        setActions((prev) => ({
+          ...prev,
+          reminderIds: new Set(prev.reminderIds).add(key),
+        }))
+        const { error } = await setEventAction(user.id, key, 'reminder', { reminder_hours_before: hoursBefore })
+        if (error) {
+          setActions((prev) => {
+            const next = new Set(prev.reminderIds)
+            next.delete(key)
+            return { ...prev, reminderIds: next }
+          })
+          return false
+        }
+      } else {
+        setActions((prev) => {
+          const next = new Set(prev.reminderIds)
+          next.delete(key)
+          return { ...prev, reminderIds: next }
+        })
+        const { error } = await removeEventAction(user.id, key, 'reminder')
+        if (error) {
+          setActions((prev) => ({
+            ...prev,
+            reminderIds: new Set(prev.reminderIds).add(key),
+          }))
+          return false
+        }
+      }
+      return true
+    },
+    [user?.id]
+  )
+
   const value: UserActionsContextValue = {
     actions,
     loading,
@@ -276,6 +400,12 @@ export function UserActionsProvider({ children }: { children: ReactNode }) {
     likeEvent: handleLikeEvent,
     unlikeEvent: handleUnlikeEvent,
     isLiked: (id) => actions.likedEventIds.has(id),
+    setGoing: handleSetGoing,
+    setInterested: handleSetInterested,
+    setReminder: handleSetReminder,
+    isGoing: (id) => actions.goingIds.has(id),
+    isInterested: (id) => actions.interestedIds.has(id),
+    hasReminder: (id) => actions.reminderIds.has(id),
   }
 
   return (

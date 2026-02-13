@@ -1,6 +1,13 @@
 const PENDING_INTENTS_KEY = 'lisbon-events-pending-intents'
 
-export type IntentType = 'followVenue' | 'followPromoter' | 'wishlistEvent' | 'likeEvent'
+export type IntentType =
+  | 'followVenue'
+  | 'followPromoter'
+  | 'wishlistEvent'
+  | 'likeEvent'
+  | 'goingEvent'
+  | 'interestedEvent'
+  | 'reminderEvent'
 
 export interface PendingIntent {
   type: IntentType
@@ -40,38 +47,40 @@ export async function executePendingIntents(): Promise<void> {
   const intents = getPendingIntents()
   if (intents.length === 0) return
 
-  const execute = async (intent: PendingIntent) => {
-    const base = '/api/user-actions'
-    if (intent.type === 'followVenue') {
-      await fetch(`${base}/follow-venue`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ venueId: intent.id }),
-      })
-    } else if (intent.type === 'followPromoter') {
-      await fetch(`${base}/follow-promoter`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ promoterId: intent.id }),
-      })
-    } else if (intent.type === 'wishlistEvent') {
-      await fetch(`${base}/wishlist`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId: intent.id }),
-      })
-    } else if (intent.type === 'likeEvent') {
-      await fetch(`${base}/like`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId: intent.id }),
-      })
-    }
+  const { supabase } = await import('@/lib/supabase/client')
+  if (!supabase) {
+    clearPendingIntents()
+    return
   }
+
+  const { data: { session } } = await supabase.auth.getSession()
+  const userId = session?.user?.id
+  if (!userId) {
+    clearPendingIntents()
+    return
+  }
+
+  const { followVenue, followPromoter } = await import('@/lib/userActions')
+  const { addToWishlist, likeEvent } = await import('@/lib/userActions')
+  const { setEventAction } = await import('@/lib/eventActions')
 
   for (const intent of intents) {
     try {
-      await execute(intent)
+      if (intent.type === 'followVenue') {
+        await followVenue(userId, intent.id)
+      } else if (intent.type === 'followPromoter') {
+        await followPromoter(userId, intent.id)
+      } else if (intent.type === 'wishlistEvent') {
+        await addToWishlist(userId, intent.id)
+      } else if (intent.type === 'likeEvent') {
+        await likeEvent(userId, intent.id)
+      } else if (intent.type === 'goingEvent') {
+        await setEventAction(userId, intent.id, 'going')
+      } else if (intent.type === 'interestedEvent') {
+        await setEventAction(userId, intent.id, 'interested')
+      } else if (intent.type === 'reminderEvent') {
+        await setEventAction(userId, intent.id, 'reminder', { reminder_hours_before: 24 })
+      }
     } catch (e) {
       console.error('Failed to execute intent', intent, e)
     }
