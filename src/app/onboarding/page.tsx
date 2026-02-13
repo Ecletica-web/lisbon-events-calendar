@@ -24,6 +24,48 @@ const DEFAULT_PREFS: OnboardingPrefs = {
   nearMe: false,
 }
 
+const INTRO_LINES = [
+  'Hey — welcome to Lisbon Events Calendar.',
+  "We're happy you're here.",
+  'We collect a lot of Lisbon events.',
+  "Maybe we missed your family lunch… but we've got most of the rest.",
+  'Let us know what you like so we can filter them for you.',
+]
+
+function IntroSequence({ onComplete }: { onComplete: () => void }) {
+  const [lineIndex, setLineIndex] = useState(0)
+  const currentLine = INTRO_LINES[lineIndex]
+  const isLastLine = lineIndex === INTRO_LINES.length - 1
+
+  const handleLineComplete = () => {
+    if (isLastLine) {
+      onComplete()
+    } else {
+      setTimeout(() => setLineIndex((i) => i + 1), 500)
+    }
+  }
+
+  return (
+    <div className="text-center space-y-6 sm:space-y-8 px-2">
+      <div className="space-y-4 sm:space-y-6 min-h-[4rem] flex flex-col justify-center">
+        {INTRO_LINES.slice(0, lineIndex).map((line) => (
+          <p key={line} className="text-lg sm:text-xl md:text-2xl text-white/90 leading-relaxed">
+            {line}
+          </p>
+        ))}
+        <p className="text-xl sm:text-2xl md:text-3xl font-bold text-white leading-relaxed">
+          <TypewriterText
+            key={currentLine}
+            text={currentLine}
+            speed={90}
+            onComplete={handleLineComplete}
+          />
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function OnboardingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -139,15 +181,7 @@ function OnboardingContent() {
     <div className="min-h-screen min-h-[100dvh] bg-slate-900 text-slate-100 flex flex-col items-center justify-center px-4 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
       <div className="max-w-2xl mx-auto w-full flex flex-col items-center py-6 sm:py-12 md:py-16">
         {step === 0 && (
-          <div className="text-center space-y-8 px-2">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white leading-relaxed">
-              <TypewriterText
-                text="Welcome to Lisbon Events."
-                speed={90}
-                onComplete={() => setTimeout(() => setStep(1), 1200)}
-              />
-            </h1>
-          </div>
+          <IntroSequence onComplete={() => setTimeout(() => setStep(1), 1200)} />
         )}
 
         {step === 1 && (

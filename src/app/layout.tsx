@@ -29,7 +29,9 @@ export default function RootLayout({
           <SupabaseAuthProvider>
             <UserActionsProvider>
               <Navigation />
-              {children}
+              <main className="relative z-0">
+                {children}
+              </main>
             </UserActionsProvider>
           </SupabaseAuthProvider>
         </SessionProvider>

@@ -172,7 +172,7 @@ function CalendarPageContent() {
   const [personas, setPersonas] = useState<{ id: string; title: string; rules_json: string }[]>([])
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null)
   const [activePredefinedPersonaId, setActivePredefinedPersonaId] = useState<string | null>(null)
-  const [mobileListTimeRange, setMobileListTimeRange] = useState<MobileListTimeRange>('week')
+  const [mobileListTimeRange, setMobileListTimeRange] = useState<MobileListTimeRange>('today')
   const [mobileNearMeEnabled, setMobileNearMeEnabled] = useState(false)
   const [mobileRadiusKm, setMobileRadiusKm] = useState(2)
   const [mobileUserPos, setMobileUserPos] = useState<{ lat: number; lng: number } | null>(null)
@@ -612,21 +612,28 @@ function CalendarPageContent() {
   )
 
   // Mobile list: date focus and calendar view from time range
-  const { mobileListDateFocus, mobileListCalendarView } = useMemo(() => {
+  const { mobileListDateFocus, mobileListCalendarView, mobileListSkipDateFilter } = useMemo(() => {
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
+    const nextMonthFirst = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+    if (mobileListTimeRange === 'all') {
+      return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'dayGridMonth' as const, mobileListSkipDateFilter: true }
+    }
     if (mobileListTimeRange === 'today') {
-      return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'timeGridDay' as const }
+      return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'timeGridDay' as const, mobileListSkipDateFilter: false }
     }
     if (mobileListTimeRange === 'tomorrow') {
-      return { mobileListDateFocus: tomorrow.toISOString().split('T')[0], mobileListCalendarView: 'timeGridDay' as const }
+      return { mobileListDateFocus: tomorrow.toISOString().split('T')[0], mobileListCalendarView: 'timeGridDay' as const, mobileListSkipDateFilter: false }
     }
     if (mobileListTimeRange === 'week') {
-      return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'timeGridWeek' as const }
+      return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'timeGridWeek' as const, mobileListSkipDateFilter: false }
     }
-    return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'dayGridMonth' as const }
+    if (mobileListTimeRange === 'nextMonth') {
+      return { mobileListDateFocus: nextMonthFirst.toISOString().split('T')[0], mobileListCalendarView: 'dayGridMonth' as const, mobileListSkipDateFilter: false }
+    }
+    return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'dayGridMonth' as const, mobileListSkipDateFilter: false }
   }, [mobileListTimeRange])
 
   // Mobile list: venue coords map for Near me
@@ -1490,26 +1497,8 @@ function CalendarPageContent() {
 
         {/* Main Calendar Area */}
         <div className="flex-1 p-4 md:p-6 min-w-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          {/* Mobile: Single slider (Today/Tomorrow/Week/Month) controls list - no redundant toggle */}
+          {/* Mobile: Single slider (All/Today/Tomorrow/Week/Month/Next month) + filter + Near me */}
           <div className="md:hidden">
-            {/* Mobile Filter Icon Button - Always visible when sidebar minimized */}
-            {sidebarMinimized && (
-              <button
-                onClick={() => setSidebarMinimized(false)}
-                className="mb-4 p-3 min-h-[44px] min-w-[44px] rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all shadow-lg hover:shadow-xl flex items-center justify-center backdrop-blur-sm touch-manipulation"
-                aria-label="Open filters"
-              >
-                <svg 
-                  className="w-5 h-5 text-slate-300" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-              </button>
-            )}
-            
             {loading ? (
               <div className="flex items-center justify-center h-96">
                 <div className="text-slate-400">Loading events...</div>
@@ -1528,6 +1517,17 @@ function CalendarPageContent() {
                   locLoading={mobileLocLoading}
                   locError={mobileLocError}
                   eventCount={mobileListEvents.length}
+                  filterButton={sidebarMinimized ? (
+                    <button
+                      onClick={() => setSidebarMinimized(false)}
+                      className="p-2 min-h-[36px] min-w-[36px] rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all flex items-center justify-center touch-manipulation"
+                      aria-label="Open filters"
+                    >
+                      <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                      </svg>
+                    </button>
+                  ) : undefined}
                 />
                 <EventListView
                   events={mobileListEvents}
@@ -1539,6 +1539,7 @@ function CalendarPageContent() {
                     if (event) setSelectedEvent(event)
                   }}
                   hideDateNav
+                  skipDateFilter={mobileListSkipDateFilter}
                 />
               </div>
             )}

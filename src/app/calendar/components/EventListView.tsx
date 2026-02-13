@@ -14,6 +14,8 @@ interface EventListViewProps {
   onDateChange?: (newDateFocus: string) => void
   /** When true, parent renders the date nav (e.g. in combined toolbar); this component only renders events */
   hideDateNav?: boolean
+  /** When true, show all events without date filtering (e.g. for "All" range) */
+  skipDateFilter?: boolean
 }
 
 export default function EventListView({
@@ -23,6 +25,7 @@ export default function EventListView({
   onEventClick,
   onDateChange,
   hideDateNav = false,
+  skipDateFilter = false,
 }: EventListViewProps) {
   const getDateRange = () => {
     const focusDate = new Date(dateFocus)
@@ -51,12 +54,14 @@ export default function EventListView({
   }
 
   const { start, end } = getDateRange()
-  const filteredEvents = events
-    .filter((event) => {
-      const eventDate = new Date(event.start)
-      return eventDate >= start && eventDate <= end
-    })
-    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+  const filteredEvents = skipDateFilter
+    ? [...events].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+    : events
+        .filter((event) => {
+          const eventDate = new Date(event.start)
+          return eventDate >= start && eventDate <= end
+        })
+        .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 
   const eventsByDay = new Map<string, NormalizedEvent[]>()
   filteredEvents.forEach((event) => {

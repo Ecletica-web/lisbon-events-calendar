@@ -3,7 +3,7 @@
 const RADIUS_OPTIONS_KM = [2, 5, 10, 15, 25, 50] as const
 const DEFAULT_RADIUS_KM = 2
 
-export type MobileListTimeRange = 'today' | 'tomorrow' | 'week' | 'month'
+export type MobileListTimeRange = 'all' | 'today' | 'tomorrow' | 'week' | 'month' | 'nextMonth'
 
 interface MobileListHeaderProps {
   timeRange: MobileListTimeRange
@@ -17,6 +17,8 @@ interface MobileListHeaderProps {
   locLoading: boolean
   locError: string | null
   eventCount: number
+  /** Optional filter button (e.g. funnel icon) to show on the left of Near me row */
+  filterButton?: React.ReactNode
 }
 
 export default function MobileListHeader({
@@ -31,6 +33,7 @@ export default function MobileListHeader({
   locLoading,
   locError,
   eventCount,
+  filterButton,
 }: MobileListHeaderProps) {
   const handleNearMeToggle = () => {
     if (nearMeEnabled) {
@@ -41,11 +44,20 @@ export default function MobileListHeader({
     }
   }
 
+  const timeRangeLabels: Record<MobileListTimeRange, string> = {
+    all: 'All',
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+    week: 'This week',
+    month: 'This month',
+    nextMonth: 'Next month',
+  }
+
   return (
     <div className="space-y-3 mb-4">
-      {/* Time range tabs */}
+      {/* Time range tabs: All | Today | Tomorrow | This week | This month | Next month */}
       <div className="flex bg-slate-800/80 rounded-lg p-1 border border-slate-700/50 overflow-x-auto scrollbar-hide">
-        {(['today', 'tomorrow', 'week', 'month'] as const).map((r) => (
+        {(['all', 'today', 'tomorrow', 'week', 'month', 'nextMonth'] as const).map((r) => (
           <button
             key={r}
             onClick={() => onTimeRangeChange(r)}
@@ -53,14 +65,16 @@ export default function MobileListHeader({
               timeRange === r ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-300 hover:text-white'
             }`}
           >
-            {r === 'today' ? 'Today' : r === 'tomorrow' ? 'Tomorrow' : r === 'week' ? 'This week' : 'This month'}
+            {timeRangeLabels[r]}
           </button>
         ))}
       </div>
 
-      {/* Near me + radius */}
+      {/* Filter button + Near me + radius (filter on left of Near me when provided) */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <label className="flex items-center gap-2 cursor-pointer shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          {filterButton}
+          <label className="flex items-center gap-2 cursor-pointer shrink-0">
           <span className="text-xs text-slate-400">Near me</span>
           <button
             type="button"
@@ -87,6 +101,7 @@ export default function MobileListHeader({
           {locLoading && <span className="text-xs text-slate-500">Getting location...</span>}
           {locError && nearMeEnabled && <span className="text-xs text-amber-400">{locError}</span>}
         </label>
+        </div>
         <span className="text-xs text-slate-400 shrink-0">
           {eventCount} event{eventCount !== 1 ? 's' : ''}
           {nearMeEnabled && userPos && ` within ${radiusKm} km`}
