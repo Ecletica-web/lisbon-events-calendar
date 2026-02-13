@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
+import { useUserActions } from '@/contexts/UserActionsContext'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
 
 interface Follow {
@@ -38,34 +40,45 @@ interface PersonaSummary {
 export default function ProfilePage() {
   const router = useRouter()
   const { data: session, status } = useSession()
+  const supabaseAuth = useSupabaseAuth()
+  const supabaseUser = supabaseAuth?.user
+  const supabaseConfigured = supabaseAuth?.isConfigured ?? false
+  const userActions = useUserActions()
   const [follows, setFollows] = useState<Follow[]>([])
   const [settings, setSettings] = useState<NotificationSettings | null>(null)
   const [savedViews, setSavedViews] = useState<SavedViewSummary[]>([])
   const [personas, setPersonas] = useState<PersonaSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [showImportPrompt, setShowImportPrompt] = useState(false)
-  const isGuest = (session?.user as any)?.id === 'guest'
+  const isSupabaseUser = supabaseConfigured && !!supabaseUser
+  const isNextAuthUser = !supabaseConfigured && session?.user
+  const isGuest = !supabaseConfigured && (session?.user as any)?.id === 'guest'
+  const user = isSupabaseUser ? supabaseUser : session?.user
 
   useEffect(() => {
     if (!FEATURE_FLAGS.PROFILE_AUTH) {
       router.replace('/')
       return
     }
-    if (status === 'loading') return
+    if (!supabaseConfigured && status === 'loading') return
 
-    if (status === 'unauthenticated' || !session?.user) {
+    if (!user) {
       router.push('/login')
       return
     }
 
-    loadFollows()
-    loadSettings()
-    if (!isGuest) {
-      loadSavedViews()
-      if (FEATURE_FLAGS.PERSONAS) loadPersonas()
+    if (isSupabaseUser) {
+      setLoading(false)
+    } else {
+      loadFollows()
+      loadSettings()
+      if (!isGuest) {
+        loadSavedViews()
+        if (FEATURE_FLAGS.PERSONAS) loadPersonas()
+      }
+      checkForLocalViews()
     }
-    checkForLocalViews()
-  }, [session, status, router, isGuest])
+  }, [session, status, router, isGuest, supabaseConfigured, supabaseUser, user, isSupabaseUser])
 
   const loadFollows = async () => {
     if (!session?.user) return
@@ -202,7 +215,7 @@ export default function ProfilePage() {
     }
   }
 
-  if (status === 'loading' || loading) {
+  if ((!supabaseConfigured && status === 'loading') || loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center pt-24">
         <div className="text-slate-400">Loading...</div>
@@ -210,9 +223,7 @@ export default function ProfilePage() {
     )
   }
 
-  if (!session?.user) return null
-
-  const user = session.user
+  if (!user) return null
 
   return (
     <div className="min-h-screen bg-slate-900/95 text-slate-100">
@@ -233,7 +244,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {isGuest && (
+        {isGuest && !isSupabaseUser && (
           <div className="mb-6 p-4 bg-slate-800/60 border border-slate-700/50 rounded-xl">
             <p className="text-slate-300 text-sm">
               You're browsing as a guest. Sign in or create an account to save views, create personas, and follow venues or tags.
@@ -264,8 +275,8 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* My Saved Views */}
-        {!isGuest && (
+        {/* My Saved Views (NextAuth only) */}
+        {!isGuest && !isSupabaseUser && (
           <div className="mb-8">
             <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">My Saved Views</h2>
             {savedViews.length === 0 ? (
@@ -292,8 +303,8 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* My Personas */}
-        {!isGuest && FEATURE_FLAGS.PERSONAS && (
+        {/* My Personas (NextAuth only) */}
+        {!isGuest && !isSupabaseUser && FEATURE_FLAGS.PERSONAS && (
           <div className="mb-8">
             <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">My Personas</h2>
             {personas.length === 0 ? (
@@ -320,7 +331,96 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Follows Section */}
+        {/* Supabase: Followed Venues */}
+        {isSupabaseUser && userActions && (
+          <div className="mb-8">
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Followed Venues</h2>
+            {userActions.actions.followedVenueIds.size === 0 ? (
+              <p className="text-slate-500">No followed venues yet. Follow venues from event cards or venue pages.</p>
+            ) : (
+              <div className="space-y-2">
+                {Array.from(userActions.actions.followedVenueIds).map((venueId) => (
+                  <Link
+                    key={venueId}
+                    href={`/venues/${encodeURIComponent(venueId)}`}
+                    className="block p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-slate-600 transition-colors text-indigo-400 hover:text-indigo-300"
+                  >
+                    {venueId}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Supabase: Followed Promoters */}
+        {isSupabaseUser && userActions && (
+          <div className="mb-8">
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Followed Promoters</h2>
+            {userActions.actions.followedPromoterIds.size === 0 ? (
+              <p className="text-slate-500">No followed promoters yet. Follow promoters from promoter pages.</p>
+            ) : (
+              <div className="space-y-2">
+                {Array.from(userActions.actions.followedPromoterIds).map((promoterId) => (
+                  <Link
+                    key={promoterId}
+                    href={`/promoters/${encodeURIComponent(promoterId)}`}
+                    className="block p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-slate-600 transition-colors text-indigo-400 hover:text-indigo-300"
+                  >
+                    {promoterId}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Supabase: Wishlisted Events */}
+        {isSupabaseUser && userActions && (
+          <div className="mb-8">
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Wishlisted Events</h2>
+            {userActions.actions.wishlistedEventIds.size === 0 ? (
+              <p className="text-slate-500">No wishlisted events yet. Add events to your wishlist from the calendar.</p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-slate-400 text-sm mb-2">
+                  {userActions.actions.wishlistedEventIds.size} event(s) saved
+                </p>
+                <Link
+                  href="/calendar"
+                  className="inline-block px-4 py-2 rounded-lg bg-indigo-600/80 text-white hover:bg-indigo-500 transition-colors"
+                >
+                  View on Calendar
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Supabase: Liked Events */}
+        {isSupabaseUser && userActions && (
+          <div className="mb-8">
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Liked Events</h2>
+            {userActions.actions.likedEventIds.size === 0 ? (
+              <p className="text-slate-500">No liked events yet. Like events from the calendar.</p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-slate-400 text-sm mb-2">
+                  {userActions.actions.likedEventIds.size} event(s) liked
+                </p>
+                <Link
+                  href="/calendar"
+                  className="inline-block px-4 py-2 rounded-lg bg-indigo-600/80 text-white hover:bg-indigo-500 transition-colors"
+                >
+                  View on Calendar
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Follows Section (NextAuth) */}
+        {!isSupabaseUser && (
         <div className="mb-8">
           <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Follows</h2>
           {follows.length === 0 ? (
@@ -352,9 +452,10 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+        )}
 
-        {/* Notification Settings */}
-        {!isGuest && (
+        {/* Notification Settings (NextAuth only) */}
+        {!isGuest && !isSupabaseUser && (
           <div className="mb-8">
             <h2 className="text-xl sm:text-2xl font-semibold mb-5 text-slate-200">Notification Settings</h2>
             {settings && (

@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 import Navigation from '@/components/Navigation'
 import SessionProvider from '@/components/SessionProvider'
+import { SupabaseAuthProvider } from '@/lib/auth/supabaseAuth'
+import { UserActionsProvider } from '@/contexts/UserActionsContext'
 
 export const metadata: Metadata = {
   title: 'Lisbon Events Calendar',
@@ -17,8 +19,12 @@ export default function RootLayout({
     <html lang="en" className="overflow-x-hidden">
       <body className="overflow-x-hidden">
         <SessionProvider>
-          <Navigation />
-          {children}
+          <SupabaseAuthProvider>
+            <UserActionsProvider>
+              <Navigation />
+              {children}
+            </UserActionsProvider>
+          </SupabaseAuthProvider>
         </SessionProvider>
       </body>
     </html>

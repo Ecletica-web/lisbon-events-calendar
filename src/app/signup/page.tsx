@@ -4,14 +4,23 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
+import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
 
 export default function SignupPage() {
   const router = useRouter()
+  const supabaseAuth = useSupabaseAuth()
+  const supabaseSignUp = supabaseAuth?.signUp
+  const supabaseUser = supabaseAuth?.user
+  const supabaseConfigured = supabaseAuth?.isConfigured ?? false
 
   useEffect(() => {
     if (!FEATURE_FLAGS.PROFILE_AUTH) router.replace('/')
   }, [router])
+
+  useEffect(() => {
+    if (supabaseConfigured && supabaseUser) router.push('/profile')
+  }, [supabaseConfigured, supabaseUser, router])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -22,22 +31,20 @@ export default function SignupPage() {
 
   const handleEmailOnlySubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (supabaseConfigured) {
+      setError('Use email + password to sign up.')
+      return
+    }
     setError('')
     setLoading(true)
-
     try {
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, name: name || undefined }),
       })
-
       const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Signup failed')
-      }
-
+      if (!response.ok) throw new Error(data.error || 'Signup failed')
       router.push(`/set-password?email=${encodeURIComponent(email)}`)
     } catch (err: any) {
       setError(err.message || 'Signup failed. Please try again.')
@@ -50,46 +57,32 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-
-    // Validation
     if (password.length < 6) {
       setError('Password must be at least 6 characters')
       return
     }
-
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
     }
-
     setLoading(true)
-
     try {
+      if (supabaseConfigured) {
+        const { error: err } = await supabaseSignUp(email, password, name || undefined)
+        if (err) throw new Error(err)
+        router.push('/profile')
+        return
+      }
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, name: name || undefined }),
       })
-
       const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Signup failed')
-      }
-
-      // After successful signup, automatically log them in with NextAuth
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-      })
-
-      if (result?.ok) {
-        router.push('/profile')
-      } else {
-        // Account created but login failed, redirect to login
-        router.push('/login?signup=success')
-      }
+      if (!response.ok) throw new Error(data.error || 'Signup failed')
+      const result = await signIn('credentials', { email, password, redirect: false })
+      if (result?.ok) router.push('/profile')
+      else router.push('/login?signup=success')
     } catch (err: any) {
       setError(err.message || 'Signup failed. Please try again.')
       console.error('Signup error:', err)

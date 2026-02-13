@@ -4,14 +4,24 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
+import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
 
 export default function LoginPage() {
   const router = useRouter()
+  const supabaseAuth = useSupabaseAuth()
+  const supabaseSignIn = supabaseAuth?.signIn
+  const supabaseUser = supabaseAuth?.user
+  const supabaseConfigured = supabaseAuth?.isConfigured ?? false
 
   useEffect(() => {
     if (!FEATURE_FLAGS.PROFILE_AUTH) router.replace('/')
   }, [router])
+
+  useEffect(() => {
+    if (supabaseConfigured && supabaseUser) router.push('/profile')
+  }, [supabaseConfigured, supabaseUser, router])
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -23,6 +33,13 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
+      if (supabaseConfigured) {
+        const { error: err } = await supabaseSignIn(email, password)
+        if (err) throw new Error(err)
+        router.push('/profile')
+        return
+      }
+
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -61,6 +78,10 @@ export default function LoginPage() {
   }
 
   const handleOAuthSignIn = async (provider: 'google' | 'facebook') => {
+    if (supabaseConfigured) {
+      setError('Use email and password to sign in.')
+      return
+    }
     setError('')
     setLoading(true)
     try {
@@ -80,7 +101,8 @@ export default function LoginPage() {
           Sign in to your account
         </p>
         
-        {/* OAuth Buttons */}
+        {/* OAuth Buttons - only when not using Supabase */}
+        {!supabaseConfigured && (
         <div className="space-y-3 mb-6">
           <button
             onClick={() => handleOAuthSignIn('google')}
@@ -119,26 +141,30 @@ export default function LoginPage() {
             <span className="font-medium">Continue with Facebook</span>
           </button>
         </div>
+        )}
 
-        <button
-          onClick={async () => {
-            setError('')
-            setLoading(true)
-            const result = await signIn('credentials', {
-              email: 'guest@lisbon-events.guest',
-              password: 'guest',
-              redirect: false,
-            })
-            if (result?.error) setError(result.error)
-            else if (result?.ok) router.push('/calendar')
-            setLoading(false)
-          }}
-          disabled={loading}
-          className="w-full min-h-[44px] flex items-center justify-center gap-2 text-slate-600 border-2 border-dashed border-gray-300 px-4 py-3 rounded-xl hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 transition-all mb-6"
-        >
-          Continue as guest
-        </button>
+        {!supabaseConfigured && (
+          <button
+            onClick={async () => {
+              setError('')
+              setLoading(true)
+              const result = await signIn('credentials', {
+                email: 'guest@lisbon-events.guest',
+                password: 'guest',
+                redirect: false,
+              })
+              if (result?.error) setError(result.error)
+              else if (result?.ok) router.push('/calendar')
+              setLoading(false)
+            }}
+            disabled={loading}
+            className="w-full min-h-[44px] flex items-center justify-center gap-2 text-slate-600 border-2 border-dashed border-gray-300 px-4 py-3 rounded-xl hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 transition-all mb-6"
+          >
+            Continue as guest
+          </button>
+        )}
 
+        {!supabaseConfigured && (
         <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-300"></div>
@@ -147,6 +173,7 @@ export default function LoginPage() {
             <span className="px-2 bg-white text-gray-500">Or</span>
           </div>
         </div>
+        )}
 
         {/* Email/Password Login Form */}
         <form onSubmit={handleEmailSubmit} className="space-y-4">

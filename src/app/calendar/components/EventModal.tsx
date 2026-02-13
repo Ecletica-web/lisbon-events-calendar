@@ -7,6 +7,8 @@ import { getCategoryColor } from '@/lib/categoryColors'
 import { toCanonicalTagKey } from '@/lib/eventsAdapter'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import FollowButton from '@/components/FollowButton'
+import FollowVenueButton from '@/components/FollowVenueButton'
+import EventActionButtons from '@/components/EventActionButtons'
 
 interface EventModalProps {
   event: NormalizedEvent | null
@@ -87,17 +89,20 @@ export default function EventModal({ event, onClose }: EventModalProps) {
         />
 
         <div className="flex items-start justify-between gap-2 mb-3">
-          <h2
-            id="event-modal-title"
-            className="text-lg font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent"
-          >
-            {event.title}
-          </h2>
-          {statusLabel && (
-            <span className="flex-shrink-0 px-2 py-0.5 rounded text-xs font-medium bg-amber-600/80 text-white">
-              {statusLabel}
-            </span>
-          )}
+          <div className="flex-1 min-w-0 flex items-start gap-2 flex-wrap">
+            <h2
+              id="event-modal-title"
+              className="text-lg font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent"
+            >
+              {event.title}
+            </h2>
+            {statusLabel && (
+              <span className="flex-shrink-0 px-2 py-0.5 rounded text-xs font-medium bg-amber-600/80 text-white">
+                {statusLabel}
+              </span>
+            )}
+          </div>
+          <EventActionButtons eventId={event.id} eventTitle={event.title} className="flex-shrink-0" />
         </div>
 
         <div className="space-y-2 mb-3 text-slate-200 text-xs">
@@ -148,10 +153,9 @@ export default function EventModal({ event, onClose }: EventModalProps) {
                 >
                   {props.venueName}
                 </Link>
-                <FollowButton
-                  type="venue"
-                  normalizedValue={(props.venueId || props.venueKey || props.venueName || '').toLowerCase().trim()}
-                  displayValue={props.venueName}
+                <FollowVenueButton
+                  venueId={(props.venueId || props.venueKey || props.venueName || '').toString()}
+                  displayName={props.venueName || ''}
                   size="sm"
                 />
               </div>

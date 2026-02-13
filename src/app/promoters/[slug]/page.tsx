@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { fetchPromoters, fetchEvents } from '@/lib/eventsAdapter'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import { getCategoryColor } from '@/lib/categoryColors'
+import FollowPromoterButton from '@/components/FollowPromoterButton'
 
 const IMAGE_PROXY = 'https://images.weserv.nl/?url='
 function sanitize(url?: string): string | undefined {
@@ -91,9 +92,17 @@ export default function PromoterDetailPage() {
                 onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
               />
               <div className="flex-1">
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                  {displayName}
-                </h1>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    {displayName}
+                  </h1>
+                  <FollowPromoterButton
+                    promoterId={(promoter.promoter_id || promoter.slug || slug).toString()}
+                    displayName={displayName}
+                    size="md"
+                    variant="default"
+                  />
+                </div>
                 {promoter.description_short && (
                   <p className="text-slate-300 mt-2">{promoter.description_short}</p>
                 )}

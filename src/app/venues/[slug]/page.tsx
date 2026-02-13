@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { fetchVenues, fetchEvents } from '@/lib/eventsAdapter'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import { getCategoryColor } from '@/lib/categoryColors'
-import FollowButton from '@/components/FollowButton'
+import FollowVenueButton from '@/components/FollowVenueButton'
 
 export default function VenueDetailPage() {
   const params = useParams()
@@ -99,10 +99,9 @@ export default function VenueDetailPage() {
               <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                 {displayName}
               </h1>
-              <FollowButton
-                type="venue"
-                normalizedValue={(venue?.venue_id || venue?.slug || slug).toLowerCase().trim()}
-                displayValue={displayName}
+              <FollowVenueButton
+                venueId={(venue?.venue_id || venue?.slug || slug).toString()}
+                displayName={displayName}
                 size="md"
                 variant="default"
               />

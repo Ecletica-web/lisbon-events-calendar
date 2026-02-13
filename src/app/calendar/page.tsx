@@ -43,7 +43,6 @@ import { loadSavedViewsFromDB, saveViewToDB } from '@/lib/savedViewsSync'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
 import { PREDEFINED_PERSONAS, getPredefinedPersonaBySlug } from '@/data/predefinedPersonas'
 import EventCardsSlider from '@/components/EventCardsSlider'
-import MobileDaySliders from '@/components/MobileDaySliders'
 import MobileListHeader, { type MobileListTimeRange } from '@/components/MobileListHeader'
 import { haversineDistanceKm } from '@/lib/geo'
 import EventModal from './components/EventModal'
@@ -1459,32 +1458,8 @@ function CalendarPageContent() {
 
         {/* Main Calendar Area */}
         <div className="flex-1 p-4 md:p-6 min-w-0">
-          {/* Mobile: Show Day Sliders or List View */}
+          {/* Mobile: Single slider (Today/Tomorrow/Week/Month) controls list - no redundant toggle */}
           <div className="md:hidden">
-            {/* Mobile View Toggle - List / This week (Slider) */}
-            <div className="mb-4 flex items-center gap-2 bg-slate-800/80 rounded-lg p-1 border border-slate-700/50">
-              <button
-                onClick={() => setShowListView(true)}
-                className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  showListView
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-              >
-                List
-              </button>
-              <button
-                onClick={() => setShowListView(false)}
-                className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  !showListView
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-              >
-                This week
-              </button>
-            </div>
-
             {/* Mobile Filter Icon Button - Always visible when sidebar minimized */}
             {sidebarMinimized && (
               <button
@@ -1507,7 +1482,7 @@ function CalendarPageContent() {
               <div className="flex items-center justify-center h-96">
                 <div className="text-slate-400">Loading events...</div>
               </div>
-            ) : showListView ? (
+            ) : (
               <div className="pt-2">
                 <MobileListHeader
                   timeRange={mobileListTimeRange}
@@ -1534,18 +1509,6 @@ function CalendarPageContent() {
                   hideDateNav
                 />
               </div>
-            ) : (
-              <MobileDaySliders
-                events={events}
-                onEventClick={setSelectedEvent}
-                selectedCategories={selectedCategories}
-                selectedTags={selectedTags}
-                freeOnly={freeOnly}
-                excludeExhibitions={excludeExhibitions}
-                excludeContinuous={excludeContinuous}
-                onCategoriesChange={setSelectedCategories}
-                onTagsChange={setSelectedTags}
-              />
             )}
           </div>
 

@@ -3,13 +3,20 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
+import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
 
 export default function Navigation() {
   const { data: session, status } = useSession()
+  const supabaseAuth = useSupabaseAuth()
+  const supabaseUser = supabaseAuth?.user
+  const supabaseSignOut = supabaseAuth?.signOut
+  const supabaseConfigured = supabaseAuth?.isConfigured ?? false
   const [showMenu, setShowMenu] = useState(false)
   const [showMobileNav, setShowMobileNav] = useState(false)
-  const user = session?.user
+  const user = supabaseConfigured && supabaseUser
+    ? { email: supabaseUser.email, name: supabaseUser.name }
+    : session?.user
 
   // Close mobile nav when resizing to desktop
   useEffect(() => {
@@ -164,7 +171,7 @@ export default function Navigation() {
           {/* Navigation Links - Desktop */}
           <div className="hidden md:flex items-center gap-1 md:gap-2">
             {navLinks}
-            {FEATURE_FLAGS.PROFILE_AUTH && (status === 'loading' ? (
+            {FEATURE_FLAGS.PROFILE_AUTH && (status === 'loading' && !supabaseConfigured ? (
               <div className="text-sm text-slate-400">Loading...</div>
             ) : user ? (
               <>
@@ -213,7 +220,12 @@ export default function Navigation() {
                         )}
                         <button
                           onClick={async () => {
-                            await signOut({ callbackUrl: '/calendar' })
+                            if (supabaseConfigured && supabaseUser && supabaseSignOut) {
+                              await supabaseSignOut()
+                              window.location.href = '/calendar'
+                            } else {
+                              await signOut({ callbackUrl: '/calendar' })
+                            }
                             setShowMenu(false)
                           }}
                           className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700/80 transition-colors"
@@ -245,7 +257,7 @@ export default function Navigation() {
 
           {/* Mobile hamburger */}
           <div className="flex md:hidden items-center gap-2">
-            {FEATURE_FLAGS.PROFILE_AUTH && status !== 'loading' && !user && (
+            {FEATURE_FLAGS.PROFILE_AUTH && (status !== 'loading' || supabaseConfigured) && !user && (
               <>
                 <Link
                   href="/login"
@@ -286,7 +298,7 @@ export default function Navigation() {
           <div className="md:hidden border-t border-slate-700/50 bg-slate-900/95 backdrop-blur-xl">
             <div className="py-3 px-4 space-y-1">
               {navLinks}
-              {FEATURE_FLAGS.PROFILE_AUTH && (status === 'loading' ? (
+              {FEATURE_FLAGS.PROFILE_AUTH && (status === 'loading' && !supabaseConfigured ? (
                 <div className="px-4 py-2 text-sm text-slate-400">Loading...</div>
               ) : user ? (
                 <>
@@ -299,7 +311,12 @@ export default function Navigation() {
                   </Link>
                   <button
                     onClick={async () => {
-                      await signOut({ callbackUrl: '/calendar' })
+                      if (supabaseConfigured && supabaseUser && supabaseSignOut) {
+                        await supabaseSignOut()
+                        window.location.href = '/calendar'
+                      } else {
+                        await signOut({ callbackUrl: '/calendar' })
+                      }
                       setShowMobileNav(false)
                     }}
                     className="w-full text-left px-4 py-3 min-h-[44px] text-slate-300 hover:text-white rounded-lg hover:bg-slate-800/80"
