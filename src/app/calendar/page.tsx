@@ -39,10 +39,11 @@ import {
   type SavedView,
 } from '@/lib/savedViews'
 import { useSession } from 'next-auth/react'
+import Link from 'next/link'
+import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 import { loadSavedViewsFromDB, saveViewToDB } from '@/lib/savedViewsSync'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
 import { PREDEFINED_PERSONAS, getPredefinedPersonaBySlug } from '@/data/predefinedPersonas'
-import { loadOnboardingFromStorage, onboardingPrefsToViewState } from '@/lib/onboarding'
 import EventCardsSlider from '@/components/EventCardsSlider'
 import MobileListHeader, { type MobileListTimeRange } from '@/components/MobileListHeader'
 import { haversineDistanceKm } from '@/lib/geo'
@@ -94,7 +95,7 @@ function ListToolbar({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-800/60 rounded-xl border border-slate-700/50 px-4 py-3 mb-4">
+    <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-800/60 rounded-xl border border-slate-700/50 px-4 py-3 mb-4 touch-manipulation">
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-0 bg-slate-800/80 rounded-lg p-1 border border-slate-700/50">
           <button
@@ -189,6 +190,8 @@ function CalendarPageContent() {
   const searchParams = useSearchParams()
   const calendarRef = useRef<FullCalendar>(null)
   const { data: session } = useSession()
+  const supabaseAuth = useSupabaseAuth()
+  const [showOnboardingSignupPopup, setShowOnboardingSignupPopup] = useState(false)
 
   // Debounce search for performance
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
@@ -302,6 +305,21 @@ function CalendarPageContent() {
       .catch(() => {})
   }, [searchParams, session?.user, router])
 
+  // Show sign-up popup for guests who just completed onboarding
+  useEffect(() => {
+    const fromOnboarding = searchParams.get('fromOnboarding') === '1'
+    const isSupabaseGuest = supabaseAuth?.isConfigured && !supabaseAuth?.user
+    const isNextAuthGuest = session?.user && (session.user as { id?: string })?.id === 'guest'
+    const isGuest = isSupabaseGuest || isNextAuthGuest || (!supabaseAuth?.user && !session?.user)
+    if (fromOnboarding && isGuest) {
+      setShowOnboardingSignupPopup(true)
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete('fromOnboarding')
+      const qs = params.toString()
+      router.replace(qs ? `/calendar?${qs}` : '/calendar', { scroll: false })
+    }
+  }, [searchParams, supabaseAuth?.user, supabaseAuth?.isConfigured, session?.user, router])
+
   // Hydrate from URL on mount and load saved views
   useEffect(() => {
     const viewId = searchParams.get('viewId')
@@ -338,16 +356,6 @@ function CalendarPageContent() {
         }
         setCalendarView(merged.viewMode)
         setDateFocus(merged.dateFocus)
-      } else {
-        // Apply onboarding prefs from localStorage (for guests who completed onboarding)
-        const onboardingPrefs = loadOnboardingFromStorage()
-        if (onboardingPrefs && (onboardingPrefs.tags?.length > 0 || onboardingPrefs.freeOnly)) {
-          const partial = onboardingPrefsToViewState(onboardingPrefs)
-          const merged = mergeViewState(partial)
-          setSelectedTags(merged.selectedTags)
-          setFreeOnly(merged.toggles.freeOnly)
-          setExcludeExhibitions(merged.toggles.excludeExhibitions)
-        }
       }
     }
     
@@ -943,7 +951,7 @@ function CalendarPageContent() {
   }, [debouncedSearchQuery, selectedTags.length, selectedVenues.length, selectedCategories.length, freeOnly, excludeExhibitions, excludeContinuous])
 
   return (
-    <div className="min-h-screen bg-slate-900/95 backdrop-blur-sm">
+    <div className="min-h-screen min-h-[100dvh] bg-slate-900/95 backdrop-blur-sm">
 
       {/* Shared view/persona banner */}
       {FEATURE_FLAGS.SHARED_VIEWS && sharedContext && (
@@ -1481,7 +1489,7 @@ function CalendarPageContent() {
         </div>
 
         {/* Main Calendar Area */}
-        <div className="flex-1 p-4 md:p-6 min-w-0">
+        <div className="flex-1 p-4 md:p-6 min-w-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {/* Mobile: Single slider (Today/Tomorrow/Week/Month) controls list - no redundant toggle */}
           <div className="md:hidden">
             {/* Mobile Filter Icon Button - Always visible when sidebar minimized */}
@@ -1658,6 +1666,30 @@ function CalendarPageContent() {
 
       {/* Event Modal */}
       <EventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
+
+      {/* Sign-up invite after onboarding (guests only) */}
+      {showOnboardingSignupPopup && (
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-[9998] flex items-center gap-3 p-4 rounded-xl bg-slate-800/95 border border-slate-600/50 shadow-xl backdrop-blur-sm mb-[env(safe-area-inset-bottom)] sm:mb-0 max-w-[calc(100vw-2rem)]">
+          <p className="text-sm text-slate-200 flex-1">
+            Sign up to save this view and your preferences
+          </p>
+          <Link
+            href="/signup"
+            className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 shrink-0"
+          >
+            Sign up
+          </Link>
+          <button
+            onClick={() => setShowOnboardingSignupPopup(false)}
+            className="p-1 rounded text-slate-400 hover:text-white shrink-0"
+            aria-label="Dismiss"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

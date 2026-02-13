@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Navigation from '@/components/Navigation'
 import SessionProvider from '@/components/SessionProvider'
@@ -8,6 +8,13 @@ import { UserActionsProvider } from '@/contexts/UserActionsContext'
 export const metadata: Metadata = {
   title: 'Lisbon Events Calendar',
   description: 'Cultural events calendar for Lisbon',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({

@@ -8,8 +8,8 @@ import { ONBOARDING_TAG_GROUPS } from '@/data/onboardingTagGroups'
 import { PREDEFINED_PERSONAS } from '@/data/predefinedPersonas'
 import {
   buildCalendarUrl,
+  clearOnboardingFromStorage,
   loadOnboardingFromStorage,
-  saveOnboardingToStorage,
   type OnboardingPrefs,
 } from '@/lib/onboarding'
 import { supabase } from '@/lib/supabase/client'
@@ -89,7 +89,7 @@ function OnboardingContent() {
 
   const handleEnterCalendar = async () => {
     setSubmitting(true)
-    saveOnboardingToStorage(prefs)
+    clearOnboardingFromStorage()
 
     if (isLoggedIn) {
       try {
@@ -121,7 +121,10 @@ function OnboardingContent() {
       }
     }
 
-    router.push(buildCalendarUrl(prefs))
+    const url = buildCalendarUrl(prefs)
+    const separator = url.includes('?') ? '&' : '?'
+    const finalUrl = isLoggedIn ? url : `${url}${separator}fromOnboarding=1`
+    router.push(finalUrl)
   }
 
   if (loading) {
@@ -133,39 +136,48 @@ function OnboardingContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100">
-      <div className="max-w-2xl mx-auto px-4 py-12 sm:py-16">
+    <div className="min-h-screen min-h-[100dvh] bg-slate-900 text-slate-100 flex flex-col items-center justify-center px-4 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
+      <div className="max-w-2xl mx-auto w-full flex flex-col items-center py-6 sm:py-12 md:py-16">
         {step === 0 && (
-          <div className="text-center space-y-6">
-            <h1 className="text-3xl sm:text-4xl font-bold text-white">
+          <div className="text-center space-y-8 px-2">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white leading-relaxed">
               <TypewriterText
-                text="Welcome to Lisbon Events. What brings you here?"
-                speed={50}
-                onComplete={() => setTimeout(() => setStep(1), 800)}
+                text="Welcome to Lisbon Events."
+                speed={90}
+                onComplete={() => setTimeout(() => setStep(1), 1200)}
               />
             </h1>
           </div>
         )}
 
         {step === 1 && (
-          <div className="space-y-8">
-            <h2 className="text-2xl font-bold text-white">What&apos;s your main goal?</h2>
-            <div className="grid gap-3">
+          <div className="space-y-8 sm:space-y-10 text-center w-full max-w-md px-2">
+            <h2 className="text-lg sm:text-xl font-bold text-white">What brings you here?</h2>
+            <div className="grid gap-2 sm:gap-3">
               {[
-                { id: 'explore', label: "I'm exploring — show me what's happening" },
-                { id: 'plan', label: "I'm planning — help me find specific events" },
+                { id: 'explore', label: "Exploring" },
+                { id: 'plan', label: "Planning something" },
                 { id: 'both', label: 'A bit of both' },
+                { id: 'all', label: 'All events. Every single one.' },
               ].map(({ id, label }) => (
                 <button
                   key={id}
                   onClick={() => {
                     updatePrefs({ intent: id })
+                    if (id === 'all') {
+                      clearOnboardingFromStorage()
+                      const url = isLoggedIn ? '/calendar' : '/calendar?fromOnboarding=1'
+                      router.push(url)
+                      return
+                    }
                     setStep(2)
                   }}
-                  className={`w-full text-left p-4 rounded-xl border transition-all ${
+                  className={`w-full text-center p-4 min-h-[48px] sm:min-h-[52px] flex items-center justify-center rounded-xl border transition-all touch-manipulation ${
                     prefs.intent === id
                       ? 'border-indigo-500 bg-indigo-500/20 text-white'
-                      : 'border-slate-700 bg-slate-800/60 text-slate-200 hover:border-slate-600'
+                      : id === 'all'
+                        ? 'border-slate-600 bg-slate-800/40 text-slate-400 hover:border-slate-500 hover:text-slate-300 italic'
+                        : 'border-slate-700 bg-slate-800/60 text-slate-200 hover:border-slate-600'
                   }`}
                 >
                   {label}
@@ -176,19 +188,19 @@ function OnboardingContent() {
         )}
 
         {step === 2 && (
-          <div className="space-y-8">
-            <h2 className="text-2xl font-bold text-white">Pick what you&apos;re into</h2>
-            <p className="text-slate-400">Select any tags that interest you</p>
-            <div className="space-y-6">
+          <div className="space-y-6 sm:space-y-8 text-center w-full max-w-lg px-4 sm:px-0">
+            <h2 className="text-lg sm:text-xl font-bold text-white">What interests you?</h2>
+            <p className="text-slate-400 text-sm">Pick a few — or skip</p>
+            <div className="space-y-5 sm:space-y-6 text-left max-h-[60vh] overflow-y-auto overscroll-contain pr-1 -mr-1">
               {ONBOARDING_TAG_GROUPS.map((group) => (
                 <div key={group.id}>
                   <h3 className="text-sm font-medium text-slate-400 mb-2">{group.label}</h3>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
                     {group.tags.map((tag) => (
                       <button
                         key={tag}
                         onClick={() => toggleTag(tag)}
-                        className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                        className={`px-3 py-2 min-h-[40px] rounded-lg text-sm transition-all touch-manipulation ${
                           prefs.tags.includes(tag)
                             ? 'bg-indigo-600 text-white'
                             : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -201,16 +213,16 @@ function OnboardingContent() {
                 </div>
               ))}
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 justify-center pt-4 flex-wrap">
               <button
                 onClick={() => setStep(1)}
-                className="px-4 py-2 rounded-lg text-slate-400 hover:text-white"
+                className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation"
               >
                 Back
               </button>
               <button
                 onClick={() => setStep(3)}
-                className="px-6 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500"
+                className="px-6 py-2.5 min-h-[44px] rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 touch-manipulation"
               >
                 Next
               </button>
@@ -219,10 +231,10 @@ function OnboardingContent() {
         )}
 
         {step === 3 && (
-          <div className="space-y-8">
-            <h2 className="text-2xl font-bold text-white">Pick your vibe</h2>
-            <p className="text-slate-400">Which persona fits you best?</p>
-            <div className="grid gap-4">
+          <div className="space-y-6 sm:space-y-8 text-center w-full max-w-lg px-4 sm:px-0">
+            <h2 className="text-lg sm:text-xl font-bold text-white">Pick a vibe</h2>
+            <p className="text-slate-400 text-sm">Optional</p>
+            <div className="grid gap-3 sm:gap-4 text-left max-h-[55vh] overflow-y-auto overscroll-contain pr-1 -mr-1">
               {PREDEFINED_PERSONAS.map((p) => (
                 <button
                   key={p.id}
@@ -233,7 +245,7 @@ function OnboardingContent() {
                     })
                     setStep(4)
                   }}
-                  className={`text-left p-4 rounded-xl border transition-all ${
+                  className={`text-left p-4 min-h-[72px] rounded-xl border transition-all touch-manipulation ${
                     prefs.vibe === p.slug
                       ? 'border-indigo-500 bg-indigo-500/20'
                       : 'border-slate-700 bg-slate-800/60 hover:border-slate-600'
@@ -245,16 +257,16 @@ function OnboardingContent() {
                 </button>
               ))}
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 justify-center pt-4 flex-wrap">
               <button
                 onClick={() => setStep(2)}
-                className="px-4 py-2 rounded-lg text-slate-400 hover:text-white"
+                className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation"
               >
                 Back
               </button>
               <button
                 onClick={() => setStep(4)}
-                className="px-4 py-2 rounded-lg text-slate-400"
+                className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 touch-manipulation"
               >
                 Skip
               </button>
@@ -263,9 +275,9 @@ function OnboardingContent() {
         )}
 
         {step === 4 && (
-          <div className="space-y-8">
-            <h2 className="text-2xl font-bold text-white">Any preferences?</h2>
-            <div className="space-y-4">
+          <div className="space-y-6 sm:space-y-8 text-center w-full max-w-md px-4 sm:px-0">
+            <h2 className="text-lg sm:text-xl font-bold text-white">Any preferences?</h2>
+            <div className="space-y-4 text-left max-w-sm mx-auto">
               {[
                 { key: 'freeOnly', label: 'Free events only' },
                 { key: 'englishFriendly', label: 'English-friendly events' },
@@ -275,7 +287,7 @@ function OnboardingContent() {
               ].map(({ key, label }) => (
                 <label
                   key={key}
-                  className="flex items-center gap-3 cursor-pointer p-4 rounded-xl bg-slate-800/60 border border-slate-700 hover:border-slate-600"
+                  className="flex items-center gap-3 cursor-pointer p-4 min-h-[52px] rounded-xl bg-slate-800/60 border border-slate-700 hover:border-slate-600 touch-manipulation"
                 >
                   <input
                     type="checkbox"
@@ -283,22 +295,22 @@ function OnboardingContent() {
                     onChange={(e) =>
                       updatePrefs({ [key]: e.target.checked } as Partial<OnboardingPrefs>)
                     }
-                    className="rounded border-slate-600 text-indigo-600 w-5 h-5"
+                    className="rounded border-slate-600 text-indigo-600 w-5 h-5 min-w-[20px] min-h-[20px]"
                   />
                   <span className="text-slate-200">{label}</span>
                 </label>
               ))}
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 justify-center pt-4 flex-wrap">
               <button
                 onClick={() => setStep(3)}
-                className="px-4 py-2 rounded-lg text-slate-400 hover:text-white"
+                className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation"
               >
                 Back
               </button>
               <button
                 onClick={() => setStep(5)}
-                className="px-6 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500"
+                className="px-6 py-2.5 min-h-[44px] rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 touch-manipulation"
               >
                 Next
               </button>
@@ -307,22 +319,21 @@ function OnboardingContent() {
         )}
 
         {step === 5 && (
-          <div className="space-y-8 text-center">
-            <h2 className="text-3xl font-bold text-white">You&apos;re all set</h2>
-            <p className="text-slate-400">
-              Your calendar will be tailored to your choices. You can always change these in
-              Settings.
+          <div className="space-y-8 sm:space-y-10 text-center max-w-md px-4">
+            <h2 className="text-xl sm:text-2xl font-bold text-white">You&apos;re all set</h2>
+            <p className="text-slate-400 text-sm">
+              Your calendar, tailored to you.
             </p>
             <button
               onClick={handleEnterCalendar}
               disabled={submitting}
-              className="px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:opacity-90 disabled:opacity-70"
+              className="px-8 py-3 min-h-[48px] rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:opacity-90 disabled:opacity-70 touch-manipulation"
             >
               {submitting ? 'Loading...' : 'Enter calendar'}
             </button>
             <p className="text-sm text-slate-500">
-              <Link href="/calendar" className="text-slate-400 hover:text-white">
-                Skip and go to calendar
+              <Link href="/calendar" className="text-slate-400 hover:text-white italic">
+                Or see all events
               </Link>
             </p>
           </div>

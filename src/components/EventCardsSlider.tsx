@@ -91,6 +91,7 @@ export default function EventCardsSlider({
   const [isDragging, setIsDragging] = useState(false)
   const [startX, setStartX] = useState(0)
   const [scrollLeft, setScrollLeft] = useState(0)
+  const [didDrag, setDidDrag] = useState(false)
 
   const debouncedCategories = useDebounce(localCategories, 200)
   const debouncedTags = useDebounce(localTags, 200)
@@ -238,32 +239,44 @@ export default function EventCardsSlider({
     return filtered.map((e) => ({ event: e, km: undefined }))
   }, [events, dateRange, localTags, localCategories, freeOnly, excludeExhibitions, excludeContinuous, timeRange, skipFiltering, nearMeEnabled, radiusKm, userPos, venueCoordsMap])
 
+  const DRAG_THRESHOLD = 5
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (mode !== 'slider') return
     setIsDragging(true)
+    setDidDrag(false)
     setStartX(e.pageX - (sliderRef.current?.offsetLeft || 0))
     setScrollLeft(sliderRef.current?.scrollLeft || 0)
   }
-  const handleMouseLeave = () => setIsDragging(false)
-  const handleMouseUp = () => setIsDragging(false)
+  const handleMouseLeave = () => {
+    setIsDragging(false)
+  }
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || mode !== 'slider') return
-    e.preventDefault()
     const x = e.pageX - (sliderRef.current?.offsetLeft || 0)
-    const walk = (x - startX) * 2
-    if (sliderRef.current) sliderRef.current.scrollLeft = scrollLeft - walk
+    const walk = Math.abs(x - startX)
+    if (walk > DRAG_THRESHOLD) setDidDrag(true)
+    e.preventDefault()
+    const delta = (x - startX) * 2
+    if (sliderRef.current) sliderRef.current.scrollLeft = scrollLeft - delta
   }
   const handleTouchStart = (e: React.TouchEvent) => {
     if (mode !== 'slider') return
     setIsDragging(true)
+    setDidDrag(false)
     setStartX(e.touches[0].pageX - (sliderRef.current?.offsetLeft || 0))
     setScrollLeft(sliderRef.current?.scrollLeft || 0)
   }
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging || mode !== 'slider') return
     const x = e.touches[0].pageX - (sliderRef.current?.offsetLeft || 0)
-    const walk = (x - startX) * 2
-    if (sliderRef.current) sliderRef.current.scrollLeft = scrollLeft - walk
+    const walk = Math.abs(x - startX)
+    if (walk > DRAG_THRESHOLD) setDidDrag(true)
+    const delta = (x - startX) * 2
+    if (sliderRef.current) sliderRef.current.scrollLeft = scrollLeft - delta
   }
   const handleTouchEnd = () => setIsDragging(false)
   const scrollLeftBtn = () => sliderRef.current?.scrollBy({ left: -300, behavior: 'smooth' })
@@ -368,7 +381,13 @@ export default function EventCardsSlider({
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
           >
             {filteredEvents.map(({ event, km }) => (
-              <EventCard key={event.id} event={event} onClick={() => onEventClick(event)} mode={mode} distanceKm={km} />
+              <EventCard
+                key={event.id}
+                event={event}
+                onClick={() => { if (!didDrag) onEventClick(event) }}
+                mode={mode}
+                distanceKm={km}
+              />
             ))}
           </div>
         </div>

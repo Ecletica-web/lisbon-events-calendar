@@ -179,7 +179,7 @@ export default function ProfileSupabaseSections({
           onEventClick={onEventClick}
           mode="slider"
           hideHeader={false}
-          skipFiltering={false}
+          skipFiltering={true}
           venuesWithCoords={venues}
         />
       </div>
@@ -205,7 +205,7 @@ export default function ProfileSupabaseSections({
           onEventClick={onEventClick}
           mode="slider"
           hideHeader={false}
-          skipFiltering={false}
+          skipFiltering={true}
           venuesWithCoords={venues}
         />
       </div>
@@ -221,7 +221,7 @@ export default function ProfileSupabaseSections({
           onEventClick={onEventClick}
           mode="slider"
           hideHeader={false}
-          skipFiltering={false}
+          skipFiltering={true}
           venuesWithCoords={venues}
         />
       </div>

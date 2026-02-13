@@ -171,8 +171,8 @@ export default function ProfileSettingsPage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-slate-900/95 text-slate-100">
-      <div className="max-w-2xl mx-auto p-4 sm:p-6 md:p-8 pt-20 md:pt-28 pb-8">
+    <div className="min-h-screen min-h-[100dvh] bg-slate-900/95 text-slate-100">
+      <div className="max-w-2xl mx-auto p-4 sm:p-6 md:p-8 pt-20 md:pt-28 pb-[calc(2rem+env(safe-area-inset-bottom))]">
         <div className="mb-8 flex items-center gap-4">
           <Link
             href="/profile"

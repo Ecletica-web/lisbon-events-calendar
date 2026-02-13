@@ -48,8 +48,8 @@ export default function PromotersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <div className="min-h-screen min-h-[100dvh] bg-slate-900 text-slate-100">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pt-20 sm:pt-24 pb-[env(safe-area-inset-bottom)]">
         <Link
           href="/calendar"
           className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
@@ -57,7 +57,7 @@ export default function PromotersPage() {
           ← Back to Calendar
         </Link>
 
-        <h1 className="text-2xl font-bold mb-6 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+        <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
           Promoters
         </h1>
 

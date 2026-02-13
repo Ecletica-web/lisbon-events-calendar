@@ -49,7 +49,7 @@ export default function MobileListHeader({
           <button
             key={r}
             onClick={() => onTimeRangeChange(r)}
-            className={`flex-1 min-w-0 py-2.5 px-2 rounded-md text-xs font-medium transition-all whitespace-nowrap ${
+            className={`flex-1 min-w-0 py-2.5 min-h-[44px] px-2 rounded-md text-xs font-medium transition-all whitespace-nowrap touch-manipulation ${
               timeRange === r ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-300 hover:text-white'
             }`}
           >

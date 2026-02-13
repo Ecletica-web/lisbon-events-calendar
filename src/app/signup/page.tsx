@@ -111,7 +111,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800/95 to-slate-900 flex items-center justify-center pt-16 px-4 pb-8 md:pb-16">
+    <div className="min-h-screen min-h-[100dvh] bg-gradient-to-br from-slate-900 via-slate-800/95 to-slate-900 flex items-center justify-center pt-16 px-4 pb-[max(2rem,env(safe-area-inset-bottom))] md:pb-16">
       <div className="max-w-md w-full p-4 sm:p-6 md:p-8 bg-slate-800/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50 text-slate-100">
         <h1 className="text-2xl sm:text-3xl font-bold mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Sign Up</h1>
         <p className="text-sm text-slate-400 mb-8">

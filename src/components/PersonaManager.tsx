@@ -330,13 +330,13 @@ export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps =
 
       {showModal && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[9998] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
           onClick={closeModal}
           role="dialog"
           aria-modal="true"
         >
           <div
-            className="bg-slate-800 border border-slate-600/50 rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            className="bg-slate-800 border border-slate-600/50 rounded-t-2xl sm:rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-4 sm:p-6">

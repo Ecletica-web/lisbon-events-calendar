@@ -73,3 +73,12 @@ export function saveOnboardingToStorage(prefs: OnboardingPrefs): void {
     // ignore
   }
 }
+
+export function clearOnboardingFromStorage(): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.removeItem(ONBOARDING_STORAGE_KEY)
+  } catch {
+    // ignore
+  }
+}
