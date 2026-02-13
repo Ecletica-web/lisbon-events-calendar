@@ -11,6 +11,7 @@ export const ONBOARDING_STORAGE_KEY = 'lisbon_onboarding_prefs'
 export interface OnboardingPrefs {
   intent?: string
   tags: string[]
+  selectedCategories?: string[]
   vibe?: string
   freeOnly: boolean
   englishFriendly: boolean
@@ -21,10 +22,22 @@ export interface OnboardingPrefs {
   lng?: number
 }
 
+/** Categories used when user skips onboarding – picked at random */
+export const SKIP_RANDOM_CATEGORIES = [
+  'arts', 'music', 'cinema', 'theatre', 'performance', 'comedy', 'nightlife',
+  'workshop', 'food', 'market', 'literature', 'exhibition', 'dance',
+  'volunteering', 'community',
+]
+
+export function getRandomSkipCategory(): string {
+  return SKIP_RANDOM_CATEGORIES[Math.floor(Math.random() * SKIP_RANDOM_CATEGORIES.length)]
+}
+
 export function onboardingPrefsToViewState(prefs: OnboardingPrefs): Partial<ViewState> {
   const tags = prefs.tags?.length ? prefs.tags : []
   const partial: Partial<ViewState> = {
     selectedTags: tags,
+    selectedCategories: prefs.selectedCategories ?? [],
     toggles: {
       freeOnly: prefs.freeOnly ?? false,
       excludeExhibitions: false,
@@ -51,6 +64,7 @@ export function loadOnboardingFromStorage(): OnboardingPrefs | null {
     return {
       intent: parsed.intent,
       tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+      selectedCategories: Array.isArray(parsed.selectedCategories) ? parsed.selectedCategories : undefined,
       vibe: parsed.vibe,
       freeOnly: !!parsed.freeOnly,
       englishFriendly: !!parsed.englishFriendly,

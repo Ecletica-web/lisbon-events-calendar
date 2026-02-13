@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef, Suspense } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
@@ -676,7 +676,7 @@ function CalendarPageContent() {
     return list
   }, [filteredEvents, mobileNearMeEnabled, mobileUserPos, mobileRadiusKm, venueCoordsMap])
 
-  const mobileRequestLocation = () => {
+  const mobileRequestLocation = useCallback(() => {
     setMobileLocError(null)
     setMobileLocLoading(true)
     if (!navigator.geolocation) {
@@ -695,7 +695,18 @@ function CalendarPageContent() {
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     )
-  }
+  }, [])
+
+  // "Right now" from onboarding: list view with today + near me 2km, trigger location
+  useEffect(() => {
+    if (searchParams.get('now') === '1') {
+      setShowListView(true)
+      setMobileListTimeRange('today')
+      setMobileNearMeEnabled(true)
+      setMobileRadiusKm(2)
+      mobileRequestLocation()
+    }
+  }, [searchParams, mobileRequestLocation])
 
   const handleTagToggle = (tag: string) => {
     setSelectedTags((prev) =>

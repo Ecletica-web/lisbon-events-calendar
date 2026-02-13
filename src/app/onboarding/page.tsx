@@ -3,12 +3,12 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import TypewriterText from '@/components/TypewriterText'
 import { ONBOARDING_TAG_GROUPS } from '@/data/onboardingTagGroups'
 import { PREDEFINED_PERSONAS } from '@/data/predefinedPersonas'
 import {
   buildCalendarUrl,
   clearOnboardingFromStorage,
+  getRandomSkipCategory,
   loadOnboardingFromStorage,
   type OnboardingPrefs,
 } from '@/lib/onboarding'
@@ -24,43 +24,56 @@ const DEFAULT_PREFS: OnboardingPrefs = {
   nearMe: false,
 }
 
-const INTRO_LINES = [
-  'Hey — welcome to Lisbon Events Calendar.',
-  "We're happy you're here.",
-  'We collect a lot of Lisbon events. Like... A LOT. We dare to say we have all of them',
-  "Maybe we missed your family lunch… but we've got most of the rest.",
+const INTRO_PHASES: { text: string; displayMs: number; isFinal?: boolean }[] = [
+  { text: 'Hey', displayMs: 1000 },
+  { text: 'Welcome to Lisbon Events Calendar.', displayMs: 1500 },
+  { text: "We're happy you're here!", displayMs: 1200 },
+  { text: 'We collect a lot of Lisbon events. Like...', displayMs: 1800 },
+  { text: 'A LOT', displayMs: 1000 },
+  { text: "Maybe we've missed your family lunch…", displayMs: 1500 },
+  { text: "but we've got most of the rest.", displayMs: 1500 },
+  { text: 'Let us know what you like so we can pick what suits you.', displayMs: 2500, isFinal: true },
 ]
 
 function IntroSequence({ onComplete }: { onComplete: () => void }) {
-  const [lineIndex, setLineIndex] = useState(0)
-  const currentLine = INTRO_LINES[lineIndex]
-  const isLastLine = lineIndex === INTRO_LINES.length - 1
+  const [phaseIndex, setPhaseIndex] = useState(0)
+  const [visible, setVisible] = useState(true)
+  const phase = INTRO_PHASES[phaseIndex]
+  const isFinal = phase?.isFinal
 
-  const handleLineComplete = () => {
-    if (isLastLine) {
-      onComplete()
-    } else {
-      setTimeout(() => setLineIndex((i) => i + 1), 280)
+  useEffect(() => {
+    if (!phase) return
+    const showTimer = setTimeout(() => {
+      if (isFinal) {
+        onComplete()
+        return
+      }
+      setVisible(false)
+    }, phase.displayMs)
+    return () => clearTimeout(showTimer)
+  }, [phaseIndex, phase?.displayMs, isFinal, onComplete])
+
+  useEffect(() => {
+    if (!visible && !isFinal) {
+      const hideTimer = setTimeout(() => {
+        setPhaseIndex((i) => i + 1)
+        setVisible(true)
+      }, 300)
+      return () => clearTimeout(hideTimer)
     }
-  }
+  }, [visible, isFinal])
+
+  if (!phase) return null
 
   return (
-    <div className="text-center space-y-6 sm:space-y-8 px-2">
-      <div className="space-y-4 sm:space-y-6 min-h-[4rem] flex flex-col justify-center">
-        {INTRO_LINES.slice(0, lineIndex).map((line) => (
-          <p key={line} className="text-lg sm:text-xl md:text-2xl text-white/90 leading-relaxed">
-            {line}
-          </p>
-        ))}
-        <p className="text-xl sm:text-2xl md:text-3xl font-bold text-white leading-relaxed">
-          <TypewriterText
-            key={currentLine}
-            text={currentLine}
-            speed={55}
-            onComplete={handleLineComplete}
-          />
-        </p>
-      </div>
+    <div className="text-center px-2 min-h-[5rem] flex flex-col justify-center">
+      <p
+        className={`text-xl sm:text-2xl md:text-3xl font-bold text-white leading-relaxed transition-opacity duration-300 ${
+          visible ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        {phase.text}
+      </p>
     </div>
   )
 }
@@ -75,6 +88,7 @@ function OnboardingContent() {
   const isLoggedIn = supabaseConfigured && !!supabaseUser
 
   const [step, setStep] = useState(isEdit ? 1 : 0)
+  const [pickMode, setPickMode] = useState<'tags' | 'vibe' | null>(null)
   const [prefs, setPrefs] = useState<OnboardingPrefs>(DEFAULT_PREFS)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -128,6 +142,20 @@ function OnboardingContent() {
     })
   }
 
+  const handleSkip = () => {
+    const randomCategory = getRandomSkipCategory()
+    const skipPrefs: OnboardingPrefs = {
+      ...prefs,
+      tags: [],
+      selectedCategories: [randomCategory],
+    }
+    clearOnboardingFromStorage()
+    const url = buildCalendarUrl(skipPrefs)
+    const separator = url.includes('?') ? '&' : '?'
+    const finalUrl = isLoggedIn ? url : `${url}${separator}fromOnboarding=1`
+    router.push(finalUrl)
+  }
+
   const handleEnterCalendar = async () => {
     setSubmitting(true)
     clearOnboardingFromStorage()
@@ -178,6 +206,15 @@ function OnboardingContent() {
 
   return (
     <div className="min-h-screen min-h-[100dvh] bg-slate-900 text-slate-100 flex flex-col items-center justify-center px-4 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
+      {step >= 0 && (
+        <button
+          onClick={handleSkip}
+          className="fixed top-4 right-4 sm:top-6 sm:right-6 z-10 text-sm text-slate-400 hover:text-white transition-colors touch-manipulation"
+          style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
+        >
+          Skip
+        </button>
+      )}
       <div className="max-w-2xl mx-auto w-full flex flex-col items-center py-6 sm:py-12 md:py-16">
         {step === 0 && (
           <IntroSequence onComplete={() => setTimeout(() => setStep(1), 600)} />
@@ -202,6 +239,13 @@ function OnboardingContent() {
                       router.push(url)
                       return
                     }
+                    if (id === 'now') {
+                      clearOnboardingFromStorage()
+                      const base = '/calendar?now=1'
+                      const url = isLoggedIn ? base : `${base}&fromOnboarding=1`
+                      router.push(url)
+                      return
+                    }
                     setStep(2)
                   }}
                   className={`w-full text-center p-4 min-h-[48px] sm:min-h-[52px] flex items-center justify-center rounded-xl border transition-all touch-manipulation ${
@@ -219,10 +263,30 @@ function OnboardingContent() {
           </div>
         )}
 
-        {step === 2 && (
+        {step === 2 && !pickMode && (
+          <div className="space-y-8 text-center w-full max-w-md px-2">
+            <h2 className="text-lg sm:text-xl font-bold text-white">How do you want to customize?</h2>
+            <div className="grid gap-3">
+              <button
+                onClick={() => { setPickMode('tags'); setStep(2) }}
+                className="w-full text-center p-4 min-h-[48px] rounded-xl border border-slate-700 bg-slate-800/60 text-slate-200 hover:border-slate-600 touch-manipulation"
+              >
+                Pick tags that interest me
+              </button>
+              <button
+                onClick={() => { setPickMode('vibe'); setStep(2) }}
+                className="w-full text-center p-4 min-h-[48px] rounded-xl border border-slate-700 bg-slate-800/60 text-slate-200 hover:border-slate-600 touch-manipulation"
+              >
+                Pick a vibe instead
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && pickMode === 'tags' && (
           <div className="space-y-6 sm:space-y-8 text-center w-full max-w-lg px-4 sm:px-0">
             <h2 className="text-lg sm:text-xl font-bold text-white">What interests you?</h2>
-            <p className="text-slate-400 text-sm">Pick a few — or skip</p>
+            <p className="text-slate-400 text-sm">Pick a few tags</p>
             <div className="space-y-5 sm:space-y-6 text-left max-h-[60vh] overflow-y-auto overscroll-contain pr-1 -mr-1">
               {ONBOARDING_TAG_GROUPS.map((group) => (
                 <div key={group.id}>
@@ -247,13 +311,13 @@ function OnboardingContent() {
             </div>
             <div className="flex gap-3 justify-center pt-4 flex-wrap">
               <button
-                onClick={() => setStep(1)}
+                onClick={() => { setPickMode(null); setStep(2) }}
                 className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation"
               >
                 Back
               </button>
               <button
-                onClick={() => setStep(3)}
+                onClick={() => setStep(4)}
                 className="px-6 py-2.5 min-h-[44px] rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 touch-manipulation"
               >
                 Next
@@ -262,10 +326,10 @@ function OnboardingContent() {
           </div>
         )}
 
-        {step === 3 && (
+        {step === 2 && pickMode === 'vibe' && (
           <div className="space-y-6 sm:space-y-8 text-center w-full max-w-lg px-4 sm:px-0">
             <h2 className="text-lg sm:text-xl font-bold text-white">Pick a vibe</h2>
-            <p className="text-slate-400 text-sm">Optional</p>
+            <p className="text-slate-400 text-sm">We&apos;ll filter events to match</p>
             <div className="grid gap-3 sm:gap-4 text-left max-h-[55vh] overflow-y-auto overscroll-contain pr-1 -mr-1">
               {PREDEFINED_PERSONAS.map((p) => (
                 <button
@@ -273,7 +337,7 @@ function OnboardingContent() {
                   onClick={() => {
                     updatePrefs({
                       vibe: p.slug,
-                      tags: [...new Set([...prefs.tags, ...p.tags])],
+                      tags: [...new Set([...p.tags])],
                     })
                     setStep(4)
                   }}
@@ -291,16 +355,10 @@ function OnboardingContent() {
             </div>
             <div className="flex gap-3 justify-center pt-4 flex-wrap">
               <button
-                onClick={() => setStep(2)}
+                onClick={() => { setPickMode(null); setStep(2) }}
                 className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation"
               >
                 Back
-              </button>
-              <button
-                onClick={() => setStep(4)}
-                className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 touch-manipulation"
-              >
-                Skip
               </button>
             </div>
           </div>
@@ -335,7 +393,7 @@ function OnboardingContent() {
             </div>
             <div className="flex gap-3 justify-center pt-4 flex-wrap">
               <button
-                onClick={() => setStep(3)}
+                onClick={() => setStep(2)}
                 className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation"
               >
                 Back
