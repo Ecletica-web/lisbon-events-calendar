@@ -8,9 +8,22 @@ import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 import { useUserActions } from '@/contexts/UserActionsContext'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
 import ProfileSupabaseSections from '@/components/ProfileSupabaseSections'
+import ProfileEditForm from '@/components/ProfileEditForm'
+import ProfileFriendsSection from '@/components/ProfileFriendsSection'
 import PersonaManager from '@/components/PersonaManager'
 import EventModal from '@/app/calendar/components/EventModal'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
+
+interface ProfileData {
+  id: string
+  displayName?: string | null
+  avatarUrl?: string | null
+  bio?: string | null
+  username?: string | null
+  coverUrl?: string | null
+  followersCount: number
+  followingCount: number
+}
 
 interface Follow {
   id: string
@@ -47,6 +60,8 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [showImportPrompt, setShowImportPrompt] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<NormalizedEvent | null>(null)
+  const [profileData, setProfileData] = useState<ProfileData | null>(null)
+  const [showEditForm, setShowEditForm] = useState(false)
   const isSupabaseUser = supabaseConfigured && !!supabaseUser
   const isNextAuthUser = !supabaseConfigured && session?.user
   const isGuest = !supabaseConfigured && (session?.user as any)?.id === 'guest'
@@ -64,8 +79,13 @@ export default function ProfilePage() {
       return
     }
 
-    if (isSupabaseUser) {
-      setLoading(false)
+    if (isSupabaseUser && supabaseUser) {
+      fetch(`/api/users/${supabaseUser.id}/profile`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data) setProfileData(data)
+        })
+        .finally(() => setLoading(false))
     } else {
       loadFollows()
       loadSettings()
@@ -205,21 +225,108 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-slate-900/95 text-slate-100">
       <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 pt-20 md:pt-28 pb-8">
-        <div className="mb-8">
-          <h1 className="text-2xl sm:text-4xl font-bold mb-3 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-            Profile
-          </h1>
-          <div className="text-slate-300 space-y-1">
-            <div className="font-medium">
-              Email: <span className="text-slate-200">{user.email}</span>
+        {/* Profile header with cover & avatar (Supabase) */}
+        {isSupabaseUser && user && (
+          <div className="mb-8 -mx-4 sm:-mx-6 md:-mx-8 -mt-4 sm:-mt-6 md:-mt-8">
+            <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800">
+              {profileData?.coverUrl ? (
+                <img
+                  src={profileData.coverUrl}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  onError={(e) => { e.currentTarget.style.display = 'none' }}
+                />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/50 via-purple-900/50 to-pink-900/50" />
+              )}
             </div>
-            {user.name && (
-              <div className="font-medium">
-                Name: <span className="text-slate-200">{user.name}</span>
+            <div className="relative px-4 sm:px-6 md:px-8 -mt-16 sm:-mt-20">
+              <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+                {profileData?.avatarUrl ? (
+                  <img
+                    src={profileData.avatarUrl}
+                    alt=""
+                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 object-cover bg-slate-700"
+                  />
+                ) : (
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 bg-slate-700 flex items-center justify-center text-3xl sm:text-4xl font-bold text-slate-400">
+                    {(profileData?.displayName || user.name || user.email || '?')[0].toUpperCase()}
+                  </div>
+                )}
+                <div className="flex-1 pb-1">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-white">
+                    {profileData?.displayName || user.name || 'Profile'}
+                  </h1>
+                  {profileData?.username && (
+                    <p className="text-slate-400">@{profileData.username}</p>
+                  )}
+                  {profileData?.bio && (
+                    <p className="text-slate-300 mt-2 text-sm max-w-xl">{profileData.bio}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowEditForm(!showEditForm)}
+                  className="self-start sm:self-end px-4 py-2 rounded-lg border border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:text-white transition-colors text-sm font-medium"
+                >
+                  {showEditForm ? 'Cancel' : 'Edit profile'}
+                </button>
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Classic header (NextAuth / non-Supabase) */}
+        {!isSupabaseUser && (
+          <div className="mb-8">
+            <h1 className="text-2xl sm:text-4xl font-bold mb-3 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Profile
+            </h1>
+            <div className="text-slate-300 space-y-1">
+              <div className="font-medium">
+                Email: <span className="text-slate-200">{user.email}</span>
+              </div>
+              {user.name && (
+                <div className="font-medium">
+                  Name: <span className="text-slate-200">{user.name}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Profile edit form (Supabase) */}
+        {isSupabaseUser && showEditForm && user && (
+          <div className="mb-8 p-6 rounded-xl bg-slate-800/60 border border-slate-700/50">
+            <h2 className="text-lg font-semibold mb-4 text-slate-200">Edit profile</h2>
+            <ProfileEditForm
+              initialCoverUrl={profileData?.coverUrl}
+              initialUsername={profileData?.username}
+              initialBio={profileData?.bio}
+              initialDisplayName={profileData?.displayName || user.name}
+              onSaved={() => {
+                setShowEditForm(false)
+                if (supabaseUser) {
+                  fetch(`/api/users/${supabaseUser.id}/profile`)
+                    .then((r) => (r.ok ? r.json() : null))
+                    .then((data) => { if (data) setProfileData(data) })
+                }
+              }}
+            />
+          </div>
+        )}
+
+        {/* Friends section (Supabase) */}
+        {isSupabaseUser && profileData && (
+          <div className="mb-8">
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Friends</h2>
+            <ProfileFriendsSection
+              userId={profileData.id}
+              followersCount={profileData.followersCount}
+              followingCount={profileData.followingCount}
+              isOwnProfile
+            />
+          </div>
+        )}
 
         {isGuest && !isSupabaseUser && (
           <div className="mb-6 p-4 bg-slate-800/60 border border-slate-700/50 rounded-xl">

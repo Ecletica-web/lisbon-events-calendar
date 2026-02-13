@@ -111,10 +111,10 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center pt-16 px-4 pb-8 md:pb-16">
-      <div className="max-w-md w-full p-4 sm:p-6 md:p-8 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200/50 text-gray-900">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">Sign Up</h1>
-        <p className="text-sm text-gray-600 mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800/95 to-slate-900 flex items-center justify-center pt-16 px-4 pb-8 md:pb-16">
+      <div className="max-w-md w-full p-4 sm:p-6 md:p-8 bg-slate-800/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50 text-slate-100">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Sign Up</h1>
+        <p className="text-sm text-slate-400 mb-8">
           Create a new account
         </p>
         
@@ -123,7 +123,7 @@ export default function SignupPage() {
           <button
             onClick={() => handleOAuthSignIn('google')}
             disabled={loading}
-            className="w-full min-h-[44px] flex items-center justify-center gap-3 bg-white border-2 border-gray-300 text-gray-700 px-4 py-3 rounded-md hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="w-full min-h-[44px] flex items-center justify-center gap-3 bg-slate-700/50 border border-slate-600/50 text-slate-200 px-4 py-3 rounded-xl hover:bg-slate-700/80 hover:border-slate-500 disabled:opacity-50 transition-all"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -160,27 +160,27 @@ export default function SignupPage() {
 
         <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
+            <div className="w-full border-t border-slate-600"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Or</span>
+            <span className="px-2 bg-slate-800/80 text-slate-500">Or</span>
           </div>
         </div>
 
         {/* Toggle: Full signup vs email only (NextAuth only) */}
         {!supabaseConfigured && (
-        <div className="flex gap-2 mb-4 p-1 bg-gray-100 rounded-lg">
+        <div className="flex gap-2 mb-4 p-1 bg-slate-700/50 rounded-lg">
           <button
             type="button"
             onClick={() => setEmailOnly(false)}
-            className={`flex-1 min-w-0 py-3 sm:py-2 px-2 sm:px-3 rounded-md text-xs sm:text-sm font-medium transition-colors min-h-[44px] ${!emailOnly ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
+            className={`flex-1 min-w-0 py-3 sm:py-2 px-2 sm:px-3 rounded-md text-xs sm:text-sm font-medium transition-colors min-h-[44px] ${!emailOnly ? 'bg-slate-600/80 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
           >
             Email + password
           </button>
           <button
             type="button"
             onClick={() => setEmailOnly(true)}
-            className={`flex-1 min-w-0 py-3 sm:py-2 px-2 sm:px-3 rounded-md text-xs sm:text-sm font-medium transition-colors min-h-[44px] ${emailOnly ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
+            className={`flex-1 min-w-0 py-3 sm:py-2 px-2 sm:px-3 rounded-md text-xs sm:text-sm font-medium transition-colors min-h-[44px] ${emailOnly ? 'bg-slate-600/80 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
           >
             Email only
           </button>
@@ -191,105 +191,105 @@ export default function SignupPage() {
         {emailOnly ? (
           <form onSubmit={handleEmailOnlySubmit} className="space-y-4">
             <div>
-              <label className="block mb-2 text-sm font-medium text-gray-900">Name (optional)</label>
+              <label className="block mb-2 text-sm font-medium text-slate-200">Name (optional)</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+                className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
                 placeholder="Your name"
               />
             </div>
             <div>
-              <label className="block mb-2 text-sm font-medium text-gray-900">Email</label>
+              <label className="block mb-2 text-sm font-medium text-slate-200">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+                className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
                 placeholder="your@email.com"
               />
             </div>
-            {error && <div className="text-red-600 text-sm">{error}</div>}
+            {error && <div className="text-red-400 text-sm">{error}</div>}
             <button
               type="submit"
               disabled={loading}
-              className="w-full min-h-[44px] bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 transition-all shadow-md hover:shadow-lg font-medium"
+              className="w-full min-h-[44px] bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-4 py-3 rounded-xl hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 disabled:opacity-50 transition-all font-medium"
             >
               {loading ? 'Creating account...' : 'Sign up with email'}
             </button>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-slate-500">
               You&apos;ll set a password on the next screen
             </p>
           </form>
         ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block mb-2 text-sm font-medium text-gray-900">Name (optional)</label>
+            <label className="block mb-2 text-sm font-medium text-slate-200">Name (optional)</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+              className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
               placeholder="Your name"
             />
           </div>
 
           <div>
-            <label className="block mb-2 text-sm font-medium text-gray-900">Email</label>
+            <label className="block mb-2 text-sm font-medium text-slate-200">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+              className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
               placeholder="your@email.com"
             />
           </div>
 
           <div>
-            <label className="block mb-2 text-sm font-medium text-gray-900">Password</label>
+            <label className="block mb-2 text-sm font-medium text-slate-200">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+              className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
               placeholder="At least 6 characters"
             />
           </div>
 
           <div>
-            <label className="block mb-2 text-sm font-medium text-gray-900">Confirm Password</label>
+            <label className="block mb-2 text-sm font-medium text-slate-200">Confirm Password</label>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              className="w-full border border-gray-300/50 rounded-lg px-4 py-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-sm"
+              className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
               placeholder="Confirm your password"
             />
           </div>
 
           {error && (
-            <div className="text-red-600 text-sm">{error}</div>
+            <div className="text-red-400 text-sm">{error}</div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full min-h-[44px] bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 transition-all shadow-md hover:shadow-lg font-medium"
+            className="w-full min-h-[44px] bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white px-4 py-3 rounded-xl hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 disabled:opacity-50 transition-all font-medium"
           >
             {loading ? 'Creating account...' : 'Sign Up'}
           </button>
         </form>
         )}
 
-        <p className="mt-4 text-center text-sm text-gray-600">
+        <p className="mt-4 text-center text-sm text-slate-400">
           Already have an account?{' '}
-          <Link href="/login" className="text-blue-600 hover:underline">
+          <Link href="/login" className="text-indigo-400 hover:text-indigo-300 hover:underline">
             Login
           </Link>
         </p>

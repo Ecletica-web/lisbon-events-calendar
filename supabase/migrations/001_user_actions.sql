@@ -22,6 +22,10 @@ CREATE POLICY "Users can insert own profile" ON user_profiles
 CREATE POLICY "Users can update own profile" ON user_profiles
   FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
+-- Public profiles readable by anyone (for profile pages, avatars, etc.)
+CREATE POLICY "Public profiles are readable by all" ON user_profiles
+  FOR SELECT USING (true);
+
 -- user_follow_venues
 CREATE TABLE IF NOT EXISTS user_follow_venues (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { getCategoryColor } from '@/lib/categoryColors'
 import { toCanonicalTagKey } from '@/lib/eventsAdapter'
+import { getGoogleCalendarUrl } from '@/lib/googleCalendar'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import FollowButton from '@/components/FollowButton'
 import FollowVenueButton from '@/components/FollowVenueButton'
@@ -271,6 +272,18 @@ export default function EventModal({ event, onClose }: EventModalProps) {
             </div>
           )}
         </div>
+
+        <a
+          href={getGoogleCalendarUrl(event)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg border border-slate-600/50 bg-slate-700/50 text-slate-200 text-sm font-medium hover:bg-slate-600/60 hover:text-white transition-colors mt-3"
+        >
+          <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.5 3h-1.5v.5h-1V3H7v.5H5.5V3H4c-.55 0-1 .45-1 1v16c0 .55.45 1 1 1h15.5c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM19 19H5V9h14v10zm0-11H5V5h2v.5h1V5h7v.5h1V5h2v3z" />
+          </svg>
+          Add to Google Calendar
+        </a>
 
         <button
           onClick={onClose}

@@ -13,6 +13,10 @@ import type { Venue } from '@/models/Venue'
 import type { Promoter } from '@/models/Promoter'
 import type { Event } from '@/models/Event'
 
+function normKey(s: string | undefined): string {
+  return (s || '').toLowerCase().trim()
+}
+
 /** Legacy RawEvent kept for type compatibility; actual parsing is in eventsLoader */
 export interface RawEvent {
   event_id: string
@@ -106,6 +110,12 @@ export interface NormalizedEvent {
     promoterId?: string
     promoterName?: string
 
+    // Venue & promoter social links (enriched)
+    venueInstagram?: string
+    venueWebsite?: string
+    promoterInstagram?: string
+    promoterWebsite?: string
+
     // Metadata
     timezone?: string
     opensAt?: string
@@ -190,6 +200,48 @@ function eventToNormalizedEvent(e: Event): NormalizedEvent {
 }
 
 /**
+ * Enrich events with venue and promoter social links
+ */
+function enrichEventsWithVenuePromoterLinks(
+  events: NormalizedEvent[],
+  venues: Venue[],
+  promoters: Promoter[]
+): NormalizedEvent[] {
+  const venueByKey = new Map<string, Venue>()
+  for (const v of venues) {
+    venueByKey.set(normKey(v.venue_id), v)
+    venueByKey.set(normKey(v.slug), v)
+    venueByKey.set(normKey(v.name), v)
+  }
+  const promoterByKey = new Map<string, Promoter>()
+  for (const p of promoters) {
+    promoterByKey.set(normKey(p.promoter_id), p)
+    promoterByKey.set(normKey(p.slug), p)
+    promoterByKey.set(normKey(p.name), p)
+  }
+
+  return events.map((ev) => {
+    const p = ev.extendedProps
+    const venue = venueByKey.get(normKey(p.venueId || ''))
+      || venueByKey.get(normKey(p.venueKey || ''))
+      || venueByKey.get(normKey((p.venueName || '').toLowerCase().replace(/\s+/g, '-')))
+    const promoter = promoterByKey.get(normKey(p.promoterId || ''))
+      || promoterByKey.get(normKey(p.promoterName || ''))
+    if (!venue && !promoter) return ev
+    return {
+      ...ev,
+      extendedProps: {
+        ...p,
+        venueInstagram: venue?.instagram_handle ?? p.venueInstagram,
+        venueWebsite: venue?.website_url ?? venue?.venue_url ?? p.venueWebsite,
+        promoterInstagram: promoter?.instagram_handle ?? p.promoterInstagram,
+        promoterWebsite: promoter?.website_url ?? p.promoterWebsite,
+      },
+    }
+  })
+}
+
+/**
  * Fetch events from Google Sheets CSV.
  * Client-side: fetches from /api/events (avoids CORS). Server-side: loads directly from CSV.
  */
@@ -228,8 +280,10 @@ export async function fetchEvents(): Promise<NormalizedEvent[]> {
 
     const listingEvents = filterEventsForListing(domainEvents)
     const normalized = listingEvents.map(eventToNormalizedEvent)
+    const promoters = await loadPromoters(process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL)
+    const enriched = enrichEventsWithVenuePromoterLinks(normalized, venues, promoters)
 
-    const capped = capEventsPerVenue(normalized, MAX_EVENTS_PER_VENUE)
+    const capped = capEventsPerVenue(enriched, MAX_EVENTS_PER_VENUE)
     return capped.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
   } catch (error) {
     console.error('Error fetching events:', error)
