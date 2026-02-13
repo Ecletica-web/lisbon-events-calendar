@@ -44,8 +44,42 @@ All tables use Row Level Security (RLS) so users can only access their own data.
 
 ## 4. Auth Flow
 
-- **Supabase configured**: Login/signup use `supabase.auth.signInWithPassword` and `supabase.auth.signUp`. Session persists in localStorage; `onAuthStateChange` keeps the UI in sync.
+- **Supabase configured**: Login/signup use `supabase.auth.signInWithPassword`, `supabase.auth.signUp`, and `supabase.auth.signInWithOAuth` (Google, Facebook). Session persists in localStorage; `onAuthStateChange` keeps the UI in sync.
 - **Supabase not configured**: Login/signup use NextAuth (existing) with credentials, Google, Facebook.
+
+## 4.1 Google & Facebook OAuth (Supabase)
+
+To enable "Continue with Google" and "Continue with Facebook" when using Supabase:
+
+### Step 1: Configure Redirect URLs in Supabase
+
+1. Supabase Dashboard → **Authentication** → **URL Configuration**
+2. Add your app URLs to **Redirect URLs**:
+   - `http://localhost:3000/profile` (local dev)
+   - `https://yourdomain.com/profile` (production)
+3. Set **Site URL** to your production URL (e.g. `https://yourdomain.com`)
+
+### Step 2: Enable Google Provider
+
+1. Supabase Dashboard → **Authentication** → **Providers** → **Google**
+2. Toggle **Enable Sign in with Google** ON
+3. Create OAuth credentials in [Google Cloud Console](https://console.cloud.google.com/apis/credentials):
+   - Create **OAuth 2.0 Client ID** (Web application)
+   - **Authorized redirect URIs**: `https://<your-project-ref>.supabase.co/auth/v1/callback`
+   - Copy **Client ID** and **Client Secret** into Supabase
+4. Save in Supabase
+
+### Step 3: Enable Facebook Provider
+
+1. Supabase Dashboard → **Authentication** → **Providers** → **Facebook**
+2. Toggle **Enable Sign in with Facebook** ON
+3. Create an app in [Facebook Developers](https://developers.facebook.com/apps/):
+   - Add **Facebook Login** product
+   - **Valid OAuth Redirect URIs**: `https://<your-project-ref>.supabase.co/auth/v1/callback`
+   - Copy **App ID** and **App Secret** into Supabase (App ID = Client ID, App Secret = Client Secret)
+4. Save in Supabase
+
+Replace `<your-project-ref>` with your Supabase project URL (e.g. `abcdefgh.supabase.co` → ref is `abcdefgh`).
 
 ## 5. Logged-Out Actions
 

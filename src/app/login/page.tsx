@@ -11,6 +11,7 @@ export default function LoginPage() {
   const router = useRouter()
   const supabaseAuth = useSupabaseAuth()
   const supabaseSignIn = supabaseAuth?.signIn
+  const supabaseSignInWithOAuth = supabaseAuth?.signInWithOAuth
   const supabaseUser = supabaseAuth?.user
   const supabaseConfigured = supabaseAuth?.isConfigured ?? false
 
@@ -78,17 +79,20 @@ export default function LoginPage() {
   }
 
   const handleOAuthSignIn = async (provider: 'google' | 'facebook') => {
-    if (supabaseConfigured) {
-      setError('Use email and password to sign in.')
-      return
-    }
     setError('')
     setLoading(true)
     try {
+      if (supabaseConfigured && supabaseSignInWithOAuth) {
+        const { error: err } = await supabaseSignInWithOAuth(provider)
+        if (err) throw new Error(err)
+        // Supabase redirects; no need to router.push
+        return
+      }
       await signIn(provider, { callbackUrl: '/profile' })
-    } catch (err) {
-      setError(`Failed to sign in with ${provider}. Please try again.`)
+    } catch (err: any) {
+      setError(err?.message || `Failed to sign in with ${provider}. Please try again.`)
       console.error('OAuth error:', err)
+    } finally {
       setLoading(false)
     }
   }
@@ -101,8 +105,7 @@ export default function LoginPage() {
           Sign in to your account
         </p>
         
-        {/* OAuth Buttons - only when not using Supabase */}
-        {!supabaseConfigured && (
+        {/* OAuth Buttons */}
         <div className="space-y-3 mb-6">
           <button
             onClick={() => handleOAuthSignIn('google')}
@@ -141,7 +144,6 @@ export default function LoginPage() {
             <span className="font-medium">Continue with Facebook</span>
           </button>
         </div>
-        )}
 
         {!supabaseConfigured && (
           <button

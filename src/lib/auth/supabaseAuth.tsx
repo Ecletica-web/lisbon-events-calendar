@@ -22,6 +22,7 @@ interface SupabaseAuthContextValue {
   loading: boolean
   signUp: (email: string, password: string, name?: string) => Promise<{ error?: string }>
   signIn: (email: string, password: string) => Promise<{ error?: string }>
+  signInWithOAuth: (provider: 'google' | 'facebook') => Promise<{ error?: string }>
   signOut: () => Promise<void>
   isConfigured: boolean
 }
@@ -103,11 +104,28 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
+  const signInWithOAuth = useCallback(
+    async (provider: 'google' | 'facebook') => {
+      if (!supabase) return { error: 'Auth not configured' }
+      const redirectTo =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/profile`
+          : undefined
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: provider === 'facebook' ? 'facebook' : 'google',
+        options: redirectTo ? { redirectTo } : undefined,
+      })
+      return { error: error?.message }
+    },
+    []
+  )
+
   const value: SupabaseAuthContextValue = {
     user,
     loading,
     signUp,
     signIn,
+    signInWithOAuth,
     signOut,
     isConfigured,
   }

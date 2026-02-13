@@ -11,6 +11,7 @@ export default function SignupPage() {
   const router = useRouter()
   const supabaseAuth = useSupabaseAuth()
   const supabaseSignUp = supabaseAuth?.signUp
+  const supabaseSignInWithOAuth = supabaseAuth?.signInWithOAuth
   const supabaseUser = supabaseAuth?.user
   const supabaseConfigured = supabaseAuth?.isConfigured ?? false
 
@@ -32,7 +33,7 @@ export default function SignupPage() {
   const handleEmailOnlySubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (supabaseConfigured) {
-      setError('Use email + password to sign up.')
+      setError('With Supabase, use email + password to sign up.')
       return
     }
     setError('')
@@ -95,10 +96,16 @@ export default function SignupPage() {
     setError('')
     setLoading(true)
     try {
+      if (supabaseConfigured && supabaseSignInWithOAuth) {
+        const { error: err } = await supabaseSignInWithOAuth(provider)
+        if (err) throw new Error(err)
+        return
+      }
       await signIn(provider, { callbackUrl: '/profile' })
-    } catch (err) {
-      setError(`Failed to sign in with ${provider}. Please try again.`)
+    } catch (err: any) {
+      setError(err?.message || `Failed to sign in with ${provider}. Please try again.`)
       console.error('OAuth error:', err)
+    } finally {
       setLoading(false)
     }
   }
@@ -160,7 +167,8 @@ export default function SignupPage() {
           </div>
         </div>
 
-        {/* Toggle: Full signup vs email only */}
+        {/* Toggle: Full signup vs email only (NextAuth only) */}
+        {!supabaseConfigured && (
         <div className="flex gap-2 mb-4 p-1 bg-gray-100 rounded-lg">
           <button
             type="button"
@@ -177,6 +185,7 @@ export default function SignupPage() {
             Email only
           </button>
         </div>
+        )}
 
         {/* Signup Form */}
         {emailOnly ? (
