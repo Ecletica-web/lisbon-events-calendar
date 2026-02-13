@@ -17,7 +17,7 @@ export async function GET(
 
     const { data: profile, error: profileError } = await supabaseServer
       .from('user_profiles')
-      .select('id, display_name, avatar_url, bio, username, cover_url')
+      .select('id, display_name, avatar_url, bio, username, cover_url, event_visibility')
       .eq('id', userId)
       .maybeSingle()
 
@@ -25,10 +25,14 @@ export async function GET(
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
     }
 
-    const [{ count: followersCount }, { count: followingCount }] = await Promise.all([
+    const [{ count: followersCount }, { count: followingCount }, { data: friendRows }] = await Promise.all([
       supabaseServer.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
       supabaseServer.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
+      supabaseServer.from('friend_requests').select('id').eq('status', 'accepted')
+        .or('requester_id.eq.' + userId + ',addressee_id.eq.' + userId),
     ])
+
+    const friendsCount = friendRows?.length ?? 0
 
     return NextResponse.json({
       id: profile.id,
@@ -37,8 +41,10 @@ export async function GET(
       bio: profile.bio,
       username: profile.username,
       coverUrl: profile.cover_url,
+      eventVisibility: profile.event_visibility ?? 'public',
       followersCount: followersCount ?? 0,
       followingCount: followingCount ?? 0,
+      friendsCount,
     })
   } catch (e) {
     console.error('Profile API error:', e)

@@ -15,6 +15,7 @@ interface NotificationSettings {
   notifyVenues?: boolean
   notifyPersonas?: boolean
   notifyPromoters?: boolean
+  eventVisibility?: 'public' | 'friends_only'
 }
 
 export default function ProfileSettingsPage() {
@@ -75,6 +76,7 @@ export default function ProfileSettingsPage() {
               notifyVenues: data.settings.notify_venues ?? false,
               notifyPersonas: data.settings.notify_personas ?? false,
               notifyPromoters: data.settings.notify_promoters ?? false,
+              eventVisibility: (data.settings.event_visibility as 'public' | 'friends_only') ?? 'public',
             })
           } else {
             setSettings({
@@ -85,6 +87,7 @@ export default function ProfileSettingsPage() {
               notifyVenues: false,
               notifyPersonas: false,
               notifyPromoters: false,
+              eventVisibility: 'public',
             })
           }
         })
@@ -140,6 +143,7 @@ export default function ProfileSettingsPage() {
             notify_venues: updates.notifyVenues,
             notify_personas: updates.notifyPersonas,
             notify_promoters: updates.notifyPromoters,
+            event_visibility: updates.eventVisibility,
           }),
         })
         if (response.ok) {
@@ -152,6 +156,7 @@ export default function ProfileSettingsPage() {
             notifyVenues: newSettings.notify_venues ?? false,
             notifyPersonas: newSettings.notify_personas ?? false,
             notifyPromoters: newSettings.notify_promoters ?? false,
+            eventVisibility: (newSettings.event_visibility as 'public' | 'friends_only') ?? 'public',
           })
         }
       } catch (e) {
@@ -185,6 +190,38 @@ export default function ProfileSettingsPage() {
           </Link>
           <h1 className="text-2xl sm:text-3xl font-bold text-white">Settings</h1>
         </div>
+
+        {/* Privacy - Event visibility (Supabase only) */}
+        {isSupabaseUser && settings && (
+          <section className="mb-10">
+            <h2 className="text-xl font-semibold mb-4 text-slate-200">Event visibility</h2>
+            <div className="p-4 sm:p-6 rounded-xl bg-slate-800/60 border border-slate-700/50">
+              <p className="text-slate-400 mb-4">Who can see your Going, Saved, and Liked events on your profile?</p>
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
+                  <input
+                    type="radio"
+                    name="eventVisibility"
+                    checked={settings.eventVisibility === 'public'}
+                    onChange={() => handleUpdateSettings({ eventVisibility: 'public' })}
+                    className="border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50"
+                  />
+                  <span className="text-slate-200">Public — anyone can see</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
+                  <input
+                    type="radio"
+                    name="eventVisibility"
+                    checked={settings.eventVisibility === 'friends_only'}
+                    onChange={() => handleUpdateSettings({ eventVisibility: 'friends_only' })}
+                    className="border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50"
+                  />
+                  <span className="text-slate-200">Friends only — only accepted friends can see</span>
+                </label>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Preferences */}
         <section className="mb-10">

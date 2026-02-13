@@ -69,6 +69,9 @@ export async function PATCH(request: NextRequest) {
     if (typeof body.avatar_url === 'string') {
       updates.avatar_url = body.avatar_url || null
     }
+    if (typeof body.event_visibility === 'string' && ['public', 'friends_only'].includes(body.event_visibility)) {
+      updates.event_visibility = body.event_visibility
+    }
 
     // Onboarding preferences (standalone /onboarding page; not tied to auth flow)
     if (typeof body.onboarding_complete === 'boolean') {

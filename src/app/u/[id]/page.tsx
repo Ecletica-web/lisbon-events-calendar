@@ -6,7 +6,10 @@ import Link from 'next/link'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
 import FollowUserButton from '@/components/FollowUserButton'
+import AddFriendButton from '@/components/AddFriendButton'
 import ProfileFriendsSection from '@/components/ProfileFriendsSection'
+import EventModal from '@/app/calendar/components/EventModal'
+import type { NormalizedEvent } from '@/lib/eventsAdapter'
 
 interface ProfileData {
   id: string
@@ -17,6 +20,8 @@ interface ProfileData {
   coverUrl?: string | null
   followersCount: number
   followingCount: number
+  friendsCount?: number
+  eventVisibility?: 'public' | 'friends_only'
 }
 
 interface PublicProfileData {
@@ -36,6 +41,8 @@ export default function PublicProfilePage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<'profile' | 'public' | null>(null)
+  const [eventsData, setEventsData] = useState<{ upcoming: NormalizedEvent[]; past: NormalizedEvent[]; visible: boolean } | null>(null)
+  const [selectedEvent, setSelectedEvent] = useState<NormalizedEvent | null>(null)
 
   useEffect(() => {
     if (!id) {
@@ -74,6 +81,24 @@ export default function PublicProfilePage() {
     }
     load()
   }, [id])
+
+  useEffect(() => {
+    if (!id || !profileData || mode !== 'profile') return
+    async function loadEvents() {
+      try {
+        const { supabase } = await import('@/lib/supabase/client')
+        const { data: { session } } = await (supabase?.auth.getSession() ?? { data: { session: null } })
+        const headers: Record<string, string> = {}
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+        const res = await fetch(`/api/users/${id}/events`, { headers })
+        const data = await res.json()
+        setEventsData({ upcoming: data.upcoming ?? [], past: data.past ?? [], visible: data.visible ?? false })
+      } catch {
+        setEventsData({ upcoming: [], past: [], visible: false })
+      }
+    }
+    loadEvents()
+  }, [id, profileData, mode])
 
   if (loading) {
     return (
@@ -134,7 +159,12 @@ export default function PublicProfilePage() {
                     <p className="text-slate-300 mt-2 text-sm max-w-xl">{profileData.bio}</p>
                   )}
                 </div>
-                {!isOwnProfile && <FollowUserButton targetUserId={profileData.id} />}
+                {!isOwnProfile &&
+                  (supabaseAuth?.isConfigured ? (
+                    <AddFriendButton targetUserId={profileData.id} />
+                  ) : (
+                    <FollowUserButton targetUserId={profileData.id} />
+                  ))}
               </div>
             </div>
           </div>
@@ -145,12 +175,62 @@ export default function PublicProfilePage() {
                 userId={profileData.id}
                 followersCount={profileData.followersCount}
                 followingCount={profileData.followingCount}
+                friendsCount={profileData.friendsCount ?? 0}
                 isOwnProfile={false}
               />
             </div>
+            {eventsData && eventsData.visible && (eventsData.upcoming.length > 0 || eventsData.past.length > 0) && (
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold mb-4 text-slate-200">Events</h2>
+                {eventsData.upcoming.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-medium text-slate-400 uppercase mb-3">Upcoming</h3>
+                    <ul className="space-y-2">
+                      {eventsData.upcoming.slice(0, 10).map((e) => (
+                        <li key={e.id}>
+                          <button
+                            onClick={() => setSelectedEvent(e)}
+                            className="w-full text-left p-3 rounded-lg bg-slate-800/60 border border-slate-700/50 hover:border-indigo-500/50 hover:bg-slate-800 transition-colors"
+                          >
+                            <span className="font-medium text-slate-200">{e.title}</span>
+                            <span className="text-slate-400 text-sm block mt-1">
+                              {e.start ? new Date(e.start).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {eventsData.past.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-slate-400 uppercase mb-3">Past</h3>
+                    <ul className="space-y-2">
+                      {eventsData.past.slice(0, 10).map((e) => (
+                        <li key={e.id}>
+                          <button
+                            onClick={() => setSelectedEvent(e)}
+                            className="w-full text-left p-3 rounded-lg bg-slate-800/60 border border-slate-700/50 hover:border-indigo-500/50 hover:bg-slate-800 transition-colors"
+                          >
+                            <span className="font-medium text-slate-200">{e.title}</span>
+                            <span className="text-slate-400 text-sm block mt-1">
+                              {e.start ? new Date(e.start).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+            {eventsData && eventsData.visible && eventsData.upcoming.length === 0 && eventsData.past.length === 0 && (
+              <p className="text-slate-500 text-sm mb-8">No events yet.</p>
+            )}
             <Link href="/calendar" className="text-indigo-400 hover:underline">← Back to Calendar</Link>
           </div>
         </div>
+        <EventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
       </div>
     )
   }

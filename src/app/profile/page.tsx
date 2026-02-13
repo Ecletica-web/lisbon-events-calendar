@@ -23,6 +23,7 @@ interface ProfileData {
   coverUrl?: string | null
   followersCount: number
   followingCount: number
+  friendsCount?: number
 }
 
 interface Follow {
@@ -374,6 +375,7 @@ export default function ProfilePage() {
               userId={profileData.id}
               followersCount={profileData.followersCount}
               followingCount={profileData.followingCount}
+              friendsCount={profileData.friendsCount ?? 0}
               isOwnProfile
             />
           </div>
