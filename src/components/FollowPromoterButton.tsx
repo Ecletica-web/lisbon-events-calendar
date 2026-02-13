@@ -18,7 +18,9 @@ export default function FollowPromoterButton({
   size = 'sm',
   variant = 'outline',
 }: FollowPromoterButtonProps) {
-  const { user, isConfigured } = useSupabaseAuth()
+  const auth = useSupabaseAuth()
+  const user = auth?.user
+  const isConfigured = auth?.isConfigured ?? false
   const actions = useUserActions()
   const [loading, setLoading] = useState(false)
 

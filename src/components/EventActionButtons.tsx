@@ -16,7 +16,9 @@ export default function EventActionButtons({
   eventTitle,
   className = '',
 }: EventActionButtonsProps) {
-  const { user, isConfigured } = useSupabaseAuth()
+  const auth = useSupabaseAuth()
+  const user = auth?.user
+  const isConfigured = auth?.isConfigured ?? false
   const actions = useUserActions()
   const [wishlistLoading, setWishlistLoading] = useState(false)
   const [likeLoading, setLikeLoading] = useState(false)

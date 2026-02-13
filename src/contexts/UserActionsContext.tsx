@@ -58,7 +58,9 @@ function normalizeId(id: string): string {
 }
 
 export function UserActionsProvider({ children }: { children: ReactNode }) {
-  const { user, isConfigured } = useSupabaseAuth()
+  const auth = useSupabaseAuth()
+  const user = auth?.user
+  const isConfigured = auth?.isConfigured ?? false
   const [actions, setActions] = useState<UserActionsBulk>(defaultBulk)
   const [loading, setLoading] = useState(false)
 

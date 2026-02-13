@@ -34,7 +34,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      if (supabaseConfigured) {
+      if (supabaseConfigured && supabaseSignIn) {
         const { error: err } = await supabaseSignIn(email, password)
         if (err) throw new Error(err)
         router.push('/profile')

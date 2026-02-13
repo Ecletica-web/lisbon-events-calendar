@@ -68,7 +68,7 @@ export default function SignupPage() {
     }
     setLoading(true)
     try {
-      if (supabaseConfigured) {
+      if (supabaseConfigured && supabaseSignUp) {
         const { error: err } = await supabaseSignUp(email, password, name || undefined)
         if (err) throw new Error(err)
         router.push('/profile')

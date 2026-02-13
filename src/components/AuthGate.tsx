@@ -23,7 +23,9 @@ export default function AuthGate({
   onAction,
   asWrapper = false,
 }: AuthGateProps) {
-  const { user, isConfigured } = useSupabaseAuth()
+  const auth = useSupabaseAuth()
+  const user = auth?.user
+  const isConfigured = auth?.isConfigured ?? false
   const [showModal, setShowModal] = useState(false)
 
   const handleClick = async (e: React.MouseEvent) => {
