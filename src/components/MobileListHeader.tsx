@@ -19,6 +19,8 @@ interface MobileListHeaderProps {
   eventCount: number
   /** Optional filter button (e.g. funnel icon) to show on the left of Near me row */
   filterButton?: React.ReactNode
+  /** Called when user clicks Clear all filters */
+  onClearFilters?: () => void
 }
 
 export default function MobileListHeader({
@@ -34,6 +36,7 @@ export default function MobileListHeader({
   locError,
   eventCount,
   filterButton,
+  onClearFilters,
 }: MobileListHeaderProps) {
   const handleNearMeToggle = () => {
     if (nearMeEnabled) {
@@ -102,10 +105,20 @@ export default function MobileListHeader({
           {locError && nearMeEnabled && <span className="text-xs text-amber-400">{locError}</span>}
         </label>
         </div>
-        <span className="text-xs text-slate-400 shrink-0">
-          {eventCount} event{eventCount !== 1 ? 's' : ''}
-          {nearMeEnabled && userPos && ` within ${radiusKm} km`}
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          {onClearFilters && (
+            <button
+              onClick={onClearFilters}
+              className="text-xs font-medium text-slate-400 hover:text-white transition-colors underline underline-offset-2 touch-manipulation"
+            >
+              Clear all filters
+            </button>
+          )}
+          <span className="text-xs text-slate-400">
+            {eventCount} event{eventCount !== 1 ? 's' : ''}
+            {nearMeEnabled && userPos && ` within ${radiusKm} km`}
+          </span>
+        </div>
       </div>
     </div>
   )

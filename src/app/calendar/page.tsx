@@ -50,20 +50,58 @@ import { haversineDistanceKm } from '@/lib/geo'
 import EventModal from './components/EventModal'
 import EventListView from './components/EventListView'
 
+const RADIUS_OPTIONS_KM = [2, 5, 10, 15, 25, 50] as const
+
 function ListToolbar({
   calendarView,
   dateFocus,
   onDateChange,
   showListView,
   onShowListViewChange,
+  timeRange,
+  onTimeRangeChange,
+  skipDateFilter,
+  nearMeEnabled,
+  onNearMeChange,
+  radiusKm,
+  onRadiusChange,
+  onLocationRequest,
+  userPos,
+  locLoading,
+  locError,
+  eventCount,
+  onClearFilters,
 }: {
   calendarView: ViewState['viewMode']
   dateFocus: string
   onDateChange: (d: string) => void
   showListView: boolean
   onShowListViewChange: (v: boolean) => void
+  timeRange: 'all' | 'week' | 'month' | 'nextMonth'
+  onTimeRangeChange: (r: 'all' | 'week' | 'month' | 'nextMonth') => void
+  skipDateFilter: boolean
+  nearMeEnabled: boolean
+  onNearMeChange: (v: boolean) => void
+  radiusKm: number
+  onRadiusChange: (km: number) => void
+  onLocationRequest: () => void
+  userPos: { lat: number; lng: number } | null
+  locLoading: boolean
+  locError: string | null
+  eventCount: number
+  onClearFilters?: () => void
 }) {
+  const handleNearMeToggle = () => {
+    if (nearMeEnabled) {
+      onNearMeChange(false)
+    } else {
+      onNearMeChange(true)
+      if (!userPos) onLocationRequest()
+    }
+  }
+
   const getPeriodTitle = () => {
+    if (timeRange === 'all') return 'All events'
     const focusDate = new Date(dateFocus)
     if (calendarView === 'dayGridMonth') {
       return focusDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
@@ -95,52 +133,109 @@ function ListToolbar({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-800/60 rounded-xl border border-slate-700/50 px-4 py-3 mb-4 touch-manipulation">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-0 bg-slate-800/80 rounded-lg p-1 border border-slate-700/50">
-          <button
-            onClick={() => onShowListViewChange(false)}
-            className="px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white transition-all"
-          >
-            Calendar
-          </button>
-          <button
-            onClick={() => onShowListViewChange(true)}
-            className="px-3 py-1.5 rounded-md text-xs font-medium bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg"
-          >
-            List
-          </button>
+    <div className="space-y-3 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-800/60 rounded-xl border border-slate-700/50 px-4 py-3 touch-manipulation">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-0 bg-slate-800/80 rounded-lg p-1 border border-slate-700/50">
+            <button
+              onClick={() => onShowListViewChange(false)}
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white transition-all"
+            >
+              Calendar
+            </button>
+            <button
+              onClick={() => onShowListViewChange(true)}
+              className="px-3 py-1.5 rounded-md text-xs font-medium bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg"
+            >
+              List
+            </button>
+          </div>
+          <div className="flex bg-slate-800/80 rounded-lg p-1 border border-slate-700/50 gap-0">
+            {(['all', 'week', 'month', 'nextMonth'] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => onTimeRangeChange(r)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  timeRange === r ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                {r === 'all' ? 'All' : r === 'week' ? 'This week' : r === 'month' ? 'This month' : 'Next month'}
+              </button>
+            ))}
+          </div>
+          {!skipDateFilter ? (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={goPrev}
+                className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition-colors"
+                aria-label="Previous period"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                onClick={goNext}
+                className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition-colors"
+                aria-label="Next period"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              <span className="text-sm font-semibold text-slate-200 min-w-[140px] text-center">
+                {getPeriodTitle()}
+              </span>
+            </div>
+          ) : (
+            <span className="text-sm font-semibold text-slate-200">{getPeriodTitle()}</span>
+          )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="flex items-center gap-2 cursor-pointer shrink-0">
+            <span className="text-xs text-slate-400">Near me</span>
+            <button
+              type="button"
+              onClick={handleNearMeToggle}
+              className={`relative w-10 h-5 rounded-full transition-colors ${nearMeEnabled ? 'bg-indigo-600' : 'bg-slate-700'}`}
+              aria-label="Toggle near me filter"
+            >
+              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${nearMeEnabled ? 'left-5' : 'left-1'}`} />
+            </button>
+            {nearMeEnabled && (
+              <select
+                value={radiusKm}
+                onChange={(e) => onRadiusChange(Number(e.target.value))}
+                className="text-xs bg-slate-800 border border-slate-600/50 rounded-md px-2 py-2 min-h-[36px] text-slate-200 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                {RADIUS_OPTIONS_KM.map((r) => (
+                  <option key={r} value={r}>{r} km</option>
+                ))}
+              </select>
+            )}
+            {locLoading && <span className="text-xs text-slate-500">Getting location...</span>}
+            {locError && nearMeEnabled && <span className="text-xs text-amber-400">{locError}</span>}
+          </label>
+          {onClearFilters && (
+            <button
+              onClick={onClearFilters}
+              className="text-xs font-medium text-slate-400 hover:text-white transition-colors underline underline-offset-2 shrink-0"
+            >
+              Clear all filters
+            </button>
+          )}
           <button
-            onClick={goPrev}
-            className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition-colors"
-            aria-label="Previous period"
+            onClick={() => onDateChange(new Date().toISOString().split('T')[0])}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700/60 text-slate-300 hover:bg-slate-600/60 hover:text-white transition-colors shrink-0"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            Today
           </button>
-          <button
-            onClick={goNext}
-            className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition-colors"
-            aria-label="Next period"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-          <span className="text-sm font-semibold text-slate-200 min-w-[140px] text-center">
-            {getPeriodTitle()}
+          <span className="text-xs text-slate-400 shrink-0">
+            {eventCount} event{eventCount !== 1 ? 's' : ''}
+            {nearMeEnabled && userPos && ` within ${radiusKm} km`}
           </span>
         </div>
       </div>
-      <button
-        onClick={() => onDateChange(new Date().toISOString().split('T')[0])}
-        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700/60 text-slate-300 hover:bg-slate-600/60 hover:text-white transition-colors"
-      >
-        Today
-      </button>
     </div>
   )
 }
@@ -173,6 +268,7 @@ function CalendarPageContent() {
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null)
   const [activePredefinedPersonaId, setActivePredefinedPersonaId] = useState<string | null>(null)
   const [mobileListTimeRange, setMobileListTimeRange] = useState<MobileListTimeRange>('all')
+  const [desktopListTimeRange, setDesktopListTimeRange] = useState<'all' | 'week' | 'month' | 'nextMonth'>('all')
   const [mobileNearMeEnabled, setMobileNearMeEnabled] = useState(false)
   const [mobileRadiusKm, setMobileRadiusKm] = useState(2)
   const [mobileUserPos, setMobileUserPos] = useState<{ lat: number; lng: number } | null>(null)
@@ -636,6 +732,26 @@ function CalendarPageContent() {
     return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'dayGridMonth' as const, mobileListSkipDateFilter: false }
   }, [mobileListTimeRange])
 
+  // Desktop list: date focus and calendar view from time range (All | This week | This month | Next month)
+  const { desktopListDateFocus, desktopListCalendarView, desktopListSkipDateFilter } = useMemo(() => {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const nextMonthFirst = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+    if (desktopListTimeRange === 'all') {
+      return { desktopListDateFocus: today.toISOString().split('T')[0], desktopListCalendarView: 'dayGridMonth' as const, desktopListSkipDateFilter: true }
+    }
+    if (desktopListTimeRange === 'week') {
+      return { desktopListDateFocus: dateFocus, desktopListCalendarView: 'timeGridWeek' as const, desktopListSkipDateFilter: false }
+    }
+    if (desktopListTimeRange === 'month') {
+      return { desktopListDateFocus: dateFocus, desktopListCalendarView: 'dayGridMonth' as const, desktopListSkipDateFilter: false }
+    }
+    if (desktopListTimeRange === 'nextMonth') {
+      return { desktopListDateFocus: dateFocus, desktopListCalendarView: 'dayGridMonth' as const, desktopListSkipDateFilter: false }
+    }
+    return { desktopListDateFocus: today.toISOString().split('T')[0], desktopListCalendarView: 'dayGridMonth' as const, desktopListSkipDateFilter: true }
+  }, [desktopListTimeRange, dateFocus])
+
   // Mobile list: venue coords map for Near me
   const venueCoordsMap = useMemo(() => {
     const m = new Map<string, { lat: number; lng: number }>()
@@ -652,6 +768,32 @@ function CalendarPageContent() {
 
   // Mobile list: events filtered by date range + Near me
   const mobileListEvents = useMemo(() => {
+    let list = filteredEvents
+    if (mobileNearMeEnabled && mobileUserPos) {
+      const norm = (s: string) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
+      const getEventCoords = (e: NormalizedEvent): { lat: number; lng: number } | null => {
+        const lat = e.extendedProps?.latitude
+        const lng = e.extendedProps?.longitude
+        if (typeof lat === 'number' && typeof lng === 'number') return { lat, lng }
+        const vid = e.extendedProps?.venueId
+        const vkey = e.extendedProps?.venueKey
+        const vname = e.extendedProps?.venueName
+        if (vid && venueCoordsMap.has(vid)) return venueCoordsMap.get(vid)!
+        if (vkey && venueCoordsMap.has(vkey)) return venueCoordsMap.get(vkey)!
+        if (vname && venueCoordsMap.has(norm(vname))) return venueCoordsMap.get(norm(vname))!
+        return null
+      }
+      list = filteredEvents
+        .map((e) => ({ event: e, coords: getEventCoords(e) }))
+        .filter((x): x is { event: NormalizedEvent; coords: { lat: number; lng: number } } => x.coords !== null)
+        .filter((x) => haversineDistanceKm(mobileUserPos.lat, mobileUserPos.lng, x.coords.lat, x.coords.lng) <= mobileRadiusKm)
+        .map((x) => x.event)
+    }
+    return list
+  }, [filteredEvents, mobileNearMeEnabled, mobileUserPos, mobileRadiusKm, venueCoordsMap])
+
+  // Desktop list: same near-me filter as mobile when in list view
+  const desktopListEvents = useMemo(() => {
     let list = filteredEvents
     if (mobileNearMeEnabled && mobileUserPos) {
       const norm = (s: string) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
@@ -708,6 +850,17 @@ function CalendarPageContent() {
     }
   }, [searchParams, mobileRequestLocation])
 
+  const handleDesktopListTimeRangeChange = (r: 'all' | 'week' | 'month' | 'nextMonth') => {
+    setDesktopListTimeRange(r)
+    const today = new Date()
+    const todayStr = today.toISOString().split('T')[0]
+    if (r === 'week' || r === 'month') {
+      setDateFocus(todayStr)
+    } else if (r === 'nextMonth') {
+      setDateFocus(new Date(today.getFullYear(), today.getMonth() + 1, 1).toISOString().split('T')[0])
+    }
+  }
+
   const handleTagToggle = (tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
@@ -739,6 +892,9 @@ function CalendarPageContent() {
     setFreeOnly(false)
     setExcludeExhibitions(false)
     setExcludeContinuous(false)
+    setMobileNearMeEnabled(false)
+    setMobileListTimeRange('all')
+    setDesktopListTimeRange('all')
   }
 
   const handleEventClick = (info: any) => {
@@ -1528,6 +1684,7 @@ function CalendarPageContent() {
                   locLoading={mobileLocLoading}
                   locError={mobileLocError}
                   eventCount={mobileListEvents.length}
+                  onClearFilters={handleClearFilters}
                   filterButton={sidebarMinimized ? (
                     <button
                       onClick={() => setSidebarMinimized(false)}
@@ -1620,19 +1777,33 @@ function CalendarPageContent() {
                   {showListView ? (
                     <div className="mb-4">
                       <ListToolbar
-                        calendarView={calendarView}
-                        dateFocus={dateFocus}
+                        calendarView={desktopListCalendarView}
+                        dateFocus={desktopListDateFocus}
                         onDateChange={setDateFocus}
                         showListView={showListView}
                         onShowListViewChange={setShowListView}
+                        timeRange={desktopListTimeRange}
+                        onTimeRangeChange={handleDesktopListTimeRangeChange}
+                        skipDateFilter={desktopListSkipDateFilter}
+                        nearMeEnabled={mobileNearMeEnabled}
+                        onNearMeChange={setMobileNearMeEnabled}
+                        radiusKm={mobileRadiusKm}
+                        onRadiusChange={setMobileRadiusKm}
+                        onLocationRequest={mobileRequestLocation}
+                        userPos={mobileUserPos}
+                        locLoading={mobileLocLoading}
+                        locError={mobileLocError}
+                        eventCount={desktopListEvents.length}
+                        onClearFilters={handleClearFilters}
                       />
                       <EventListView
-                        events={filteredEvents}
-                        calendarView={calendarView}
-                        dateFocus={dateFocus}
+                        events={desktopListEvents}
+                        calendarView={desktopListCalendarView}
+                        dateFocus={desktopListDateFocus}
                         onDateChange={setDateFocus}
                         onEventClick={handleEventClick}
                         hideDateNav
+                        skipDateFilter={desktopListSkipDateFilter}
                       />
                     </div>
                   ) : (

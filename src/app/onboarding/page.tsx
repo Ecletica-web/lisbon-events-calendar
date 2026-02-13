@@ -66,9 +66,9 @@ function IntroSequence({ onComplete }: { onComplete: () => void }) {
   if (!phase) return null
 
   return (
-    <div className="text-center px-2 min-h-[5rem] flex flex-col justify-center">
+    <div className="text-center px-4 sm:px-6 min-h-[6rem] flex flex-col items-center justify-center w-full">
       <p
-        className={`text-xl sm:text-2xl md:text-3xl font-bold text-white leading-relaxed transition-opacity duration-300 ${
+        className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-relaxed transition-opacity duration-300 max-w-2xl ${
           visible ? 'opacity-100' : 'opacity-0'
         }`}
       >
@@ -209,20 +209,20 @@ function OnboardingContent() {
       {step >= 0 && (
         <button
           onClick={handleSkip}
-          className="fixed top-4 right-4 sm:top-6 sm:right-6 z-10 text-sm text-slate-400 hover:text-white transition-colors touch-manipulation"
+          className="fixed top-4 right-4 sm:top-6 sm:right-6 z-10 text-base sm:text-lg text-slate-400 hover:text-white transition-colors touch-manipulation"
           style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
         >
           Skip
         </button>
       )}
-      <div className="max-w-2xl mx-auto w-full flex flex-col items-center py-6 sm:py-12 md:py-16">
+      <div className="max-w-2xl mx-auto w-full flex flex-col items-center justify-center min-h-[60vh] sm:min-h-[70vh] py-8 sm:py-12 md:py-16">
         {step === 0 && (
           <IntroSequence onComplete={() => setTimeout(() => setStep(1), 600)} />
         )}
 
         {step === 1 && (
-          <div className="space-y-8 sm:space-y-10 text-center w-full max-w-md px-2">
-            <h2 className="text-lg sm:text-xl font-bold text-white">What brings you here?</h2>
+          <div className="space-y-8 sm:space-y-10 text-center w-full max-w-md px-4">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">What brings you here?</h2>
             <div className="grid gap-2 sm:gap-3">
               {[
                 { id: 'now', label: 'I want to do something right now!' },
@@ -248,7 +248,7 @@ function OnboardingContent() {
                     }
                     setStep(2)
                   }}
-                  className={`w-full text-center p-4 min-h-[48px] sm:min-h-[52px] flex items-center justify-center rounded-xl border transition-all touch-manipulation ${
+                  className={`w-full text-center p-4 min-h-[52px] sm:min-h-[56px] flex items-center justify-center rounded-xl border transition-all touch-manipulation text-base sm:text-lg ${
                     prefs.intent === id
                       ? 'border-indigo-500 bg-indigo-500/20 text-white'
                       : id === 'all'
@@ -264,18 +264,18 @@ function OnboardingContent() {
         )}
 
         {step === 2 && !pickMode && (
-          <div className="space-y-8 text-center w-full max-w-md px-2">
-            <h2 className="text-lg sm:text-xl font-bold text-white">How do you want to customize?</h2>
+          <div className="space-y-8 text-center w-full max-w-md px-4">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">How do you want to customize?</h2>
             <div className="grid gap-3">
               <button
                 onClick={() => { setPickMode('tags'); setStep(2) }}
-                className="w-full text-center p-4 min-h-[48px] rounded-xl border border-slate-700 bg-slate-800/60 text-slate-200 hover:border-slate-600 touch-manipulation"
+                className="w-full text-center p-4 min-h-[52px] rounded-xl border border-slate-700 bg-slate-800/60 text-slate-200 hover:border-slate-600 touch-manipulation text-base sm:text-lg"
               >
                 Pick tags that interest me
               </button>
               <button
                 onClick={() => { setPickMode('vibe'); setStep(2) }}
-                className="w-full text-center p-4 min-h-[48px] rounded-xl border border-slate-700 bg-slate-800/60 text-slate-200 hover:border-slate-600 touch-manipulation"
+                className="w-full text-center p-4 min-h-[52px] rounded-xl border border-slate-700 bg-slate-800/60 text-slate-200 hover:border-slate-600 touch-manipulation text-base sm:text-lg"
               >
                 Pick a vibe instead
               </button>
@@ -285,18 +285,18 @@ function OnboardingContent() {
 
         {step === 2 && pickMode === 'tags' && (
           <div className="space-y-6 sm:space-y-8 text-center w-full max-w-lg px-4 sm:px-0">
-            <h2 className="text-lg sm:text-xl font-bold text-white">What interests you?</h2>
-            <p className="text-slate-400 text-sm">Pick a few tags</p>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">What interests you?</h2>
+            <p className="text-slate-400 text-base sm:text-lg">Pick a few tags</p>
             <div className="space-y-5 sm:space-y-6 text-left max-h-[60vh] overflow-y-auto overscroll-contain pr-1 -mr-1">
               {ONBOARDING_TAG_GROUPS.map((group) => (
                 <div key={group.id}>
-                  <h3 className="text-sm font-medium text-slate-400 mb-2">{group.label}</h3>
+                  <h3 className="text-base sm:text-lg font-medium text-slate-400 mb-2">{group.label}</h3>
                   <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
                     {group.tags.map((tag) => (
                       <button
                         key={tag}
                         onClick={() => toggleTag(tag)}
-                        className={`px-3 py-2 min-h-[40px] rounded-lg text-sm transition-all touch-manipulation ${
+                        className={`px-3 py-2 min-h-[44px] rounded-lg text-base sm:text-lg transition-all touch-manipulation ${
                           prefs.tags.includes(tag)
                             ? 'bg-indigo-600 text-white'
                             : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -312,13 +312,13 @@ function OnboardingContent() {
             <div className="flex gap-3 justify-center pt-4 flex-wrap">
               <button
                 onClick={() => { setPickMode(null); setStep(2) }}
-                className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation"
+                className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation text-base"
               >
                 Back
               </button>
               <button
                 onClick={() => setStep(4)}
-                className="px-6 py-2.5 min-h-[44px] rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 touch-manipulation"
+                className="px-6 py-2.5 min-h-[44px] rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 touch-manipulation text-base"
               >
                 Next
               </button>
@@ -328,8 +328,8 @@ function OnboardingContent() {
 
         {step === 2 && pickMode === 'vibe' && (
           <div className="space-y-6 sm:space-y-8 text-center w-full max-w-lg px-4 sm:px-0">
-            <h2 className="text-lg sm:text-xl font-bold text-white">Pick a vibe</h2>
-            <p className="text-slate-400 text-sm">We&apos;ll filter events to match</p>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">Pick a vibe</h2>
+            <p className="text-slate-400 text-base sm:text-lg">We&apos;ll filter events to match</p>
             <div className="grid gap-3 sm:gap-4 text-left max-h-[55vh] overflow-y-auto overscroll-contain pr-1 -mr-1">
               {PREDEFINED_PERSONAS.map((p) => (
                 <button
@@ -341,22 +341,22 @@ function OnboardingContent() {
                     })
                     setStep(4)
                   }}
-                  className={`text-left p-4 min-h-[72px] rounded-xl border transition-all touch-manipulation ${
+                  className={`text-left p-4 min-h-[80px] rounded-xl border transition-all touch-manipulation text-base sm:text-lg ${
                     prefs.vibe === p.slug
                       ? 'border-indigo-500 bg-indigo-500/20'
                       : 'border-slate-700 bg-slate-800/60 hover:border-slate-600'
                   }`}
                 >
-                  <span className="text-2xl mr-2">{p.emoji}</span>
+                  <span className="text-3xl mr-2">{p.emoji}</span>
                   <span className="font-medium text-white">{p.name}</span>
-                  <p className="text-sm text-slate-400 mt-1">{p.description}</p>
+                  <p className="text-slate-400 mt-1">{p.description}</p>
                 </button>
               ))}
             </div>
             <div className="flex gap-3 justify-center pt-4 flex-wrap">
               <button
                 onClick={() => { setPickMode(null); setStep(2) }}
-                className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation"
+                className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation text-base"
               >
                 Back
               </button>
@@ -366,7 +366,7 @@ function OnboardingContent() {
 
         {step === 4 && (
           <div className="space-y-6 sm:space-y-8 text-center w-full max-w-md px-4 sm:px-0">
-            <h2 className="text-lg sm:text-xl font-bold text-white">Any preferences?</h2>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">Any preferences?</h2>
             <div className="space-y-4 text-left max-w-sm mx-auto">
               {[
                 { key: 'freeOnly', label: 'Free events only' },
@@ -387,20 +387,20 @@ function OnboardingContent() {
                     }
                     className="rounded border-slate-600 text-indigo-600 w-5 h-5 min-w-[20px] min-h-[20px]"
                   />
-                  <span className="text-slate-200">{label}</span>
+                  <span className="text-slate-200 text-base sm:text-lg">{label}</span>
                 </label>
               ))}
             </div>
             <div className="flex gap-3 justify-center pt-4 flex-wrap">
               <button
                 onClick={() => setStep(2)}
-                className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation"
+                className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation text-base"
               >
                 Back
               </button>
               <button
                 onClick={() => setStep(5)}
-                className="px-6 py-2.5 min-h-[44px] rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 touch-manipulation"
+                className="px-6 py-2.5 min-h-[44px] rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 touch-manipulation text-base"
               >
                 Next
               </button>
@@ -410,18 +410,18 @@ function OnboardingContent() {
 
         {step === 5 && (
           <div className="space-y-8 sm:space-y-10 text-center max-w-md px-4">
-            <h2 className="text-xl sm:text-2xl font-bold text-white">You&apos;re all set</h2>
-            <p className="text-slate-400 text-sm">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">You&apos;re all set</h2>
+            <p className="text-slate-400 text-base sm:text-lg">
               Your calendar, tailored to you.
             </p>
             <button
               onClick={handleEnterCalendar}
               disabled={submitting}
-              className="px-8 py-3 min-h-[48px] rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:opacity-90 disabled:opacity-70 touch-manipulation"
+              className="px-8 py-3 min-h-[52px] rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold text-base sm:text-lg hover:opacity-90 disabled:opacity-70 touch-manipulation"
             >
               {submitting ? 'Loading...' : 'Enter calendar'}
             </button>
-            <p className="text-sm text-slate-500">
+            <p className="text-base sm:text-lg text-slate-500">
               <Link href="/calendar" className="text-slate-400 hover:text-white italic">
                 Or see all events
               </Link>
