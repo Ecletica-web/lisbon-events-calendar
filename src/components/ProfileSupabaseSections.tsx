@@ -6,7 +6,6 @@ import { fetchVenues, fetchEvents, fetchPromoters } from '@/lib/eventsAdapter'
 import type { NormalizedEvent, VenueForDisplay } from '@/lib/eventsAdapter'
 import type { Promoter } from '@/models/Promoter'
 import EventCardsSlider from './EventCardsSlider'
-import { useUserActions } from '@/contexts/UserActionsContext'
 
 function norm(s: string): string {
   return (s || '').toLowerCase().trim()
@@ -14,6 +13,14 @@ function norm(s: string): string {
 
 function normEventId(id: string): string {
   return (id || '').toLowerCase().trim()
+}
+
+function eventMatchesIdSet(e: NormalizedEvent, ids: Set<string>): boolean {
+  const id = normEventId(e.id)
+  if (id && ids.has(id)) return true
+  const srcId = e.extendedProps?.sourceEventId
+  if (srcId && ids.has(normEventId(srcId))) return true
+  return false
 }
 
 interface ProfileSupabaseSectionsProps {
@@ -86,7 +93,7 @@ export default function ProfileSupabaseSections({
   })
 
   const savedEvents = events
-    .filter((e) => wishlistedEventIds.has(normEventId(e.id)))
+    .filter((e) => eventMatchesIdSet(e, wishlistedEventIds))
     .filter((e) => new Date(e.start).getTime() >= now)
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 
@@ -173,7 +180,7 @@ export default function ProfileSupabaseSections({
         <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Upcoming (Going)</h2>
         <EventCardsSlider
           events={events
-            .filter((e) => goingIds.has(normEventId(e.id)))
+            .filter((e) => eventMatchesIdSet(e, goingIds))
             .filter((e) => new Date(e.start).getTime() >= now)
             .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())}
           onEventClick={onEventClick}
@@ -215,7 +222,7 @@ export default function ProfileSupabaseSections({
         <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Liked Events</h2>
         <EventCardsSlider
           events={events
-            .filter((e) => likedEventIds.has(normEventId(e.id)))
+            .filter((e) => eventMatchesIdSet(e, likedEventIds))
             .filter((e) => new Date(e.start).getTime() >= now)
             .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())}
           onEventClick={onEventClick}

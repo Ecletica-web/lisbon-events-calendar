@@ -408,8 +408,8 @@ export function UserActionsProvider({ children }: { children: ReactNode }) {
     setInterested: handleSetInterested,
     setReminder: handleSetReminder,
     isGoing: (id) => actions.goingIds.has(normalizeEventId(id)),
-    isInterested: (id) => actions.interestedIds.has(id),
-    hasReminder: (id) => actions.reminderIds.has(id),
+    isInterested: (id) => actions.interestedIds.has(normalizeEventId(id)),
+    hasReminder: (id) => actions.reminderIds.has(normalizeEventId(id)),
   }
 
   return (

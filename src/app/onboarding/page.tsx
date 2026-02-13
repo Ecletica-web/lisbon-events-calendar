@@ -28,7 +28,8 @@ const INTRO_PHASES: { text: string; displayMs: number; isFinal?: boolean }[] = [
   { text: 'Hey', displayMs: 1000 },
   { text: 'Welcome to Lisbon Events Calendar.', displayMs: 1500 },
   { text: "We're happy you're here!", displayMs: 1200 },
-  { text: 'We collect a lot of Lisbon events. Like...', displayMs: 1800 },
+  { text: 'We collect a lot of Lisbon events.', displayMs: 1500 },
+  { text: 'Like...', displayMs: 1200 },
   { text: 'A LOT', displayMs: 1000 },
   { text: "Maybe we've missed your family lunch…", displayMs: 1500 },
   { text: "but we've got most of the rest.", displayMs: 1500 },
@@ -66,9 +67,9 @@ function IntroSequence({ onComplete }: { onComplete: () => void }) {
   if (!phase) return null
 
   return (
-    <div className="text-center px-4 sm:px-6 min-h-[6rem] flex flex-col items-center justify-center w-full">
+    <div className="text-center px-4 sm:px-6 md:px-8 w-full min-h-[50vh] flex flex-col items-center justify-center">
       <p
-        className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-relaxed transition-opacity duration-300 max-w-2xl ${
+        className={`text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-relaxed transition-opacity duration-300 w-full max-w-4xl mx-auto ${
           visible ? 'opacity-100' : 'opacity-0'
         }`}
       >
@@ -209,13 +210,13 @@ function OnboardingContent() {
       {step >= 0 && (
         <button
           onClick={handleSkip}
-          className="fixed top-4 right-4 sm:top-6 sm:right-6 z-10 text-base sm:text-lg text-slate-400 hover:text-white transition-colors touch-manipulation"
+          className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[100000] text-base sm:text-lg text-slate-400 hover:text-white transition-colors touch-manipulation px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700/80"
           style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
         >
           Skip
         </button>
       )}
-      <div className="max-w-2xl mx-auto w-full flex flex-col items-center justify-center min-h-[60vh] sm:min-h-[70vh] py-8 sm:py-12 md:py-16">
+      <div className={`mx-auto w-full flex flex-col items-center justify-center min-h-[60vh] sm:min-h-[70vh] py-8 sm:py-12 md:py-16 ${step === 0 ? 'max-w-full px-4 sm:px-8' : 'max-w-2xl px-4'}`}>
         {step === 0 && (
           <IntroSequence onComplete={() => setTimeout(() => setStep(1), 600)} />
         )}

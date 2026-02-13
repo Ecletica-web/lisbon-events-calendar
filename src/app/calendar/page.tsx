@@ -1708,6 +1708,8 @@ function CalendarPageContent() {
                   }}
                   hideDateNav
                   skipDateFilter={mobileListSkipDateFilter}
+                  userPos={mobileNearMeEnabled ? mobileUserPos : null}
+                  venueCoordsMap={mobileNearMeEnabled ? venueCoordsMap : undefined}
                 />
               </div>
             )}
@@ -1804,6 +1806,8 @@ function CalendarPageContent() {
                         onEventClick={handleEventClick}
                         hideDateNav
                         skipDateFilter={desktopListSkipDateFilter}
+                        userPos={mobileNearMeEnabled ? mobileUserPos : null}
+                        venueCoordsMap={mobileNearMeEnabled ? venueCoordsMap : undefined}
                       />
                     </div>
                   ) : (

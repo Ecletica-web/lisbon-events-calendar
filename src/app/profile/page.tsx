@@ -80,7 +80,7 @@ export default function ProfilePage() {
     }
 
     if (isSupabaseUser && userActions?.refetch) {
-      userActions.refetch()
+      userActions.refetch().catch(() => {})
     }
 
     if (isSupabaseUser && supabaseUser) {
@@ -227,8 +227,8 @@ export default function ProfilePage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-slate-900/95 text-slate-100 relative z-0 isolate">
-      <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 pt-20 md:pt-28 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen min-h-[100dvh] bg-slate-900/95 text-slate-100 relative z-0 isolate pointer-events-auto">
+      <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 pt-20 md:pt-28 pb-[calc(2rem+env(safe-area-inset-bottom))] relative z-10">
         {/* Profile header with cover & avatar (Supabase) */}
         {isSupabaseUser && user && (
           <div className="mb-8 -mx-4 sm:-mx-6 md:-mx-8">

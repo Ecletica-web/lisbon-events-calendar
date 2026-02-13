@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { getCategoryColor } from '@/lib/categoryColors'
+import { haversineDistanceKm, formatDistance } from '@/lib/geo'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import type { ViewState } from '@/lib/viewState'
 import FollowButton from '@/components/FollowButton'
@@ -16,6 +17,9 @@ interface EventListViewProps {
   hideDateNav?: boolean
   /** When true, show all events without date filtering (e.g. for "All" range) */
   skipDateFilter?: boolean
+  /** When near me is on, show distance per event */
+  userPos?: { lat: number; lng: number } | null
+  venueCoordsMap?: Map<string, { lat: number; lng: number }>
 }
 
 export default function EventListView({
@@ -26,7 +30,27 @@ export default function EventListView({
   onDateChange,
   hideDateNav = false,
   skipDateFilter = false,
+  userPos = null,
+  venueCoordsMap,
 }: EventListViewProps) {
+  const getEventDistanceKm = (e: NormalizedEvent): number | null => {
+    if (!userPos || !venueCoordsMap) return null
+    const norm = (s: string) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
+    const lat = e.extendedProps?.latitude
+    const lng = e.extendedProps?.longitude
+    if (typeof lat === 'number' && typeof lng === 'number') {
+      return haversineDistanceKm(userPos.lat, userPos.lng, lat, lng)
+    }
+    const vid = e.extendedProps?.venueId
+    const vkey = e.extendedProps?.venueKey
+    const vname = e.extendedProps?.venueName
+    let coords: { lat: number; lng: number } | undefined
+    if (vid) coords = venueCoordsMap.get(vid)
+    if (!coords && vkey) coords = venueCoordsMap.get(vkey)
+    if (!coords && vname) coords = venueCoordsMap.get(norm(vname))
+    if (!coords) return null
+    return haversineDistanceKm(userPos.lat, userPos.lng, coords.lat, coords.lng)
+  }
   const getDateRange = () => {
     const focusDate = new Date(dateFocus)
     const year = focusDate.getFullYear()
@@ -244,6 +268,7 @@ export default function EventListView({
           <div className="divide-y divide-slate-700/50">
             {dayEvents.map((event) => {
               const categoryColor = getCategoryColor(event.extendedProps.category)
+              const distanceKm = getEventDistanceKm(event)
               const priceStr = event.extendedProps.isFree
                 ? 'Free'
                 : event.extendedProps.priceMin != null
@@ -282,6 +307,15 @@ export default function EventListView({
                       <div className="text-xs font-medium text-slate-300 tabular-nums mb-1">
                         {formatTime(event)}
                       </div>
+                      {distanceKm != null && (
+                        <div className="flex items-center gap-2 text-xs text-indigo-400 mb-1">
+                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          {formatDistance(distanceKm)} away
+                        </div>
+                      )}
                       {event.extendedProps.venueName && (
                         <div className="flex items-center gap-2 flex-wrap mb-2" onClick={(e) => e.stopPropagation()}>
                           <Link
