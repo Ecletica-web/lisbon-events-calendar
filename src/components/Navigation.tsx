@@ -54,7 +54,7 @@ export default function Navigation() {
   )
 
   return (
-    <nav className="relative bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-50 shadow-2xl">
+    <nav className="relative bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-[100] shadow-2xl isolate">
       {/* Animated Neon Waves Background */}
       <div className="absolute inset-0 opacity-30 overflow-hidden pointer-events-none">
         {/* Wave 1 - Purple/Indigo */}

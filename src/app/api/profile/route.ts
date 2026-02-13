@@ -54,6 +54,9 @@ export async function PATCH(request: NextRequest) {
     if (typeof body.display_name === 'string') {
       updates.display_name = body.display_name.trim() || null
     }
+    if (typeof body.avatar_url === 'string') {
+      updates.avatar_url = body.avatar_url || null
+    }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
@@ -61,8 +64,10 @@ export async function PATCH(request: NextRequest) {
 
     const { data, error } = await supabaseServer
       .from('user_profiles')
-      .update(updates)
-      .eq('id', user.id)
+      .upsert(
+        { id: user.id, ...updates, updated_at: new Date().toISOString() },
+        { onConflict: 'id' }
+      )
       .select()
       .single()
 

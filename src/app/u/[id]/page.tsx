@@ -98,7 +98,7 @@ export default function PublicProfilePage() {
       <div className="min-h-screen bg-slate-900 text-slate-100">
         <div className="max-w-2xl mx-auto">
           <div className="-mx-4 sm:-mx-6 md:0 -mt-0">
-            <div className="relative h-40 sm:h-48 bg-slate-800">
+            <div className="relative h-40 sm:h-48 bg-slate-800 overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
               {profileData.coverUrl ? (
                 <img
                   src={profileData.coverUrl}

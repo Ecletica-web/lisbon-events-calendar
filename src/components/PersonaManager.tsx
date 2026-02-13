@@ -1,8 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import type { PersonaRulesInput } from '@/lib/viewState'
+
+export interface PersonaManagerProps {
+  /** Optional: returns extra headers (e.g. Authorization) for API calls. Used for Supabase auth. */
+  getAuthHeaders?: () => Promise<Record<string, string>>
+}
 
 interface Persona {
   id: string
@@ -107,7 +112,7 @@ function FilterMultiSelect({
   )
 }
 
-export default function PersonaManager() {
+export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps = {}) {
   const [personas, setPersonas] = useState<Persona[]>([])
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null)
   const [loading, setLoading] = useState(true)
@@ -117,6 +122,15 @@ export default function PersonaManager() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const authHeaders = useCallback(async () => {
+    const h: Record<string, string> = {}
+    if (getAuthHeaders) {
+      const extra = await getAuthHeaders()
+      Object.assign(h, extra)
+    }
+    return h
+  }, [getAuthHeaders])
+
   useEffect(() => {
     loadPersonas()
     loadFilterOptions()
@@ -124,7 +138,8 @@ export default function PersonaManager() {
 
   const loadPersonas = async () => {
     try {
-      const res = await fetch('/api/personas')
+      const headers = await authHeaders()
+      const res = await fetch('/api/personas', { headers })
       if (res.ok) {
         const { personas: p } = await res.json()
         setPersonas(p)
@@ -201,9 +216,10 @@ export default function PersonaManager() {
       }
 
       if (editingId) {
+        const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) }
         const res = await fetch(`/api/personas/${editingId}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ title: form.title.trim(), rules }),
         })
         if (!res.ok) {
@@ -213,9 +229,10 @@ export default function PersonaManager() {
         const { persona } = await res.json()
         setPersonas((prev) => prev.map((p) => (p.id === editingId ? persona : p)))
       } else {
+        const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) }
         const res = await fetch('/api/personas', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ title: form.title.trim(), rules }),
         })
         if (!res.ok) {
@@ -236,7 +253,8 @@ export default function PersonaManager() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this persona?')) return
     try {
-      const res = await fetch(`/api/personas/${id}`, { method: 'DELETE' })
+      const headers = await authHeaders()
+      const res = await fetch(`/api/personas/${id}`, { method: 'DELETE', headers })
       if (res.ok) {
         setPersonas((prev) => prev.filter((p) => p.id !== id))
       }

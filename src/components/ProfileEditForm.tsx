@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
 
 interface ProfileEditFormProps {
   initialCoverUrl?: string | null
+  initialAvatarUrl?: string | null
   initialUsername?: string | null
   initialBio?: string | null
   initialDisplayName?: string | null
@@ -13,17 +14,50 @@ interface ProfileEditFormProps {
 
 export default function ProfileEditForm({
   initialCoverUrl,
+  initialAvatarUrl,
   initialUsername,
   initialBio,
   initialDisplayName,
   onSaved,
 }: ProfileEditFormProps) {
   const [coverUrl, setCoverUrl] = useState(initialCoverUrl ?? '')
+  const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl ?? '')
   const [username, setUsername] = useState(initialUsername ?? '')
   const [bio, setBio] = useState(initialBio ?? '')
   const [displayName, setDisplayName] = useState(initialDisplayName ?? '')
   const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState<'cover' | 'avatar' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const coverInputRef = useRef<HTMLInputElement>(null)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  const handleUpload = async (type: 'cover' | 'avatar', file: File) => {
+    setError(null)
+    setUploading(type)
+    try {
+      const { data: { session } } = await supabase?.auth.getSession() ?? { data: { session: null } }
+      if (!session?.access_token) {
+        setError('Not signed in')
+        return
+      }
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', type)
+      const res = await fetch('/api/profile/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: formData,
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload failed')
+      if (type === 'cover') setCoverUrl(data.url)
+      else setAvatarUrl(data.url)
+    } catch (err: any) {
+      setError(err.message || 'Upload failed')
+    } finally {
+      setUploading(null)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,6 +77,7 @@ export default function ProfileEditForm({
         },
         body: JSON.stringify({
           cover_url: coverUrl.trim() || null,
+          avatar_url: avatarUrl.trim() || null,
           username: username.trim() ? username.trim().toLowerCase() : null,
           bio: bio.trim() || null,
           display_name: displayName.trim() || null,
@@ -65,12 +100,62 @@ export default function ProfileEditForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block mb-2 text-sm font-medium text-slate-200">Cover image URL</label>
+        <label className="block mb-2 text-sm font-medium text-slate-200">Cover image</label>
+        <div className="flex gap-2 mb-2">
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) handleUpload('cover', f)
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => coverInputRef.current?.click()}
+            disabled={!!uploading}
+            className="px-3 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 text-sm font-medium disabled:opacity-50"
+          >
+            {uploading === 'cover' ? 'Uploading...' : 'Upload from device'}
+          </button>
+        </div>
         <input
           type="url"
           value={coverUrl}
           onChange={(e) => setCoverUrl(e.target.value)}
-          placeholder="https://..."
+          placeholder="Or paste image URL"
+          className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+        />
+      </div>
+      <div>
+        <label className="block mb-2 text-sm font-medium text-slate-200">Profile picture</label>
+        <div className="flex gap-2 mb-2">
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) handleUpload('avatar', f)
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={!!uploading}
+            className="px-3 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 text-sm font-medium disabled:opacity-50"
+          >
+            {uploading === 'avatar' ? 'Uploading...' : 'Upload from device'}
+          </button>
+        </div>
+        <input
+          type="url"
+          value={avatarUrl}
+          onChange={(e) => setAvatarUrl(e.target.value)}
+          placeholder="Or paste image URL"
           className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
         />
       </div>

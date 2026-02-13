@@ -227,8 +227,8 @@ export default function ProfilePage() {
       <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 pt-20 md:pt-28 pb-8">
         {/* Profile header with cover & avatar (Supabase) */}
         {isSupabaseUser && user && (
-          <div className="mb-8 -mx-4 sm:-mx-6 md:-mx-8 -mt-4 sm:-mt-6 md:-mt-8">
-            <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800">
+          <div className="mb-8 -mx-4 sm:-mx-6 md:-mx-8">
+            <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800 overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
               {profileData?.coverUrl ? (
                 <img
                   src={profileData.coverUrl}
@@ -260,9 +260,22 @@ export default function ProfilePage() {
                   {profileData?.username && (
                     <p className="text-slate-400">@{profileData.username}</p>
                   )}
-                  {profileData?.bio && (
-                    <p className="text-slate-300 mt-2 text-sm max-w-xl">{profileData.bio}</p>
-                  )}
+                  <div className="flex items-start gap-2 mt-2">
+                    <p className="text-slate-300 text-sm max-w-xl flex-1">
+                      {profileData?.bio || (
+                        <span className="text-slate-500 italic">Add a bio...</span>
+                      )}
+                    </p>
+                    <button
+                      onClick={() => setShowEditForm(true)}
+                      className="p-1 rounded text-slate-500 hover:text-indigo-400 hover:bg-slate-700/50 transition-colors flex-shrink-0"
+                      title="Edit bio"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <button
                   onClick={() => setShowEditForm(!showEditForm)}
@@ -300,6 +313,7 @@ export default function ProfilePage() {
             <h2 className="text-lg font-semibold mb-4 text-slate-200">Edit profile</h2>
             <ProfileEditForm
               initialCoverUrl={profileData?.coverUrl}
+              initialAvatarUrl={profileData?.avatarUrl}
               initialUsername={profileData?.username}
               initialBio={profileData?.bio}
               initialDisplayName={profileData?.displayName || user.name}
@@ -387,10 +401,26 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* My Personas (NextAuth only) - manage and pick filters */}
+        {/* My Personas (NextAuth) - manage and pick filters */}
         {!isGuest && !isSupabaseUser && FEATURE_FLAGS.PERSONAS && (
           <div className="mb-8">
             <PersonaManager />
+          </div>
+        )}
+
+        {/* My Personas (Supabase) - same persona logic with Supabase auth */}
+        {isSupabaseUser && FEATURE_FLAGS.PERSONAS && (
+          <div className="mb-8">
+            <PersonaManager
+              getAuthHeaders={async (): Promise<Record<string, string>> => {
+                const { supabase } = await import('@/lib/supabase/client')
+                const { data: { session } } = await (supabase?.auth.getSession() ?? { data: { session: null } })
+                if (session?.access_token) {
+                  return { Authorization: `Bearer ${session.access_token}` }
+                }
+                return {} as Record<string, string>
+              }}
+            />
           </div>
         )}
 

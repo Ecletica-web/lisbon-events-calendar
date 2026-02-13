@@ -182,7 +182,8 @@ export default function ProfileSupabaseSections({
                 onEventClick={onEventClick}
                 mode="slider"
                 hideHeader={false}
-                skipFiltering={true}
+                skipFiltering={false}
+                venuesWithCoords={venues}
               />
             )
           })()}
@@ -200,7 +201,8 @@ export default function ProfileSupabaseSections({
             onEventClick={onEventClick}
             mode="slider"
             hideHeader={false}
-            skipFiltering={true}
+            skipFiltering={false}
+            venuesWithCoords={venues}
           />
         )}
       </div>
@@ -216,7 +218,8 @@ export default function ProfileSupabaseSections({
             onEventClick={onEventClick}
             mode="slider"
             hideHeader={false}
-            skipFiltering={true}
+            skipFiltering={false}
+            venuesWithCoords={venues}
           />
         )}
       </div>
@@ -239,7 +242,8 @@ export default function ProfileSupabaseSections({
                 onEventClick={onEventClick}
                 mode="slider"
                 hideHeader={false}
-                skipFiltering={true}
+                skipFiltering={false}
+                venuesWithCoords={venues}
               />
             )
           })()}

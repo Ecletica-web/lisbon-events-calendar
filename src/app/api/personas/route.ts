@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth-config'
+import { resolveUserId } from '@/lib/resolveUserId'
 import { getPersonasByUserId, createPersona } from '@/lib/db'
 import type { PersonaRules } from '@/lib/db/schema'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = (await getServerSession(authOptions as any)) as any
-    const userId = session?.user?.id
+    const { userId, isGuest } = await resolveUserId(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (userId === 'guest') {
+    if (isGuest) {
       return NextResponse.json({ personas: [] })
     }
     const personas = getPersonasByUserId(userId)
@@ -24,12 +22,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = (await getServerSession(authOptions as any)) as any
-    const userId = session?.user?.id
+    const { userId, isGuest } = await resolveUserId(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (userId === 'guest') {
+    if (isGuest) {
       return NextResponse.json({ error: 'Guest cannot save data. Sign in to create personas.' }, { status: 403 })
     }
     const body = await request.json()

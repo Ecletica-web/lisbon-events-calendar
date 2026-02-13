@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth-config'
+import { resolveUserId } from '@/lib/resolveUserId'
 import { updatePersona, deletePersona } from '@/lib/db'
 import type { PersonaRules } from '@/lib/db/schema'
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const session = (await getServerSession(authOptions as any)) as any
-    const userId = session?.user?.id
+    const { userId, isGuest } = await resolveUserId(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (userId === 'guest') {
+    if (isGuest) {
       return NextResponse.json({ error: 'Guest cannot save data.' }, { status: 403 })
     }
     const { id } = await context.params
@@ -36,12 +34,11 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const session = (await getServerSession(authOptions as any)) as any
-    const userId = session?.user?.id
+    const { userId, isGuest } = await resolveUserId(request)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (userId === 'guest') {
+    if (isGuest) {
       return NextResponse.json({ error: 'Guest cannot save data.' }, { status: 403 })
     }
     const { id } = await context.params
