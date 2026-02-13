@@ -27,7 +27,9 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
-    const userClient = createUserClient(bearer)
+    // Use service role (bypasses RLS) when available; otherwise user-scoped client
+    const hasServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY
+    const dbClient = hasServiceRole ? supabaseServer : createUserClient(bearer)
     const body = await request.json()
     const updates: Record<string, unknown> = {}
 
@@ -72,7 +74,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
-    const { data, error } = await userClient
+    const { data, error } = await dbClient
       .from('user_profiles')
       .upsert(
         { id: user.id, ...updates, updated_at: new Date().toISOString() },

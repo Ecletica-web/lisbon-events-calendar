@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
@@ -18,6 +19,8 @@ export default function Navigation() {
     ? { email: supabaseUser.email, name: supabaseUser.name }
     : session?.user
 
+  const pathname = usePathname()
+
   // Close mobile nav when resizing to desktop
   useEffect(() => {
     const handleResize = () => {
@@ -26,6 +29,12 @@ export default function Navigation() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  // Close dropdowns on route change so nav links stay clickable
+  useEffect(() => {
+    setShowMenu(false)
+    setShowMobileNav(false)
+  }, [pathname])
 
   const navLinks = (
     <>
@@ -206,8 +215,9 @@ export default function Navigation() {
                   {showMenu && (
                     <>
                       <div
-                        className="fixed inset-0 z-[60]"
+                        className="fixed top-14 md:top-16 left-0 right-0 bottom-0 z-[60]"
                         onClick={() => setShowMenu(false)}
+                        aria-hidden="true"
                       />
                       <div className="absolute right-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl z-[70] overflow-hidden">
                         <div className="px-4 py-2 text-xs text-slate-400 border-b border-slate-700/50 bg-slate-900/50">

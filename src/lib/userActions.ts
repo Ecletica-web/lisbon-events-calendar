@@ -99,7 +99,11 @@ export async function fetchUserActionsBulk(userId: string): Promise<UserActionsB
 
   venues.data?.forEach((r) => result.followedVenueIds.add(r.venue_id))
   promoters.data?.forEach((r) => result.followedPromoterIds.add(r.promoter_id))
-  likes.data?.forEach((r) => result.likedEventIds.add(r.event_id))
+  const normEventId = (id: string) => (id || '').toLowerCase().trim()
+  likes.data?.forEach((r) => {
+    const eid = normEventId(r.event_id)
+    if (eid) result.likedEventIds.add(eid)
+  })
   result.wishlistedEventIds = eventActions.savedIds
   result.goingIds = eventActions.goingIds
   result.interestedIds = eventActions.interestedIds

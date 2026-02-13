@@ -341,9 +341,18 @@ export default function ProfilePage() {
               initialUsername={profileData?.username}
               initialBio={profileData?.bio}
               initialDisplayName={profileData?.displayName || user.name}
-              onSaved={() => {
+              onSaved={(saved) => {
                 setShowEditForm(false)
-                if (supabaseUser) {
+                if (saved && profileData) {
+                  setProfileData({
+                    ...profileData,
+                    displayName: saved.displayName ?? profileData.displayName,
+                    avatarUrl: saved.avatarUrl ?? profileData.avatarUrl,
+                    coverUrl: saved.coverUrl ?? profileData.coverUrl,
+                    bio: saved.bio ?? profileData.bio,
+                    username: saved.username ?? profileData.username,
+                  })
+                } else if (supabaseUser) {
                   fetch(`/api/users/${supabaseUser.id}/profile`)
                     .then((r) => (r.ok ? r.json() : null))
                     .then((data) => { if (data) setProfileData(data) })

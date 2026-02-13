@@ -67,6 +67,10 @@ function normalizeId(id: string): string {
   return (id || '').toLowerCase().trim()
 }
 
+function normalizeEventId(id: string): string {
+  return (id || '').toLowerCase().trim()
+}
+
 export function UserActionsProvider({ children }: { children: ReactNode }) {
   const auth = useSupabaseAuth()
   const user = auth?.user
@@ -185,12 +189,12 @@ export function UserActionsProvider({ children }: { children: ReactNode }) {
   const handleAddToWishlist = useCallback(
     async (eventId: string): Promise<boolean> => {
       if (!user?.id) return false
-      const key = eventId
+      const key = normalizeEventId(eventId)
       setActions((prev) => ({
         ...prev,
         wishlistedEventIds: new Set(prev.wishlistedEventIds).add(key),
       }))
-      const { error } = await addToWishlist(user.id, key)
+      const { error } = await addToWishlist(user.id, eventId)
       if (error) {
         setActions((prev) => {
           const next = new Set(prev.wishlistedEventIds)
@@ -207,13 +211,13 @@ export function UserActionsProvider({ children }: { children: ReactNode }) {
   const handleRemoveFromWishlist = useCallback(
     async (eventId: string): Promise<boolean> => {
       if (!user?.id) return false
-      const key = eventId
+      const key = normalizeEventId(eventId)
       setActions((prev) => {
         const next = new Set(prev.wishlistedEventIds)
         next.delete(key)
         return { ...prev, wishlistedEventIds: next }
       })
-      const { error } = await removeFromWishlist(user.id, key)
+      const { error } = await removeFromWishlist(user.id, eventId)
       if (error) {
         setActions((prev) => ({
           ...prev,
@@ -229,12 +233,12 @@ export function UserActionsProvider({ children }: { children: ReactNode }) {
   const handleLikeEvent = useCallback(
     async (eventId: string): Promise<boolean> => {
       if (!user?.id) return false
-      const key = eventId
+      const key = normalizeEventId(eventId)
       setActions((prev) => ({
         ...prev,
         likedEventIds: new Set(prev.likedEventIds).add(key),
       }))
-      const { error } = await likeEvent(user.id, key)
+      const { error } = await likeEvent(user.id, eventId)
       if (error) {
         setActions((prev) => {
           const next = new Set(prev.likedEventIds)
@@ -251,13 +255,13 @@ export function UserActionsProvider({ children }: { children: ReactNode }) {
   const handleUnlikeEvent = useCallback(
     async (eventId: string): Promise<boolean> => {
       if (!user?.id) return false
-      const key = eventId
+      const key = normalizeEventId(eventId)
       setActions((prev) => {
         const next = new Set(prev.likedEventIds)
         next.delete(key)
         return { ...prev, likedEventIds: next }
       })
-      const { error } = await unlikeEvent(user.id, key)
+      const { error } = await unlikeEvent(user.id, eventId)
       if (error) {
         setActions((prev) => ({
           ...prev,
@@ -273,13 +277,13 @@ export function UserActionsProvider({ children }: { children: ReactNode }) {
   const handleSetGoing = useCallback(
     async (eventId: string, value: boolean): Promise<boolean> => {
       if (!user?.id) return false
-      const key = eventId
+      const key = normalizeEventId(eventId)
       if (value) {
         setActions((prev) => ({
           ...prev,
           goingIds: new Set(prev.goingIds).add(key),
         }))
-        const { error } = await setEventAction(user.id, key, 'going')
+        const { error } = await setEventAction(user.id, eventId, 'going')
         if (error) {
           setActions((prev) => {
             const next = new Set(prev.goingIds)
@@ -294,7 +298,7 @@ export function UserActionsProvider({ children }: { children: ReactNode }) {
           next.delete(key)
           return { ...prev, goingIds: next }
         })
-        const { error } = await removeEventAction(user.id, key, 'going')
+        const { error } = await removeEventAction(user.id, eventId, 'going')
         if (error) {
           setActions((prev) => ({
             ...prev,
@@ -311,13 +315,13 @@ export function UserActionsProvider({ children }: { children: ReactNode }) {
   const handleSetInterested = useCallback(
     async (eventId: string, value: boolean): Promise<boolean> => {
       if (!user?.id) return false
-      const key = eventId
+      const key = normalizeEventId(eventId)
       if (value) {
         setActions((prev) => ({
           ...prev,
           interestedIds: new Set(prev.interestedIds).add(key),
         }))
-        const { error } = await setEventAction(user.id, key, 'interested')
+        const { error } = await setEventAction(user.id, eventId, 'interested')
         if (error) {
           setActions((prev) => {
             const next = new Set(prev.interestedIds)
@@ -332,7 +336,7 @@ export function UserActionsProvider({ children }: { children: ReactNode }) {
           next.delete(key)
           return { ...prev, interestedIds: next }
         })
-        const { error } = await removeEventAction(user.id, key, 'interested')
+        const { error } = await removeEventAction(user.id, eventId, 'interested')
         if (error) {
           setActions((prev) => ({
             ...prev,
@@ -349,13 +353,13 @@ export function UserActionsProvider({ children }: { children: ReactNode }) {
   const handleSetReminder = useCallback(
     async (eventId: string, value: boolean, hoursBefore = 24): Promise<boolean> => {
       if (!user?.id) return false
-      const key = eventId
+      const key = normalizeEventId(eventId)
       if (value) {
         setActions((prev) => ({
           ...prev,
           reminderIds: new Set(prev.reminderIds).add(key),
         }))
-        const { error } = await setEventAction(user.id, key, 'reminder', { reminder_hours_before: hoursBefore })
+        const { error } = await setEventAction(user.id, eventId, 'reminder', { reminder_hours_before: hoursBefore })
         if (error) {
           setActions((prev) => {
             const next = new Set(prev.reminderIds)
@@ -370,7 +374,7 @@ export function UserActionsProvider({ children }: { children: ReactNode }) {
           next.delete(key)
           return { ...prev, reminderIds: next }
         })
-        const { error } = await removeEventAction(user.id, key, 'reminder')
+        const { error } = await removeEventAction(user.id, eventId, 'reminder')
         if (error) {
           setActions((prev) => ({
             ...prev,
@@ -396,14 +400,14 @@ export function UserActionsProvider({ children }: { children: ReactNode }) {
     isFollowingPromoter: (id) => actions.followedPromoterIds.has(normalizeId(id)),
     addToWishlist: handleAddToWishlist,
     removeFromWishlist: handleRemoveFromWishlist,
-    isWishlisted: (id) => actions.wishlistedEventIds.has(id),
+    isWishlisted: (id) => actions.wishlistedEventIds.has(normalizeEventId(id)),
     likeEvent: handleLikeEvent,
     unlikeEvent: handleUnlikeEvent,
-    isLiked: (id) => actions.likedEventIds.has(id),
+    isLiked: (id) => actions.likedEventIds.has(normalizeEventId(id)),
     setGoing: handleSetGoing,
     setInterested: handleSetInterested,
     setReminder: handleSetReminder,
-    isGoing: (id) => actions.goingIds.has(id),
+    isGoing: (id) => actions.goingIds.has(normalizeEventId(id)),
     isInterested: (id) => actions.interestedIds.has(id),
     hasReminder: (id) => actions.reminderIds.has(id),
   }

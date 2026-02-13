@@ -9,7 +9,7 @@ interface ProfileEditFormProps {
   initialUsername?: string | null
   initialBio?: string | null
   initialDisplayName?: string | null
-  onSaved?: () => void
+  onSaved?: (data?: { displayName?: string; avatarUrl?: string; coverUrl?: string; bio?: string; username?: string }) => void
 }
 
 export default function ProfileEditForm({
@@ -63,33 +63,55 @@ export default function ProfileEditForm({
     setError(null)
     setLoading(true)
     try {
-      const { data: { session } } = await supabase?.auth.getSession() ?? { data: { session: null } }
-      if (!session?.access_token) {
+      const { data: { user: authUser } } = await supabase?.auth.getUser() ?? { data: { user: null } }
+      if (!authUser || !supabase) {
         setError('Not signed in')
         return
       }
-      const res = await fetch('/api/profile', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          cover_url: coverUrl.trim() || null,
-          avatar_url: avatarUrl.trim() || null,
-          username: username.trim() ? username.trim().toLowerCase() : null,
-          bio: bio.trim() || null,
-          display_name: displayName.trim() || null,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || 'Failed to save')
+      const u = username.trim().toLowerCase()
+      if (u && (u.length < 3 || u.length > 30)) {
+        setError('Username must be 3–30 characters')
         return
       }
-      onSaved?.()
+      if (u && !/^[a-z0-9_]+$/.test(u)) {
+        setError('Username: letters, numbers, underscores only')
+        return
+      }
+      const b = bio.trim()
+      if (b.length > 200) {
+        setError('Bio must be 200 characters or less')
+        return
+      }
+      const { data, error: upsertError } = await supabase
+        .from('user_profiles')
+        .upsert(
+          {
+            id: authUser.id,
+            cover_url: coverUrl.trim() || null,
+            avatar_url: avatarUrl.trim() || null,
+            username: u || null,
+            bio: b || null,
+            display_name: displayName.trim() || null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        )
+        .select()
+        .single()
+      if (upsertError) {
+        if (upsertError.code === '23505') setError('Username already taken')
+        else setError(upsertError.message || 'Failed to save')
+        return
+      }
+      onSaved?.(data ? {
+        displayName: data.display_name,
+        avatarUrl: data.avatar_url,
+        coverUrl: data.cover_url,
+        bio: data.bio,
+        username: data.username,
+      } : undefined)
     } catch (err) {
-      setError('Failed to save profile')
+      setError(err instanceof Error ? err.message : 'Failed to save profile')
       console.error(err)
     } finally {
       setLoading(false)

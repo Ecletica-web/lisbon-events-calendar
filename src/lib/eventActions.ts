@@ -72,11 +72,14 @@ export async function fetchEventActionsBulk(userId: string): Promise<EventAction
     .in('action_type', ['going', 'interested', 'saved', 'reminder'])
 
   if (error) return result
+  const norm = (id: string) => (id || '').toLowerCase().trim()
   data?.forEach((r) => {
-    if (r.action_type === 'going') result.goingIds.add(r.event_id)
-    else if (r.action_type === 'interested') result.interestedIds.add(r.event_id)
-    else if (r.action_type === 'saved') result.savedIds.add(r.event_id)
-    else if (r.action_type === 'reminder') result.reminderIds.add(r.event_id)
+    const eid = norm(r.event_id)
+    if (!eid) return
+    if (r.action_type === 'going') result.goingIds.add(eid)
+    else if (r.action_type === 'interested') result.interestedIds.add(eid)
+    else if (r.action_type === 'saved') result.savedIds.add(eid)
+    else if (r.action_type === 'reminder') result.reminderIds.add(eid)
   })
   return result
 }

@@ -12,6 +12,10 @@ function norm(s: string): string {
   return (s || '').toLowerCase().trim()
 }
 
+function normEventId(id: string): string {
+  return (id || '').toLowerCase().trim()
+}
+
 interface ProfileSupabaseSectionsProps {
   followedVenueIds: Set<string>
   followedPromoterIds: Set<string>
@@ -82,7 +86,7 @@ export default function ProfileSupabaseSections({
   })
 
   const savedEvents = events
-    .filter((e) => wishlistedEventIds.has(e.id))
+    .filter((e) => wishlistedEventIds.has(normEventId(e.id)))
     .filter((e) => new Date(e.start).getTime() >= now)
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 
@@ -169,7 +173,7 @@ export default function ProfileSupabaseSections({
         <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Upcoming (Going)</h2>
         <EventCardsSlider
           events={events
-            .filter((e) => goingIds.has(e.id))
+            .filter((e) => goingIds.has(normEventId(e.id)))
             .filter((e) => new Date(e.start).getTime() >= now)
             .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())}
           onEventClick={onEventClick}
@@ -211,7 +215,7 @@ export default function ProfileSupabaseSections({
         <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Liked Events</h2>
         <EventCardsSlider
           events={events
-            .filter((e) => likedEventIds.has(e.id))
+            .filter((e) => likedEventIds.has(normEventId(e.id)))
             .filter((e) => new Date(e.start).getTime() >= now)
             .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())}
           onEventClick={onEventClick}

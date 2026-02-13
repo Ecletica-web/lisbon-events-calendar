@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     const { data: profile } = await supabaseServer
       .from('user_profiles')
-      .select('email_notifications, digest_frequency, notification_timezone')
+      .select('email_notifications, digest_frequency, notification_timezone, notify_venues, notify_personas, notify_promoters')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -39,6 +39,9 @@ export async function GET(request: NextRequest) {
         digest_frequency: profile?.digest_frequency || 'weekly',
         instant_enabled: false,
         timezone: profile?.notification_timezone || 'Europe/Lisbon',
+        notify_venues: profile?.notify_venues ?? false,
+        notify_personas: profile?.notify_personas ?? false,
+        notify_promoters: profile?.notify_promoters ?? false,
       },
     })
   } catch (e) {
@@ -72,6 +75,9 @@ export async function PATCH(request: NextRequest) {
       updates.digest_frequency = body.digest_frequency
     }
     if (typeof body.timezone === 'string') updates.notification_timezone = body.timezone
+    if (typeof body.notify_venues === 'boolean') updates.notify_venues = body.notify_venues
+    if (typeof body.notify_personas === 'boolean') updates.notify_personas = body.notify_personas
+    if (typeof body.notify_promoters === 'boolean') updates.notify_promoters = body.notify_promoters
 
     const userClient = createUserClient(bearer)
     const { data, error } = await userClient
@@ -90,6 +96,9 @@ export async function PATCH(request: NextRequest) {
         digest_frequency: data?.digest_frequency || 'weekly',
         instant_enabled: false,
         timezone: data?.notification_timezone || 'Europe/Lisbon',
+        notify_venues: data?.notify_venues ?? false,
+        notify_personas: data?.notify_personas ?? false,
+        notify_promoters: data?.notify_promoters ?? false,
       },
     })
   } catch (e) {

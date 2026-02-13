@@ -12,6 +12,9 @@ interface NotificationSettings {
   digestFrequency: 'daily' | 'weekly' | 'never'
   instantEnabled: boolean
   timezone: string
+  notifyVenues?: boolean
+  notifyPersonas?: boolean
+  notifyPromoters?: boolean
 }
 
 export default function ProfileSettingsPage() {
@@ -69,6 +72,9 @@ export default function ProfileSettingsPage() {
               digestFrequency: data.settings.digest_frequency || 'weekly',
               instantEnabled: data.settings.instant_enabled ?? false,
               timezone: data.settings.timezone || 'Europe/Lisbon',
+              notifyVenues: data.settings.notify_venues ?? false,
+              notifyPersonas: data.settings.notify_personas ?? false,
+              notifyPromoters: data.settings.notify_promoters ?? false,
             })
           } else {
             setSettings({
@@ -76,10 +82,13 @@ export default function ProfileSettingsPage() {
               digestFrequency: 'weekly',
               instantEnabled: false,
               timezone: 'Europe/Lisbon',
+              notifyVenues: false,
+              notifyPersonas: false,
+              notifyPromoters: false,
             })
           }
         })
-        .catch(() => setSettings({ emailEnabled: false, digestFrequency: 'weekly', instantEnabled: false, timezone: 'Europe/Lisbon' }))
+        .catch(() => setSettings({ emailEnabled: false, digestFrequency: 'weekly', instantEnabled: false, timezone: 'Europe/Lisbon', notifyVenues: false, notifyPersonas: false, notifyPromoters: false }))
         .finally(() => setLoading(false))
     } else {
       setLoading(false)
@@ -128,6 +137,9 @@ export default function ProfileSettingsPage() {
             digest_frequency: updates.digestFrequency,
             instant_enabled: updates.instantEnabled,
             timezone: updates.timezone,
+            notify_venues: updates.notifyVenues,
+            notify_personas: updates.notifyPersonas,
+            notify_promoters: updates.notifyPromoters,
           }),
         })
         if (response.ok) {
@@ -137,6 +149,9 @@ export default function ProfileSettingsPage() {
             digestFrequency: newSettings.digest_frequency || 'weekly',
             instantEnabled: newSettings.instant_enabled ?? false,
             timezone: newSettings.timezone || 'Europe/Lisbon',
+            notifyVenues: newSettings.notify_venues ?? false,
+            notifyPersonas: newSettings.notify_personas ?? false,
+            notifyPromoters: newSettings.notify_promoters ?? false,
           })
         }
       } catch (e) {
@@ -198,6 +213,37 @@ export default function ProfileSettingsPage() {
                     <option value="never">Never</option>
                   </select>
                 </div>
+                {isSupabaseUser && (
+                  <>
+                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={settings.notifyVenues ?? false}
+                        onChange={(e) => handleUpdateSettings({ notifyVenues: e.target.checked })}
+                        className="rounded border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-slate-900"
+                      />
+                      <span className="text-slate-200 group-hover:text-white font-medium">Events at venues I follow</span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={settings.notifyPersonas ?? false}
+                        onChange={(e) => handleUpdateSettings({ notifyPersonas: e.target.checked })}
+                        className="rounded border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-slate-900"
+                      />
+                      <span className="text-slate-200 group-hover:text-white font-medium">Events matching my personas</span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={settings.notifyPromoters ?? false}
+                        onChange={(e) => handleUpdateSettings({ notifyPromoters: e.target.checked })}
+                        className="rounded border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-slate-900"
+                      />
+                      <span className="text-slate-200 group-hover:text-white font-medium">Events from promoters I follow</span>
+                    </label>
+                  </>
+                )}
                 <label className="flex items-center gap-3 cursor-not-allowed p-3 rounded-lg opacity-60">
                   <input type="checkbox" checked={settings.instantEnabled} disabled className="rounded border-slate-600 w-5 h-5" />
                   <span className="text-slate-500">Instant notifications (coming soon)</span>
