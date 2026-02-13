@@ -172,7 +172,7 @@ function CalendarPageContent() {
   const [personas, setPersonas] = useState<{ id: string; title: string; rules_json: string }[]>([])
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null)
   const [activePredefinedPersonaId, setActivePredefinedPersonaId] = useState<string | null>(null)
-  const [mobileListTimeRange, setMobileListTimeRange] = useState<MobileListTimeRange>('today')
+  const [mobileListTimeRange, setMobileListTimeRange] = useState<MobileListTimeRange>('all')
   const [mobileNearMeEnabled, setMobileNearMeEnabled] = useState(false)
   const [mobileRadiusKm, setMobileRadiusKm] = useState(2)
   const [mobileUserPos, setMobileUserPos] = useState<{ lat: number; lng: number } | null>(null)

@@ -48,20 +48,20 @@ export default function MobileListHeader({
     all: 'All',
     today: 'Today',
     tomorrow: 'Tomorrow',
-    week: 'This week',
-    month: 'This month',
-    nextMonth: 'Next month',
+    week: 'Week',
+    month: 'Month',
+    nextMonth: 'Next',
   }
 
   return (
     <div className="space-y-3 mb-4">
-      {/* Time range tabs: All | Today | Tomorrow | This week | This month | Next month */}
-      <div className="flex bg-slate-800/80 rounded-lg p-1 border border-slate-700/50 overflow-x-auto scrollbar-hide">
+      {/* Time range tabs: All | Today | Tomorrow | Week | Month | Next - scroll horizontally on narrow screens */}
+      <div className="flex bg-slate-800/80 rounded-lg p-1 border border-slate-700/50 overflow-x-auto scrollbar-hide gap-1">
         {(['all', 'today', 'tomorrow', 'week', 'month', 'nextMonth'] as const).map((r) => (
           <button
             key={r}
             onClick={() => onTimeRangeChange(r)}
-            className={`flex-1 min-w-0 py-2.5 min-h-[44px] px-2 rounded-md text-xs font-medium transition-all whitespace-nowrap touch-manipulation ${
+            className={`flex-shrink-0 py-2.5 min-h-[44px] px-3 rounded-md text-xs font-medium transition-all whitespace-nowrap touch-manipulation ${
               timeRange === r ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-300 hover:text-white'
             }`}
           >
