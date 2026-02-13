@@ -154,17 +154,19 @@ export default function ProfileFriendsSection({
           href={`/u/${id}`}
           className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-90"
         >
-          {user.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt=""
-              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-slate-600 flex-shrink-0 flex items-center justify-center text-slate-300 text-sm font-medium">
+          <div className="relative w-10 h-10 rounded-full flex-shrink-0 overflow-hidden bg-slate-600">
+            <div className="absolute inset-0 flex items-center justify-center text-slate-300 text-sm font-medium">
               {(dn[0] || '?').toUpperCase()}
             </div>
-          )}
+            {user.avatarUrl && (
+              <img
+                src={user.avatarUrl}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => { e.currentTarget.style.display = 'none' }}
+              />
+            )}
+          </div>
           <div className="min-w-0">
             <span className="font-medium text-slate-200 truncate block">{dn}</span>
             {user.username && <span className="text-xs text-slate-500">@{user.username}</span>}

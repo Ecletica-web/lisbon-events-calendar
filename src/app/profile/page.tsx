@@ -63,10 +63,15 @@ export default function ProfilePage() {
   const [selectedEvent, setSelectedEvent] = useState<NormalizedEvent | null>(null)
   const [profileData, setProfileData] = useState<ProfileData | null>(null)
   const [showEditForm, setShowEditForm] = useState(false)
+  const [avatarError, setAvatarError] = useState(false)
   const isSupabaseUser = supabaseConfigured && !!supabaseUser
   const isNextAuthUser = !supabaseConfigured && session?.user
   const isGuest = !supabaseConfigured && (session?.user as any)?.id === 'guest'
   const user = isSupabaseUser ? supabaseUser : session?.user
+
+  useEffect(() => {
+    setAvatarError(false)
+  }, [profileData?.avatarUrl])
 
   useEffect(() => {
     if (!FEATURE_FLAGS.PROFILE_AUTH) {
@@ -234,27 +239,27 @@ export default function ProfilePage() {
         {isSupabaseUser && user && (
           <div className="mb-8 -mx-4 sm:-mx-6 md:-mx-8">
             <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800 overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
-              {profileData?.coverUrl ? (
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/50 via-purple-900/50 to-pink-900/50" />
+              {profileData?.coverUrl && (
                 <img
                   src={profileData.coverUrl}
                   alt=""
-                  className="w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover"
                   onError={(e) => { e.currentTarget.style.display = 'none' }}
                 />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/50 via-purple-900/50 to-pink-900/50" />
               )}
             </div>
             <div className="relative px-4 sm:px-6 md:px-8 -mt-16 sm:-mt-20">
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-                {profileData?.avatarUrl ? (
+                {profileData?.avatarUrl && !avatarError ? (
                   <img
                     src={profileData.avatarUrl}
                     alt=""
-                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 object-cover bg-slate-700"
+                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 object-cover bg-slate-700 flex-shrink-0"
+                    onError={() => setAvatarError(true)}
                   />
                 ) : (
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 bg-slate-700 flex items-center justify-center text-3xl sm:text-4xl font-bold text-slate-400">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 bg-slate-700 flex items-center justify-center text-3xl sm:text-4xl font-bold text-slate-400 flex-shrink-0">
                     {(profileData?.displayName || user.name || user.email || '?')[0].toUpperCase()}
                   </div>
                 )}

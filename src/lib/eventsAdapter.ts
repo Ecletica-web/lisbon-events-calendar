@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import { normalizeCategory, normalizeCategories } from '@/lib/categoryNormalization'
 import { CANONICAL_VENUES, venueNameToSlug, normalizeHandle } from '@/data/canonicalVenues'
 import {
@@ -131,13 +132,24 @@ const IMAGE_PROXY = 'https://images.weserv.nl/?url='
 const MAX_EVENTS_PER_VENUE = 15
 
 function sanitizeImageUrl(url?: string): string | undefined {
-  if (!url) return undefined
-  const lower = url.toLowerCase()
-  if (lower.includes('images.example.com')) return undefined
+  if (!url || typeof url !== 'string') return undefined
+  const trimmed = url.trim()
+  if (!trimmed) return undefined
+  const lower = trimmed.toLowerCase()
+  // Block known bad/unresolvable placeholder domains
+  if (
+    lower.includes('images.example.com') ||
+    lower.includes('images.placeholder.com') ||
+    lower.includes('images.test')
+  )
+    return undefined
+  // Relative paths without protocol become invalid when used as img src in some contexts
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) return trimmed
+  if (!/^https?:\/\//i.test(trimmed)) return undefined
   if (lower.includes('cdninstagram') || lower.includes('fbcdn.net')) {
-    return IMAGE_PROXY + encodeURIComponent(url)
+    return IMAGE_PROXY + encodeURIComponent(trimmed)
   }
-  return url
+  return trimmed
 }
 
 /**
@@ -241,9 +253,42 @@ function enrichEventsWithVenuePromoterLinks(
   })
 }
 
+const EVENTS_CACHE_TAG = 'events'
+const EVENTS_REVALIDATE_SECONDS = 300 // 5 min
+
+async function fetchEventsFromSource(): Promise<NormalizedEvent[]> {
+  const csvUrl = process.env.NEXT_PUBLIC_EVENTS_CSV_URL
+  if (!csvUrl) {
+    console.warn('NEXT_PUBLIC_EVENTS_CSV_URL is not set.')
+    return []
+  }
+
+  const [eventTags, venueTags] = await Promise.all([
+    loadEventTags(process.env.NEXT_PUBLIC_EVENT_TAGS_CSV_URL),
+    loadVenueTags(process.env.NEXT_PUBLIC_VENUE_TAGS_CSV_URL),
+  ])
+  const allowedEventTags = eventTags.length > 0 ? eventTags : null
+  const allowedVenueTags = venueTags.length > 0 ? venueTags : null
+  const { venues } = await loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags)
+  const venueIndex = buildVenueIndex(venues)
+
+  const { events: domainEvents, quarantined, stats } = await loadEvents(csvUrl, venueIndex, allowedEventTags)
+  if (quarantined.length > 0) {
+    console.warn(`[eventsAdapter] Quarantined ${quarantined.length} rows:`, stats)
+  }
+
+  const listingEvents = filterEventsForListing(domainEvents)
+  const normalized = listingEvents.map(eventToNormalizedEvent)
+  const promoters = await loadPromoters(process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL)
+  const enriched = enrichEventsWithVenuePromoterLinks(normalized, venues, promoters)
+
+  const capped = capEventsPerVenue(enriched, MAX_EVENTS_PER_VENUE)
+  return capped.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+}
+
 /**
  * Fetch events from Google Sheets CSV.
- * Client-side: fetches from /api/events (avoids CORS). Server-side: loads directly from CSV.
+ * Client-side: fetches from /api/events (avoids CORS). Server-side: loads from CSV with 5min cache.
  */
 export async function fetchEvents(): Promise<NormalizedEvent[]> {
   if (typeof window !== 'undefined') {
@@ -257,38 +302,10 @@ export async function fetchEvents(): Promise<NormalizedEvent[]> {
     }
   }
 
-  const csvUrl = process.env.NEXT_PUBLIC_EVENTS_CSV_URL
-  if (!csvUrl) {
-    console.warn('NEXT_PUBLIC_EVENTS_CSV_URL is not set.')
-    return []
-  }
-
-  try {
-    const [eventTags, venueTags] = await Promise.all([
-      loadEventTags(process.env.NEXT_PUBLIC_EVENT_TAGS_CSV_URL),
-      loadVenueTags(process.env.NEXT_PUBLIC_VENUE_TAGS_CSV_URL),
-    ])
-    const allowedEventTags = eventTags.length > 0 ? eventTags : null
-    const allowedVenueTags = venueTags.length > 0 ? venueTags : null
-    const { venues } = await loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags)
-    const venueIndex = buildVenueIndex(venues)
-
-    const { events: domainEvents, quarantined, stats } = await loadEvents(csvUrl, venueIndex, allowedEventTags)
-    if (quarantined.length > 0) {
-      console.warn(`[eventsAdapter] Quarantined ${quarantined.length} rows:`, stats)
-    }
-
-    const listingEvents = filterEventsForListing(domainEvents)
-    const normalized = listingEvents.map(eventToNormalizedEvent)
-    const promoters = await loadPromoters(process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL)
-    const enriched = enrichEventsWithVenuePromoterLinks(normalized, venues, promoters)
-
-    const capped = capEventsPerVenue(enriched, MAX_EVENTS_PER_VENUE)
-    return capped.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-  } catch (error) {
-    console.error('Error fetching events:', error)
-    return []
-  }
+  return unstable_cache(fetchEventsFromSource, [EVENTS_CACHE_TAG], {
+    revalidate: EVENTS_REVALIDATE_SECONDS,
+    tags: [EVENTS_CACHE_TAG],
+  })()
 }
 
 /**
@@ -554,7 +571,11 @@ export async function fetchVenues(): Promise<VenueForDisplay[]> {
  * Fetch promoters for /promoters page.
  */
 export async function fetchPromoters(): Promise<Promoter[]> {
-  return loadPromoters(process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL)
+  const promoters = await loadPromoters(process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL)
+  return promoters.map((p) => ({
+    ...p,
+    primary_image_url: sanitizeImageUrl(p.primary_image_url),
+  }))
 }
 
 /**

@@ -124,15 +124,14 @@ export default function PublicProfilePage() {
         <div className="max-w-2xl mx-auto">
           <div className="-mx-4 sm:-mx-6 md:0 -mt-0">
             <div className="relative h-40 sm:h-48 bg-slate-800 overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
-              {profileData.coverUrl ? (
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/50 via-purple-900/50 to-pink-900/50" />
+              {profileData.coverUrl && (
                 <img
                   src={profileData.coverUrl}
                   alt=""
-                  className="w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover"
                   onError={(e) => { e.currentTarget.style.display = 'none' }}
                 />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/50 via-purple-900/50 to-pink-900/50" />
               )}
             </div>
             <div className="relative px-4 sm:px-6 md:px-8 -mt-20">
@@ -141,13 +140,19 @@ export default function PublicProfilePage() {
                   <img
                     src={profileData.avatarUrl}
                     alt=""
-                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 object-cover bg-slate-700"
+                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 object-cover bg-slate-700 flex-shrink-0"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                      const fallback = e.currentTarget.nextElementSibling
+                      if (fallback instanceof HTMLElement) fallback.classList.remove('hidden')
+                    }}
                   />
-                ) : (
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 bg-slate-700 flex items-center justify-center text-3xl sm:text-4xl font-bold text-slate-400">
-                    {(profileData.displayName || '?')[0].toUpperCase()}
-                  </div>
-                )}
+                ) : null}
+                <div
+                  className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 bg-slate-700 flex items-center justify-center text-3xl sm:text-4xl font-bold text-slate-400 flex-shrink-0 ${profileData.avatarUrl ? 'hidden' : ''}`}
+                >
+                  {(profileData.displayName || '?')[0].toUpperCase()}
+                </div>
                 <div className="flex-1 pb-1">
                   <h1 className="text-2xl sm:text-3xl font-bold text-white">
                     {profileData.displayName || 'User'}
