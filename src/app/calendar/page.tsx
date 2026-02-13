@@ -42,6 +42,7 @@ import { useSession } from 'next-auth/react'
 import { loadSavedViewsFromDB, saveViewToDB } from '@/lib/savedViewsSync'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
 import { PREDEFINED_PERSONAS, getPredefinedPersonaBySlug } from '@/data/predefinedPersonas'
+import { loadOnboardingFromStorage, onboardingPrefsToViewState } from '@/lib/onboarding'
 import EventCardsSlider from '@/components/EventCardsSlider'
 import MobileListHeader, { type MobileListTimeRange } from '@/components/MobileListHeader'
 import { haversineDistanceKm } from '@/lib/geo'
@@ -337,6 +338,16 @@ function CalendarPageContent() {
         }
         setCalendarView(merged.viewMode)
         setDateFocus(merged.dateFocus)
+      } else {
+        // Apply onboarding prefs from localStorage (for guests who completed onboarding)
+        const onboardingPrefs = loadOnboardingFromStorage()
+        if (onboardingPrefs && (onboardingPrefs.tags?.length > 0 || onboardingPrefs.freeOnly)) {
+          const partial = onboardingPrefsToViewState(onboardingPrefs)
+          const merged = mergeViewState(partial)
+          setSelectedTags(merged.selectedTags)
+          setFreeOnly(merged.toggles.freeOnly)
+          setExcludeExhibitions(merged.toggles.excludeExhibitions)
+        }
       }
     }
     

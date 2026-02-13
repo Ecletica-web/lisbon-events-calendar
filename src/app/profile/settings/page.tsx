@@ -186,6 +186,25 @@ export default function ProfileSettingsPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-white">Settings</h1>
         </div>
 
+        {/* Preferences */}
+        <section className="mb-10">
+          <h2 className="text-xl font-semibold mb-4 text-slate-200">Event preferences</h2>
+          <div className="p-4 sm:p-6 rounded-xl bg-slate-800/60 border border-slate-700/50">
+            <p className="text-slate-400 mb-4">
+              Customize what events you see — tags, vibe, free-only, and more.
+            </p>
+            <Link
+              href="/onboarding?edit=1"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-colors"
+            >
+              Edit preferences
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+        </section>
+
         {/* Notifications */}
         <section className="mb-10">
           <h2 className="text-xl font-semibold mb-4 text-slate-200">Notifications</h2>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import type { PersonaRulesInput } from '@/lib/viewState'
 
@@ -327,9 +328,17 @@ export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps =
         </div>
       )}
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-slate-800 border border-slate-600/50 rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      {showModal && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={closeModal}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="bg-slate-800 border border-slate-600/50 rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-4 sm:p-6">
               <h3 className="text-lg font-semibold text-slate-200 mb-4">
                 {editingId ? 'Edit Persona' : 'Create Persona'}
@@ -402,7 +411,8 @@ export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps =
               </form>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

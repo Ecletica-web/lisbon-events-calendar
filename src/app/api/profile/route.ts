@@ -70,6 +70,41 @@ export async function PATCH(request: NextRequest) {
       updates.avatar_url = body.avatar_url || null
     }
 
+    // Onboarding preferences (standalone /onboarding page; not tied to auth flow)
+    if (typeof body.onboarding_complete === 'boolean') {
+      updates.onboarding_complete = body.onboarding_complete
+    }
+    if (typeof body.onboarding_intent === 'string') {
+      updates.onboarding_intent = body.onboarding_intent.trim() || null
+    }
+    if (Array.isArray(body.onboarding_tags)) {
+      updates.onboarding_tags = body.onboarding_tags.filter((t: unknown) => typeof t === 'string' && t.trim())
+    }
+    if (typeof body.onboarding_vibe === 'string') {
+      updates.onboarding_vibe = body.onboarding_vibe.trim() || null
+    }
+    if (typeof body.onboarding_free_only === 'boolean') {
+      updates.onboarding_free_only = body.onboarding_free_only
+    }
+    if (typeof body.onboarding_english_friendly === 'boolean') {
+      updates.onboarding_english_friendly = body.onboarding_english_friendly
+    }
+    if (typeof body.onboarding_accessible === 'boolean') {
+      updates.onboarding_accessible = body.onboarding_accessible
+    }
+    if (typeof body.onboarding_avoid_sold_out === 'boolean') {
+      updates.onboarding_avoid_sold_out = body.onboarding_avoid_sold_out
+    }
+    if (typeof body.onboarding_near_me === 'boolean') {
+      updates.onboarding_near_me = body.onboarding_near_me
+    }
+    if (typeof body.onboarding_lat === 'number') {
+      updates.onboarding_lat = body.onboarding_lat
+    }
+    if (typeof body.onboarding_lng === 'number') {
+      updates.onboarding_lng = body.onboarding_lng
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
