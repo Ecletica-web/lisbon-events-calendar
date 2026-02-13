@@ -28,8 +28,10 @@ export default function RootLayout({
         <SessionProvider>
           <SupabaseAuthProvider>
             <UserActionsProvider>
-              <Navigation />
-              <main className="relative z-0 overflow-visible">
+              <header className="sticky top-0 z-[99999] shrink-0">
+                <Navigation />
+              </header>
+              <main className="relative z-0 overflow-visible shrink-0">
                 {children}
               </main>
             </UserActionsProvider>

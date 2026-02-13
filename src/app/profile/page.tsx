@@ -292,12 +292,12 @@ export default function ProfilePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </Link>
-                  <button
-                    onClick={() => setShowEditForm(!showEditForm)}
-                    className="px-4 py-2 rounded-lg border border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:text-white transition-colors text-sm font-medium"
-                  >
-                    {showEditForm ? 'Cancel' : 'Edit profile'}
-                  </button>
+                    <button
+                      onClick={() => setShowEditForm(!showEditForm)}
+                      className="px-4 py-2 rounded-lg border border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:text-white transition-colors text-sm font-medium"
+                    >
+                      {showEditForm ? 'Cancel' : 'Edit profile'}
+                    </button>
                 </div>
               </div>
             </div>
@@ -470,7 +470,7 @@ export default function ProfilePage() {
             likedEventIds={userActions.actions.likedEventIds}
             goingIds={userActions.actions.goingIds}
             interestedIds={userActions.actions.interestedIds}
-            onEventClick={setSelectedEvent}
+            onEventClick={(ev) => setSelectedEvent(ev)}
           />
         )}
 

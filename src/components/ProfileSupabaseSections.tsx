@@ -20,6 +20,8 @@ function eventMatchesIdSet(e: NormalizedEvent, ids: Set<string>): boolean {
   if (id && ids.has(id)) return true
   const srcId = e.extendedProps?.sourceEventId
   if (srcId && ids.has(normEventId(srcId))) return true
+  const dedupeKey = e.extendedProps?.dedupeKey
+  if (dedupeKey && ids.has(normEventId(dedupeKey))) return true
   return false
 }
 
@@ -69,6 +71,9 @@ export default function ProfileSupabaseSections({
   }, [])
 
   const now = Date.now()
+  const goingEvents = events.filter((e) => eventMatchesIdSet(e, goingIds)).filter((e) => new Date(e.start).getTime() >= now)
+  const savedEventsPre = events.filter((e) => eventMatchesIdSet(e, wishlistedEventIds)).filter((e) => new Date(e.start).getTime() >= now)
+  const likedEventsPre = events.filter((e) => eventMatchesIdSet(e, likedEventIds)).filter((e) => new Date(e.start).getTime() >= now)
   const followedVenues = venues.filter((v) => {
     const id = norm(v.venue_id || '')
     const slug = norm(v.slug || '')
@@ -92,10 +97,7 @@ export default function ProfileSupabaseSections({
     return venueMatch || promoterMatch
   })
 
-  const savedEvents = events
-    .filter((e) => eventMatchesIdSet(e, wishlistedEventIds))
-    .filter((e) => new Date(e.start).getTime() >= now)
-    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+  const savedEvents = [...savedEventsPre].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 
   if (loading) {
     return (
@@ -179,10 +181,7 @@ export default function ProfileSupabaseSections({
       <div className="mb-10">
         <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Upcoming (Going)</h2>
         <EventCardsSlider
-          events={events
-            .filter((e) => eventMatchesIdSet(e, goingIds))
-            .filter((e) => new Date(e.start).getTime() >= now)
-            .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())}
+          events={[...goingEvents].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())}
           onEventClick={onEventClick}
           mode="slider"
           hideHeader={false}
@@ -221,10 +220,7 @@ export default function ProfileSupabaseSections({
       <div className="mb-10">
         <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Liked Events</h2>
         <EventCardsSlider
-          events={events
-            .filter((e) => eventMatchesIdSet(e, likedEventIds))
-            .filter((e) => new Date(e.start).getTime() >= now)
-            .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())}
+          events={[...likedEventsPre].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())}
           onEventClick={onEventClick}
           mode="slider"
           hideHeader={false}

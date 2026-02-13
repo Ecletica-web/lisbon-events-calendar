@@ -210,8 +210,8 @@ function OnboardingContent() {
       {step >= 0 && (
         <button
           onClick={handleSkip}
-          className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[100000] text-base sm:text-lg text-slate-400 hover:text-white transition-colors touch-manipulation px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700/80"
-          style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
+          className="fixed right-4 sm:right-6 z-[100000] text-base sm:text-lg text-slate-400 hover:text-white transition-colors touch-manipulation px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700/80"
+          style={{ top: 'calc(5rem + env(safe-area-inset-top))' }}
         >
           Skip
         </button>
