@@ -17,14 +17,14 @@ export default function HomePage() {
   useEffect(() => {
     if (status === 'loading' && !supabaseConfigured) return
     if (isLoggedIn) {
-      router.replace('/foryou')
+      router.replace('/calendar')
     }
   }, [isLoggedIn, status, supabaseConfigured, router])
 
   if (isLoggedIn) {
     return (
       <div className="min-h-screen bg-slate-900/95 flex items-center justify-center">
-        <div className="text-slate-400">Taking you to your feed...</div>
+        <div className="text-slate-400">Taking you to the calendar...</div>
       </div>
     )
   }
