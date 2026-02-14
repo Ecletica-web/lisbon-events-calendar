@@ -16,6 +16,7 @@ function normEventId(id: string): string {
 }
 
 function eventMatchesIdSet(e: NormalizedEvent, ids: Set<string>): boolean {
+  if (ids.size === 0) return false
   const id = normEventId(e.id)
   if (id && ids.has(id)) return true
   const srcId = e.extendedProps?.sourceEventId
@@ -185,7 +186,7 @@ export default function ProfileSupabaseSections({
           onEventClick={onEventClick}
           mode="slider"
           hideHeader={false}
-          skipFiltering={true}
+          skipFiltering={false}
           venuesWithCoords={venues}
         />
       </div>
@@ -211,7 +212,7 @@ export default function ProfileSupabaseSections({
           onEventClick={onEventClick}
           mode="slider"
           hideHeader={false}
-          skipFiltering={true}
+          skipFiltering={false}
           venuesWithCoords={venues}
         />
       </div>
@@ -224,7 +225,7 @@ export default function ProfileSupabaseSections({
           onEventClick={onEventClick}
           mode="slider"
           hideHeader={false}
-          skipFiltering={true}
+          skipFiltering={false}
           venuesWithCoords={venues}
         />
       </div>

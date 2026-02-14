@@ -38,10 +38,16 @@ export default function AddFriendButton({
       setChecked(true)
       return
     }
-    const s = await getFriendStatus(viewer.id, targetUserId)
-    setStatus(s)
-    setChecked(true)
-    onStatusChange?.(s)
+    try {
+      const s = await getFriendStatus(viewer.id, targetUserId)
+      setStatus(s)
+      onStatusChange?.(s)
+    } catch (e) {
+      console.error('AddFriendButton: getFriendStatus failed', e)
+      setStatus(null)
+    } finally {
+      setChecked(true)
+    }
   }, [supabaseConfigured, viewer, targetUserId, onStatusChange])
 
   useEffect(() => {

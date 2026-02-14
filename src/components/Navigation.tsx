@@ -36,33 +36,38 @@ export default function Navigation() {
     setShowMobileNav(false)
   }, [pathname])
 
+  const closeMenus = () => {
+    setShowMenu(false)
+    setShowMobileNav(false)
+  }
+
   const navLinks = (
     <>
       <Link
         href="/foryou"
         className="block md:inline text-slate-300 hover:text-white px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all"
-        onClick={() => setShowMobileNav(false)}
+        onClick={closeMenus}
       >
         For You
       </Link>
       <Link
         href="/calendar"
         className="block md:inline text-slate-300 hover:text-white px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all"
-        onClick={() => setShowMobileNav(false)}
+        onClick={closeMenus}
       >
         Calendar
       </Link>
       <Link
         href="/venues"
         className="block md:inline text-slate-300 hover:text-white px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all"
-        onClick={() => setShowMobileNav(false)}
+        onClick={closeMenus}
       >
         Venues
       </Link>
       <Link
         href="/promoters"
         className="block md:inline text-slate-300 hover:text-white px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all"
-        onClick={() => setShowMobileNav(false)}
+        onClick={closeMenus}
       >
         Promoters
       </Link>
@@ -171,7 +176,7 @@ export default function Navigation() {
       </div>
       
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-14 md:h-16 gap-4">
+        <div className="relative z-[80] flex justify-between items-center h-14 md:h-16 gap-4">
           {/* Logo/Title */}
           <div className="flex items-center flex-shrink-0 min-w-fit pr-2">
             <Link 
@@ -194,6 +199,7 @@ export default function Navigation() {
                 <Link
                   href="/profile"
                   className="text-xs md:text-sm font-medium text-slate-300 hover:text-white px-2 md:px-3 py-1.5 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all duration-200"
+                  onClick={closeMenus}
                 >
                   Profile
                 </Link>
@@ -279,14 +285,14 @@ export default function Navigation() {
                 <Link
                   href="/login"
                   className="text-xs text-slate-300 hover:text-white px-3 py-2.5 min-h-[44px] flex items-center"
-                  onClick={() => setShowMobileNav(false)}
+                  onClick={closeMenus}
                 >
                   Login
                 </Link>
                 <Link
                   href="/signup"
                   className="text-xs text-white bg-gradient-to-r from-indigo-600 to-purple-600 px-3 py-2.5 min-h-[44px] rounded flex items-center"
-                  onClick={() => setShowMobileNav(false)}
+                  onClick={closeMenus}
                 >
                   Sign Up
                 </Link>
@@ -322,7 +328,7 @@ export default function Navigation() {
                   <Link
                     href="/profile"
                     className="block text-slate-300 hover:text-white px-4 py-3 min-h-[44px] flex items-center rounded-lg hover:bg-slate-800/80"
-                    onClick={() => setShowMobileNav(false)}
+                    onClick={closeMenus}
                   >
                     Profile
                   </Link>
@@ -346,14 +352,14 @@ export default function Navigation() {
                   <Link
                     href="/login"
                     className="block text-slate-300 hover:text-white px-4 py-3 min-h-[44px] flex items-center rounded-lg hover:bg-slate-800/80"
-                    onClick={() => setShowMobileNav(false)}
+                    onClick={closeMenus}
                   >
                     Login
                   </Link>
                   <Link
                     href="/signup"
                     className="block text-slate-300 hover:text-white px-4 py-3 min-h-[44px] flex items-center rounded-lg hover:bg-slate-800/80"
-                    onClick={() => setShowMobileNav(false)}
+                    onClick={closeMenus}
                   >
                     Sign Up
                   </Link>

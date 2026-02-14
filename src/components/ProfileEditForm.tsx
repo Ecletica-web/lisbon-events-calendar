@@ -122,7 +122,19 @@ export default function ProfileEditForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="block mb-2 text-sm font-medium text-slate-200">Cover image</label>
-        <div className="flex gap-2 mb-2">
+        {coverUrl && (
+          <div className="relative mb-2 rounded-lg overflow-hidden bg-slate-800 aspect-[3/1] max-h-32">
+            <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+            <button
+              type="button"
+              onClick={() => setCoverUrl('')}
+              className="absolute top-2 right-2 px-2 py-1 rounded bg-slate-900/80 text-slate-300 hover:bg-slate-800 text-xs"
+            >
+              Remove
+            </button>
+          </div>
+        )}
+        <div className="flex gap-2">
           <input
             ref={coverInputRef}
             type="file"
@@ -142,43 +154,44 @@ export default function ProfileEditForm({
             {uploading === 'cover' ? 'Uploading...' : 'Upload from device'}
           </button>
         </div>
-        <input
-          type="url"
-          value={coverUrl}
-          onChange={(e) => setCoverUrl(e.target.value)}
-          placeholder="Or paste image URL"
-          className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-        />
       </div>
       <div>
         <label className="block mb-2 text-sm font-medium text-slate-200">Profile picture</label>
-        <div className="flex gap-2 mb-2">
-          <input
-            ref={avatarInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (f) handleUpload('avatar', f)
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => avatarInputRef.current?.click()}
-            disabled={!!uploading}
-            className="px-3 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 text-sm font-medium disabled:opacity-50"
-          >
-            {uploading === 'avatar' ? 'Uploading...' : 'Upload from device'}
-          </button>
+        <div className="flex items-center gap-4 mb-2">
+          {avatarUrl && (
+            <div className="relative flex-shrink-0">
+              <img src={avatarUrl} alt="Profile" className="w-16 h-16 rounded-full object-cover border-2 border-slate-600" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+              <button
+                type="button"
+                onClick={() => setAvatarUrl('')}
+                className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs flex items-center justify-center"
+                title="Remove"
+              >
+                ×
+              </button>
+            </div>
+          )}
+          <div>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) handleUpload('avatar', f)
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={!!uploading}
+              className="px-3 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 text-sm font-medium disabled:opacity-50"
+            >
+              {uploading === 'avatar' ? 'Uploading...' : 'Upload from device'}
+            </button>
+          </div>
         </div>
-        <input
-          type="url"
-          value={avatarUrl}
-          onChange={(e) => setAvatarUrl(e.target.value)}
-          placeholder="Or paste image URL"
-          className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-        />
       </div>
       <div>
         <label className="block mb-2 text-sm font-medium text-slate-200">Username</label>
