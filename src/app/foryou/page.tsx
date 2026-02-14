@@ -165,7 +165,7 @@ function FeedCard({
             <EventLikeCount eventId={event.id} />
           </div>
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            {p.venueId && <FollowVenueButton venueId={p.venueId} />}
+            {p.venueId && <FollowVenueButton venueId={p.venueId} displayName={p.venueName || p.venueId} />}
             {p.promoterId && <FollowPromoterButton promoterId={p.promoterId} displayName={p.promoterName || p.promoterId} />}
             <EventActionButtons eventId={event.id} eventTitle={event.title} eventStart={event.start} compact />
           </div>

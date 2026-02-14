@@ -1362,7 +1362,7 @@ function CalendarPageContent() {
                       <span className="line-clamp-1 max-w-[140px] md:max-w-[180px]">{venue.name}</span>
                     </button>
                   )
-                ))}
+                })}
               </div>
               {selectedVenues.length > 0 && (
                 <button
