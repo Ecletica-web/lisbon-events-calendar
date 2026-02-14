@@ -194,6 +194,16 @@ html {
   display: none;
 }
 
+/* Auth slide-in panel */
+@keyframes authSlideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 /* Line clamp utilities */
 .line-clamp-1 {
   display: -webkit-box;

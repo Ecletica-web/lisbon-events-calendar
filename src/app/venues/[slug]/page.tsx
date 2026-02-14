@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { fetchVenues, fetchEvents } from '@/lib/eventsAdapter'
+import { logActivity } from '@/lib/activityLog'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import { getCategoryColor } from '@/lib/categoryColors'
 import FollowVenueButton from '@/components/FollowVenueButton'
@@ -15,6 +16,10 @@ export default function VenueDetailPage() {
   const [venues, setVenues] = useState<Awaited<ReturnType<typeof fetchVenues>>>([])
   const [events, setEvents] = useState<NormalizedEvent[]>([])
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (slug) logActivity('click_venue', 'venue', slug)
+  }, [slug])
 
   useEffect(() => {
     async function load() {

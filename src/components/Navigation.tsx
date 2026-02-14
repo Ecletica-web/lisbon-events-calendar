@@ -39,11 +39,18 @@ export default function Navigation() {
   const navLinks = (
     <>
       <Link
+        href="/foryou"
+        className="block md:inline text-slate-300 hover:text-white px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all"
+        onClick={() => setShowMobileNav(false)}
+      >
+        For You
+      </Link>
+      <Link
         href="/calendar"
         className="block md:inline text-slate-300 hover:text-white px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all"
         onClick={() => setShowMobileNav(false)}
       >
-        Home
+        Calendar
       </Link>
       <Link
         href="/venues"

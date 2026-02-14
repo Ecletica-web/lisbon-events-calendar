@@ -12,14 +12,22 @@ import FollowVenueButton from '@/components/FollowVenueButton'
 import EventActionButtons from '@/components/EventActionButtons'
 import EventLikeCount from '@/components/EventLikeCount'
 import EventCounts from '@/components/EventCounts'
+import { useUserActions } from '@/contexts/UserActionsContext'
+import { getEventReasons } from '@/lib/eventReasons'
 
 interface EventModalProps {
   event: NormalizedEvent | null
   onClose: () => void
+  reasons?: string[]
 }
 
-export default function EventModal({ event, onClose }: EventModalProps) {
+export default function EventModal({ event, onClose, reasons: reasonsProp }: EventModalProps) {
   const contentRef = useRef<HTMLDivElement>(null)
+  const actions = useUserActions()
+  const reasons = reasonsProp ?? (event && actions ? getEventReasons(event, {
+    followedVenueIds: actions.actions.followedVenueIds,
+    followedPromoterIds: actions.actions.followedPromoterIds,
+  }) : [])
 
   useEffect(() => {
     if (!event) return
@@ -107,6 +115,15 @@ export default function EventModal({ event, onClose }: EventModalProps) {
           </div>
           <EventActionButtons eventId={event.id} eventTitle={event.title} eventStart={event.start} className="flex-shrink-0" />
         </div>
+        {reasons.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {reasons.map((r) => (
+              <span key={r} className="px-2 py-0.5 rounded text-xs bg-indigo-900/50 text-indigo-200 border border-indigo-700/50">
+                {r}
+              </span>
+            ))}
+          </div>
+        )}
         <div className="flex items-center gap-3 flex-wrap mb-3">
           <EventCounts eventId={event.id} />
           <EventLikeCount eventId={event.id} />

@@ -1,7 +1,3 @@
-/**
- * Returns users that the viewer follows who are going to this event.
- * viewerId query param = current user (for "friends going" display).
- */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase/server'
 
@@ -26,10 +22,11 @@ export async function GET(
     }
 
     const { data: goingRows } = await supabaseServer
-      .from('event_user_actions')
+      .from('user_interactions')
       .select('user_id')
-      .eq('event_id', eventId)
-      .eq('action_type', 'going')
+      .eq('entity_type', 'event')
+      .eq('entity_id', eventId.trim().toLowerCase())
+      .eq('interaction_type', 'going')
 
     if (!goingRows || goingRows.length === 0) {
       return NextResponse.json({ users: [] })

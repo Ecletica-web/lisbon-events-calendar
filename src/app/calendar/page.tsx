@@ -47,6 +47,7 @@ import { PREDEFINED_PERSONAS, getPredefinedPersonaBySlug } from '@/data/predefin
 import EventCardsSlider from '@/components/EventCardsSlider'
 import MobileListHeader, { type MobileListTimeRange } from '@/components/MobileListHeader'
 import { haversineDistanceKm } from '@/lib/geo'
+import { logActivity } from '@/lib/activityLog'
 import EventModal from './components/EventModal'
 import EventListView from './components/EventListView'
 
@@ -1026,6 +1027,7 @@ function CalendarPageContent() {
     setFreeOnly(merged.toggles.freeOnly)
     setActivePersonaId(persona.id)
     setActivePredefinedPersonaId(null)
+    logActivity('switch_persona', 'persona', persona.id, { title: persona.title })
   }
 
   // Load persona by personaId from URL (e.g. /calendar?personaId=xxx)
@@ -1049,6 +1051,7 @@ function CalendarPageContent() {
     setFreeOnly(merged.toggles?.freeOnly ?? false)
     setActivePredefinedPersonaId(persona.id)
     setActivePersonaId(null)
+    logActivity('switch_persona', 'persona', persona.id, { title: persona.name })
   }
 
   const handleClearPersona = () => {

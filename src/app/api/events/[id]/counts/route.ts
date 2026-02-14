@@ -17,15 +17,17 @@ export async function GET(
 
     const [goingRes, interestedRes] = await Promise.all([
       supabaseServer
-        .from('event_user_actions')
+        .from('user_interactions')
         .select('*', { count: 'exact', head: true })
-        .eq('event_id', eventId)
-        .eq('action_type', 'going'),
+        .eq('entity_type', 'event')
+        .eq('entity_id', eventId.trim().toLowerCase())
+        .eq('interaction_type', 'going'),
       supabaseServer
-        .from('event_user_actions')
+        .from('user_interactions')
         .select('*', { count: 'exact', head: true })
-        .eq('event_id', eventId)
-        .eq('action_type', 'interested'),
+        .eq('entity_type', 'event')
+        .eq('entity_id', eventId.trim().toLowerCase())
+        .eq('interaction_type', 'interested'),
     ])
 
     return NextResponse.json({

@@ -1,5 +1,6 @@
 /**
  * Filter options API — returns tags, categories, venues for persona/view filter pickers.
+ * Uses same cached events as /api/events (5 min).
  */
 
 import { NextResponse } from 'next/server'
@@ -11,8 +12,7 @@ import {
   getAllPromoters,
 } from '@/lib/eventsAdapter'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 300
 
 export async function GET() {
   try {

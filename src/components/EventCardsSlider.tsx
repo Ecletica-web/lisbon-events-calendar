@@ -10,6 +10,8 @@ import { haversineDistanceKm, formatDistance } from '@/lib/geo'
 import FollowButton from '@/components/FollowButton'
 import EventLikeCount from '@/components/EventLikeCount'
 import FriendAvatars from '@/components/FriendAvatars'
+import { useUserActions } from '@/contexts/UserActionsContext'
+import { getEventReasons } from '@/lib/eventReasons'
 
 function norm(s: string): string {
   return (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
@@ -388,6 +390,7 @@ export default function EventCardsSlider({
                 onClick={() => { if (!didDrag) onEventClick(event) }}
                 mode={mode}
                 distanceKm={km}
+                reasons={undefined}
               />
             ))}
           </div>
@@ -410,10 +413,15 @@ export default function EventCardsSlider({
   )
 }
 
-function EventCard({ event, onClick, mode, distanceKm }: { event: NormalizedEvent; onClick: () => void; mode: 'slider' | 'grid'; distanceKm?: number }) {
+function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: { event: NormalizedEvent; onClick: () => void; mode: 'slider' | 'grid'; distanceKm?: number; reasons?: string[] }) {
+  const actions = useUserActions()
   const props = event.extendedProps
   const categoryColor = getCategoryColor(props.category)
   const startDate = new Date(event.start)
+  const reasons = reasonsProp ?? (actions ? getEventReasons(event, {
+    followedVenueIds: actions.actions.followedVenueIds,
+    followedPromoterIds: actions.actions.followedPromoterIds,
+  }) : [])
 
   const formatDate = () => {
     const today = new Date()
@@ -460,6 +468,15 @@ function EventCard({ event, onClick, mode, distanceKm }: { event: NormalizedEven
             <h3 className="text-lg font-bold text-white line-clamp-2">{event.title}</h3>
             {formatPrice() && <span className={`flex-shrink-0 text-sm font-semibold tabular-nums ${props.isFree ? 'text-green-400' : 'text-slate-200'}`}>{formatPrice()}</span>}
           </div>
+          {reasons.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-1.5">
+              {reasons.slice(0, 3).map((r) => (
+                <span key={r} className="px-1.5 py-0.5 rounded text-xs bg-indigo-900/50 text-indigo-200 border border-indigo-700/50">
+                  {r}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="text-sm font-medium text-slate-300 tabular-nums mb-1.5">
             {formatDate()} · {formatTime()}
           </div>

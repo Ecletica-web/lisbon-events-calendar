@@ -26,6 +26,12 @@ export interface PersonaRules {
   freeOnly?: boolean
   language?: string
   timeWindow?: { start?: string; end?: string }
+  /** Weight preferences for For You scoring */
+  prefer_free?: boolean
+  energy_level?: 'low' | 'medium' | 'high'
+  budget_range?: [number, number]
+  neighborhoods?: string[]
+  time_preference?: 'day' | 'night' | 'late'
 }
 
 export interface PersonaRow {

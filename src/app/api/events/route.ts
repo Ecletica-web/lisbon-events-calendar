@@ -1,13 +1,12 @@
 /**
  * Events API — fetches from Google Sheets server-side (no CORS).
- * Client components fetch from here; server fetches Google directly.
+ * Cached 5 min (unstable_cache in fetchEvents + route revalidate).
  */
 
 import { NextResponse } from 'next/server'
 import { fetchEvents } from '@/lib/eventsAdapter'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 300
 
 export async function GET() {
   try {

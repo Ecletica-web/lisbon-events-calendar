@@ -16,9 +16,11 @@ export async function GET(
     }
 
     const { count, error } = await supabaseServer
-      .from('user_like_events')
+      .from('user_interactions')
       .select('*', { count: 'exact', head: true })
-      .eq('event_id', eventId)
+      .eq('entity_type', 'event')
+      .eq('entity_id', eventId.trim().toLowerCase())
+      .eq('interaction_type', 'like')
 
     if (error) {
       console.error('Like count error:', error)
