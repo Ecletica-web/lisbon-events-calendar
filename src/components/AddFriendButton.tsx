@@ -32,8 +32,10 @@ export default function AddFriendButton({
   const [status, setStatus] = useState<FriendStatus>(null)
   const [loading, setLoading] = useState(false)
   const [checked, setChecked] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
+    setError(null)
     if (!supabaseConfigured || !viewer || viewer.id === targetUserId) {
       setChecked(true)
       return
@@ -56,20 +58,34 @@ export default function AddFriendButton({
 
   const handleSendRequest = async () => {
     if (!viewer || loading) return
+    setError(null)
     setLoading(true)
     try {
       const headers = await getAuthHeaders()
+      if (!headers.Authorization) {
+        setError('Please sign in to add friends')
+        return
+      }
       const res = await fetch(`/api/users/${targetUserId}/friend-request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({}),
       })
       const data = await res.json().catch(() => ({}))
-      if (res.ok) setStatus('pending_sent')
-      else if (data.action === 'already_friends') setStatus('friends')
-      else if (data.action === 'already_sent') setStatus('pending_sent')
+      if (res.ok) {
+        setStatus('pending_sent')
+        onStatusChange?.('pending_sent')
+      } else if (data.action === 'already_friends') {
+        setStatus('friends')
+      } else if (data.action === 'already_sent') {
+        setStatus('pending_sent')
+        onStatusChange?.('pending_sent')
+      } else {
+        setError(data.error || `Failed to send request (${res.status})`)
+      }
     } catch (e) {
       console.error('Send friend request error:', e)
+      setError('Failed to send friend request')
     } finally {
       setLoading(false)
     }
@@ -167,12 +183,15 @@ export default function AddFriendButton({
   }
 
   return (
-    <button
-      onClick={handleSendRequest}
-      disabled={loading || !checked}
-      className={`${baseClass} bg-indigo-600/80 text-white hover:bg-indigo-500`}
-    >
-      {loading ? '...' : 'Add friend'}
-    </button>
+    <div className="flex flex-col items-end gap-1">
+      {error && <span className="text-xs text-red-400">{error}</span>}
+      <button
+        onClick={handleSendRequest}
+        disabled={loading || !checked}
+        className={`${baseClass} bg-indigo-600/80 text-white hover:bg-indigo-500`}
+      >
+        {loading ? '...' : 'Add friend'}
+      </button>
+    </div>
   )
 }

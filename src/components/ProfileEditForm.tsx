@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 
 interface ProfileEditFormProps {
@@ -27,9 +27,16 @@ export default function ProfileEditForm({
   const [displayName, setDisplayName] = useState(initialDisplayName ?? '')
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState<'cover' | 'avatar' | null>(null)
+  const [uploadSuccess, setUploadSuccess] = useState<'cover' | 'avatar' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const coverInputRef = useRef<HTMLInputElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!uploadSuccess) return
+    const t = setTimeout(() => setUploadSuccess(null), 3000)
+    return () => clearTimeout(t)
+  }, [uploadSuccess])
 
   const handleUpload = async (type: 'cover' | 'avatar', file: File) => {
     setError(null)
@@ -51,6 +58,7 @@ export default function ProfileEditForm({
         .getPublicUrl(path)
       if (type === 'cover') setCoverUrl(urlData.publicUrl)
       else setAvatarUrl(urlData.publicUrl)
+      setUploadSuccess(type)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
@@ -134,6 +142,9 @@ export default function ProfileEditForm({
             </button>
           </div>
         )}
+        {uploadSuccess === 'cover' && (
+          <p className="mb-2 text-sm text-green-400">Cover image uploaded. Save profile to keep changes.</p>
+        )}
         <div className="flex gap-2">
           <input
             ref={coverInputRef}
@@ -170,6 +181,9 @@ export default function ProfileEditForm({
                 ×
               </button>
             </div>
+          )}
+          {uploadSuccess === 'avatar' && (
+            <p className="text-sm text-green-400">Profile picture uploaded. Save profile to keep changes.</p>
           )}
           <div>
             <input

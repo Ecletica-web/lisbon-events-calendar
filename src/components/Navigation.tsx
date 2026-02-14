@@ -15,6 +15,7 @@ export default function Navigation() {
   const supabaseConfigured = supabaseAuth?.isConfigured ?? false
   const [showMenu, setShowMenu] = useState(false)
   const [showMobileNav, setShowMobileNav] = useState(false)
+  const [notificationCount, setNotificationCount] = useState(0)
   const user = supabaseConfigured && supabaseUser
     ? { email: supabaseUser.email, name: supabaseUser.name }
     : session?.user
@@ -35,6 +36,31 @@ export default function Navigation() {
     setShowMenu(false)
     setShowMobileNav(false)
   }, [pathname])
+
+  // Fetch notification count for Supabase users
+  useEffect(() => {
+    if (!supabaseConfigured || !supabaseUser) {
+      setNotificationCount(0)
+      return
+    }
+    async function fetchCount() {
+      try {
+        const { supabase } = await import('@/lib/supabase/client')
+        const { data: { session } } = await (supabase?.auth.getSession() ?? { data: { session: null } })
+        if (!session?.access_token) return
+        const res = await fetch('/api/notifications/count', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        if (res.ok) {
+          const { count } = await res.json()
+          setNotificationCount(count ?? 0)
+        }
+      } catch {
+        setNotificationCount(0)
+      }
+    }
+    fetchCount()
+  }, [supabaseConfigured, supabaseUser, pathname])
 
   const closeMenus = () => {
     setShowMenu(false)
@@ -198,10 +224,15 @@ export default function Navigation() {
               <>
                 <Link
                   href="/profile"
-                  className="text-xs md:text-sm font-medium text-slate-300 hover:text-white px-2 md:px-3 py-1.5 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all duration-200"
+                  className="relative text-xs md:text-sm font-medium text-slate-300 hover:text-white px-2 md:px-3 py-1.5 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all duration-200"
                   onClick={closeMenus}
                 >
                   Profile
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold text-white bg-red-500 rounded-full">
+                      {notificationCount > 99 ? '99+' : notificationCount}
+                    </span>
+                  )}
                 </Link>
                 <div className="relative">
                   <button
@@ -327,10 +358,15 @@ export default function Navigation() {
                 <>
                   <Link
                     href="/profile"
-                    className="block text-slate-300 hover:text-white px-4 py-3 min-h-[44px] flex items-center rounded-lg hover:bg-slate-800/80"
+                    className="relative block text-slate-300 hover:text-white px-4 py-3 min-h-[44px] flex items-center rounded-lg hover:bg-slate-800/80"
                     onClick={closeMenus}
                   >
                     Profile
+                    {notificationCount > 0 && (
+                      <span className="ml-2 min-w-[20px] h-5 px-1.5 flex items-center justify-center text-xs font-bold text-white bg-red-500 rounded-full">
+                        {notificationCount > 99 ? '99+' : notificationCount}
+                      </span>
+                    )}
                   </Link>
                   <button
                     onClick={async () => {

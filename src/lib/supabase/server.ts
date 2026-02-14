@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -12,4 +12,13 @@ export const supabaseServer = supabaseUrl && supabaseAnonKey
 
 export function isSupabaseConfigured(): boolean {
   return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+}
+
+/** Create a Supabase client authenticated with the user's JWT (for RLS) */
+export function createAuthenticatedClient(accessToken: string): SupabaseClient | null {
+  if (!supabaseUrl || !supabaseAnonKey || !accessToken) return null
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    auth: { persistSession: false },
+  })
 }

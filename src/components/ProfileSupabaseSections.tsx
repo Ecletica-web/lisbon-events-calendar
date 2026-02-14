@@ -100,6 +100,8 @@ export default function ProfileSupabaseSections({
 
   const savedEvents = [...savedEventsPre].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 
+  const dateFocus = new Date().toISOString().split('T')[0]
+
   if (loading) {
     return (
       <div className="text-slate-400 py-8">Loading your profile data...</div>
@@ -182,11 +184,13 @@ export default function ProfileSupabaseSections({
       <div className="mb-10">
         <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Upcoming (Going)</h2>
         <EventCardsSlider
+          key="going"
           events={[...goingEvents].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())}
           onEventClick={onEventClick}
           mode="slider"
           hideHeader={false}
           skipFiltering={false}
+          dateFocus={dateFocus}
           venuesWithCoords={venues}
         />
       </div>
@@ -195,11 +199,13 @@ export default function ProfileSupabaseSections({
       <div className="mb-10">
         <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Events at Your Venues & Promoters</h2>
         <EventCardsSlider
+          key="venues-promoters"
           events={eventsAtFollowed}
           onEventClick={onEventClick}
           mode="slider"
           hideHeader={false}
           skipFiltering={false}
+          dateFocus={dateFocus}
           venuesWithCoords={venues}
         />
       </div>
@@ -208,11 +214,13 @@ export default function ProfileSupabaseSections({
       <div className="mb-10">
         <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Saved Events</h2>
         <EventCardsSlider
+          key="saved"
           events={savedEvents}
           onEventClick={onEventClick}
           mode="slider"
           hideHeader={false}
           skipFiltering={false}
+          dateFocus={dateFocus}
           venuesWithCoords={venues}
         />
       </div>
@@ -221,11 +229,13 @@ export default function ProfileSupabaseSections({
       <div className="mb-10">
         <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Liked Events</h2>
         <EventCardsSlider
+          key="liked"
           events={[...likedEventsPre].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())}
           onEventClick={onEventClick}
           mode="slider"
           hideHeader={false}
           skipFiltering={false}
+          dateFocus={dateFocus}
           venuesWithCoords={venues}
         />
       </div>

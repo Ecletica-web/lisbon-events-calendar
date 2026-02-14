@@ -248,6 +248,7 @@ function CalendarPageContent() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [tagSearchQuery, setTagSearchQuery] = useState('')
+  const [venueSearchQuery, setVenueSearchQuery] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedVenues, setSelectedVenues] = useState<string[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
@@ -548,6 +549,13 @@ function CalendarPageContent() {
     const query = tagSearchQuery.toLowerCase()
     return allTags.filter((tag) => tag.toLowerCase().includes(query))
   }, [allTags, tagSearchQuery])
+
+  // Filter venues based on search
+  const filteredVenues = useMemo(() => {
+    if (!venueSearchQuery.trim()) return allVenues
+    const query = venueSearchQuery.toLowerCase()
+    return allVenues.filter((v) => v.name.toLowerCase().includes(query))
+  }, [allVenues, venueSearchQuery])
 
   // Apply category colors to events with shades for same-day, same-category events
   const eventsWithColors = useMemo(() => {
@@ -1264,23 +1272,23 @@ function CalendarPageContent() {
           </div>
 
           {allCategories.length > 0 && (
-            <div className="mb-6">
-              <div className="text-sm font-semibold mb-3 text-slate-200">
+            <div className="mb-4">
+              <div className="text-xs font-semibold mb-2 text-slate-200">
                 Category
                 {selectedCategories.length > 0 && (
-                  <span className="ml-2 text-xs text-slate-400 font-normal">
+                  <span className="ml-1.5 text-slate-400 font-normal">
                     ({selectedCategories.length} selected)
                   </span>
                 )}
               </div>
               
               {/* All Categories Button */}
-              <div className="mb-3">
+              <div className="mb-2">
                 <button
                   onClick={() => setSelectedCategories([])}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all shadow-lg hover:shadow-xl ${
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${
                     selectedCategories.length === 0
-                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-transparent shadow-xl'
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-transparent'
                       : 'bg-slate-800/80 border-slate-600/50 hover:bg-slate-700/80 text-slate-300 hover:border-slate-500'
                   }`}
                 >
@@ -1288,8 +1296,8 @@ function CalendarPageContent() {
                 </button>
               </div>
               
-              {/* Category Selection Buttons */}
-              <div className="flex flex-wrap gap-2">
+              {/* Category Selection Buttons - compact */}
+              <div className="flex flex-wrap gap-1.5">
                 {allCategories.map((category) => {
                   const color = getCategoryColor(category)
                   const isSelected = selectedCategories.includes(category)
@@ -1297,10 +1305,10 @@ function CalendarPageContent() {
                     <button
                       key={category}
                       onClick={() => handleCategoryToggle(category)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                      className={`px-2 py-1 rounded-md text-xs font-medium border transition-all ${
                         isSelected
-                          ? 'text-white shadow-xl hover:shadow-2xl scale-105'
-                          : 'hover:opacity-90 hover:scale-105 bg-slate-800/80 text-slate-300'
+                          ? 'text-white'
+                          : 'hover:opacity-90 bg-slate-800/80 text-slate-300'
                       }`}
                       style={{
                         backgroundColor: isSelected ? color : 'transparent',
@@ -1318,16 +1326,27 @@ function CalendarPageContent() {
 
           {allVenues.length > 0 && (
             <div className="mb-6">
-              <div className="text-sm font-semibold mb-2 text-slate-200">
-                Venue / Location ({allVenues.length} total)
+              <div className="text-xs font-semibold mb-2 text-slate-200">
+                Venue / Location ({filteredVenues.length} of {allVenues.length})
                 {selectedVenues.length > 0 && (
-                  <span className="ml-2 text-xs text-slate-400">
+                  <span className="ml-1.5 text-slate-400">
                     ({selectedVenues.length} selected)
                   </span>
                 )}
               </div>
+              <input
+                type="text"
+                placeholder="Search venues..."
+                value={venueSearchQuery}
+                onChange={(e) => setVenueSearchQuery(e.target.value)}
+                className="w-full mb-2 border border-slate-600/50 rounded-lg px-3 py-1.5 text-xs bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+              />
               <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
-                {allVenues.map((venue) => {
+                {filteredVenues.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-2">
+                    {venueSearchQuery.trim() ? 'No venues match your search' : 'No venues'}
+                  </p>
+                ) : filteredVenues.map((venue) => {
                   const isSelected = selectedVenues.includes(venue.key)
                   return (
                     <button
@@ -1343,7 +1362,7 @@ function CalendarPageContent() {
                       <span className="line-clamp-1 max-w-[140px] md:max-w-[180px]">{venue.name}</span>
                     </button>
                   )
-                })}
+                ))}
               </div>
               {selectedVenues.length > 0 && (
                 <button

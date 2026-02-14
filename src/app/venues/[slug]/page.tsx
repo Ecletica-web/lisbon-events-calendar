@@ -8,6 +8,7 @@ import { logActivity } from '@/lib/activityLog'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import { getCategoryColor } from '@/lib/categoryColors'
 import FollowVenueButton from '@/components/FollowVenueButton'
+import EventModal from '@/app/calendar/components/EventModal'
 
 export default function VenueDetailPage() {
   const params = useParams()
@@ -16,6 +17,7 @@ export default function VenueDetailPage() {
   const [venues, setVenues] = useState<Awaited<ReturnType<typeof fetchVenues>>>([])
   const [events, setEvents] = useState<NormalizedEvent[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedEvent, setSelectedEvent] = useState<NormalizedEvent | null>(null)
 
   useEffect(() => {
     if (slug) logActivity('click_venue', 'venue', slug)
@@ -169,7 +171,14 @@ export default function VenueDetailPage() {
               return (
                 <li
                   key={event.id}
-                  className="rounded-lg bg-slate-800/60 border border-slate-700/50 overflow-hidden"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setSelectedEvent(event)
+                    logActivity('view_event_modal', 'event', event.id, { title: event.title })
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && setSelectedEvent(event)}
+                  className="rounded-lg bg-slate-800/60 border border-slate-700/50 overflow-hidden cursor-pointer hover:border-slate-600 transition-colors"
                 >
                   <div className="p-4 flex flex-col sm:flex-row gap-4">
                     <img
@@ -214,6 +223,8 @@ export default function VenueDetailPage() {
             })}
           </ul>
         )}
+
+        <EventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
       </div>
     </div>
   )
