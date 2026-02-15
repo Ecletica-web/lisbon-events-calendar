@@ -390,6 +390,9 @@ export default function ProfilePage() {
               userId={profileData.id}
               friendsCount={profileData.friendsCount ?? 0}
               isOwnProfile
+              onFriendsCountChange={(count) =>
+                setProfileData((prev) => (prev ? { ...prev, friendsCount: count } : prev))
+              }
             />
           </div>
         )}

@@ -32,6 +32,7 @@ interface ProfileFriendsSectionProps {
   userId: string
   friendsCount?: number
   isOwnProfile?: boolean
+  onFriendsCountChange?: (count: number) => void
 }
 
 type TabType = 'friends' | 'requests' | 'add'
@@ -49,6 +50,7 @@ export default function ProfileFriendsSection({
   userId,
   friendsCount = 0,
   isOwnProfile = false,
+  onFriendsCountChange,
 }: ProfileFriendsSectionProps) {
   const supabaseAuth = useSupabaseAuth()
   const supabaseConfigured = supabaseAuth?.isConfigured ?? false
@@ -66,6 +68,8 @@ export default function ProfileFriendsSection({
   type FriendStatus = 'friends' | 'pending_sent' | 'pending_received' | null
   const [addTabStatusMap, setAddTabStatusMap] = useState<Record<string, FriendStatus>>({})
   const [addTabStatusIdsKey, setAddTabStatusIdsKey] = useState('')
+  const onFriendsCountChangeRef = useRef(onFriendsCountChange)
+  onFriendsCountChangeRef.current = onFriendsCountChange
 
   const refreshRequests = useCallback(async () => {
     if (!isOwnProfile || !supabaseConfigured) return
@@ -92,10 +96,12 @@ export default function ProfileFriendsSection({
       try {
         const res = await fetch(`/api/users/${userId}/friends`)
         const data = await res.json().catch(() => ({}))
-        if (res.ok && Array.isArray(data.friends)) setFriendsList(data.friends)
-        else setFriendsList([])
+        const list = res.ok && Array.isArray(data.friends) ? data.friends : []
+        setFriendsList(list)
+        onFriendsCountChangeRef.current?.(list.length)
       } catch {
         setFriendsList([])
+        onFriendsCountChangeRef.current?.(0)
       } finally {
         setLoading(false)
       }
@@ -116,10 +122,11 @@ export default function ProfileFriendsSection({
     prevTabRef.current = tab
     if (tab === 'friends') {
       if (prevTab !== 'friends') {
-        if (Date.now() - lastFriendsFetchRef.current < FRIENDS_FETCH_THROTTLE_MS) return
+        const hasCachedData = friendsList.length > 0
+        const throttle = hasCachedData && Date.now() - lastFriendsFetchRef.current < FRIENDS_FETCH_THROTTLE_MS
+        if (throttle) return
         lastFriendsFetchRef.current = Date.now()
-        const alreadyHadData = friendsList.length > 0
-        refreshFriends(!alreadyHadData)
+        refreshFriends(!hasCachedData)
       }
     } else if (tab === 'requests' && isOwnProfile && prevTab !== 'requests') {
       setLoading(true)
@@ -399,9 +406,10 @@ export default function ProfileFriendsSection({
                           <AddFriendButton
                             targetUserId={r.requesterId}
                             size="sm"
+                            status="pending_received"
                             onStatusChange={(s) => {
                               refreshRequests()
-                              if (s === 'friends') refreshFriends()
+                              if (s === 'friends') refreshFriends(false)
                             }}
                           />
                         }
@@ -423,9 +431,10 @@ export default function ProfileFriendsSection({
                           <AddFriendButton
                             targetUserId={r.addresseeId}
                             size="sm"
+                            status="pending_sent"
                             onStatusChange={(s) => {
                               refreshRequests()
-                              if (s === 'friends') refreshFriends()
+                              if (s === 'friends') refreshFriends(false)
                             }}
                           />
                         }
