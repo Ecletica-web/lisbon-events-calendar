@@ -378,12 +378,37 @@ export async function loadEvents(
     unknownVenues: 0,
   }
 
-  try {
-    const response = await fetch(csvUrl, { cache: 'no-store' })
-    if (!response.ok) {
-      throw new Error(`Failed to fetch CSV: ${response.statusText}`)
+  const FETCH_TIMEOUT_MS = 15000
+  const FETCH_MAX_RETRIES = 2
+
+  const fetchWithTimeoutAndRetry = async (): Promise<string> => {
+    let lastError: Error | null = null
+    for (let attempt = 0; attempt <= FETCH_MAX_RETRIES; attempt++) {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+      try {
+        const response = await fetch(csvUrl, {
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+        if (!response.ok) {
+          throw new Error(`Failed to fetch CSV: ${response.statusText}`)
+        }
+        return await response.text()
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err))
+        if (attempt < FETCH_MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
+        }
+      } finally {
+        clearTimeout(timeoutId)
+      }
     }
-    const csvText = await response.text()
+    throw lastError ?? new Error('Failed to fetch CSV')
+  }
+
+  try {
+    const csvText = await fetchWithTimeoutAndRetry()
     return new Promise((resolve) => {
       Papa.parse<RawEventRow>(csvText, {
         header: true,

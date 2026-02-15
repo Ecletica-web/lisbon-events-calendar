@@ -272,7 +272,14 @@ async function fetchEventsFromSource(): Promise<NormalizedEvent[]> {
   const { venues } = await loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags)
   const venueIndex = buildVenueIndex(venues)
 
-  const { events: domainEvents, quarantined, stats } = await loadEvents(csvUrl, venueIndex, allowedEventTags)
+  let result = await loadEvents(csvUrl, venueIndex, allowedEventTags)
+
+  if (result.events.length === 0) {
+    await new Promise((r) => setTimeout(r, 1500))
+    result = await loadEvents(csvUrl, venueIndex, allowedEventTags)
+  }
+
+  const { events: domainEvents, quarantined, stats } = result
   if (quarantined.length > 0) {
     console.warn(`[eventsAdapter] Quarantined ${quarantined.length} rows:`, stats)
   }
@@ -286,26 +293,47 @@ async function fetchEventsFromSource(): Promise<NormalizedEvent[]> {
   return capped.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 }
 
+const CLIENT_FETCH_MAX_RETRIES = 2
+const CLIENT_FETCH_RETRY_DELAY_MS = 1500
+
 /**
  * Fetch events from Google Sheets CSV.
- * Client-side: fetches from /api/events (avoids CORS). Server-side: loads from CSV with 5min cache.
+ * Client-side: fetches from /api/events (avoids CORS) with retries. Server-side: loads from CSV with 5min cache.
+ * Does not cache empty responses — refetches when cache would return [].
  */
 export async function fetchEvents(): Promise<NormalizedEvent[]> {
   if (typeof window !== 'undefined') {
-    try {
-      const res = await fetch('/api/events')
-      if (!res.ok) throw new Error('Failed to fetch events')
-      return res.json()
-    } catch (error) {
-      console.error('Error fetching events:', error)
-      return []
+    let lastError: Error | null = null
+    for (let attempt = 0; attempt <= CLIENT_FETCH_MAX_RETRIES; attempt++) {
+      try {
+        const res = await fetch('/api/events')
+        if (!res.ok) throw new Error(`Failed to fetch events: ${res.status}`)
+        const data = await res.json()
+        if (Array.isArray(data) && data.length === 0 && attempt < CLIENT_FETCH_MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, CLIENT_FETCH_RETRY_DELAY_MS))
+          continue
+        }
+        return data
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error))
+        if (attempt < CLIENT_FETCH_MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, CLIENT_FETCH_RETRY_DELAY_MS))
+        }
+      }
     }
+    console.error('Error fetching events:', lastError)
+    return []
   }
 
-  return unstable_cache(fetchEventsFromSource, [EVENTS_CACHE_TAG], {
+  const cached = await unstable_cache(fetchEventsFromSource, [EVENTS_CACHE_TAG], {
     revalidate: EVENTS_REVALIDATE_SECONDS,
     tags: [EVENTS_CACHE_TAG],
   })()
+
+  if (cached.length === 0) {
+    return fetchEventsFromSource()
+  }
+  return cached
 }
 
 /**
