@@ -104,6 +104,8 @@ export default function ProfileFriendsSection({
   )
 
   const prevTabRef = useRef<TabType | null>(null)
+  const lastFriendsFetchRef = useRef(0)
+  const FRIENDS_FETCH_THROTTLE_MS = 2000
 
   useEffect(() => {
     if (isOwnProfile && supabaseConfigured) refreshRequests()
@@ -114,6 +116,8 @@ export default function ProfileFriendsSection({
     prevTabRef.current = tab
     if (tab === 'friends') {
       if (prevTab !== 'friends') {
+        if (Date.now() - lastFriendsFetchRef.current < FRIENDS_FETCH_THROTTLE_MS) return
+        lastFriendsFetchRef.current = Date.now()
         const alreadyHadData = friendsList.length > 0
         refreshFriends(!alreadyHadData)
       }
@@ -167,30 +171,39 @@ export default function ProfileFriendsSection({
         .map((u) => u.id)
     : []
   const addTabIdsKeySorted = addTabUserIds.length > 0 ? [...addTabUserIds].sort().join(',') : ''
+  const batchFetchInFlightRef = useRef(false)
 
   useEffect(() => {
     if (tab !== 'add' || addTabUserIds.length === 0 || !isOwnProfile) {
       setAddTabStatusIdsKey('')
+      batchFetchInFlightRef.current = false
       return
     }
+    if (batchFetchInFlightRef.current) return
     const idsKey = [...addTabUserIds].sort().join(',')
-    getAuthHeaders().then((headers) => {
-      if (!headers.Authorization) {
-        setAddTabStatusMap({})
-        setAddTabStatusIdsKey('')
-        return
-      }
-      fetch(`/api/users/friend-status?ids=${idsKey}`, { headers })
-        .then((res) => res.json().catch(() => ({ statuses: {} })))
-        .then((data) => {
-          setAddTabStatusMap(data.statuses ?? {})
-          setAddTabStatusIdsKey(idsKey)
-        })
-        .catch(() => {
+    batchFetchInFlightRef.current = true
+    const clearInFlight = () => { batchFetchInFlightRef.current = false }
+    getAuthHeaders()
+      .then((headers) => {
+        if (!headers.Authorization) {
           setAddTabStatusMap({})
-          setAddTabStatusIdsKey(idsKey)
-        })
-    })
+          setAddTabStatusIdsKey('')
+          clearInFlight()
+          return
+        }
+        fetch(`/api/users/friend-status?ids=${idsKey}`, { headers })
+          .then((res) => res.json().catch(() => ({ statuses: {} })))
+          .then((data) => {
+            setAddTabStatusMap(data.statuses ?? {})
+            setAddTabStatusIdsKey(idsKey)
+          })
+          .catch(() => {
+            setAddTabStatusMap({})
+            setAddTabStatusIdsKey(idsKey)
+          })
+          .finally(clearInFlight)
+      })
+      .catch(clearInFlight)
   }, [tab, isOwnProfile, addTabIdsKeySorted])
 
   useEffect(() => {
