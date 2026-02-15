@@ -49,20 +49,23 @@ export async function GET(request: NextRequest) {
     const userId = user.id
     const bulk = await fetchUserInteractionsBulk(userId)
 
-    const followingRes = await supabaseServer
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', userId)
-    const followingIds = (followingRes.data || []).map((r) => r.following_id)
+    const { data: friendRows } = await supabaseServer
+      .from('friend_requests')
+      .select('requester_id, addressee_id')
+      .eq('status', 'accepted')
+      .or('requester_id.eq.' + userId + ',addressee_id.eq.' + userId)
+    const friendIds = (friendRows || []).map((r) =>
+      r.requester_id === userId ? r.addressee_id : r.requester_id
+    )
 
     const friendsGoingByEventId = new Map<string, number>()
-    if (followingIds.length > 0) {
+    if (friendIds.length > 0) {
       const { data: goingRows } = await supabaseServer
         .from('user_interactions')
         .select('entity_id, user_id')
         .eq('entity_type', 'event')
         .eq('interaction_type', 'going')
-        .in('user_id', followingIds)
+        .in('user_id', friendIds)
       const eventToCount = new Map<string, number>()
       goingRows?.forEach((r) => {
         const eid = norm(r.entity_id)

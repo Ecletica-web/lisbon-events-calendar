@@ -3,10 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
-import FollowUserButton from './FollowUserButton'
 import AddFriendButton from './AddFriendButton'
 
-interface Follower {
+interface FriendUser {
   id: string
   displayName?: string | null
   avatarUrl?: string | null
@@ -31,13 +30,11 @@ interface FriendRequestOutgoing {
 
 interface ProfileFriendsSectionProps {
   userId: string
-  followersCount: number
-  followingCount: number
   friendsCount?: number
   isOwnProfile?: boolean
 }
 
-type TabType = 'followers' | 'following' | 'friends' | 'requests' | 'add'
+type TabType = 'friends' | 'requests' | 'add'
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const { supabase } = await import('@/lib/supabase/client')
@@ -50,21 +47,18 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 
 export default function ProfileFriendsSection({
   userId,
-  followersCount,
-  followingCount,
   friendsCount = 0,
   isOwnProfile = false,
 }: ProfileFriendsSectionProps) {
   const supabaseAuth = useSupabaseAuth()
   const supabaseConfigured = supabaseAuth?.isConfigured ?? false
-  const [tab, setTab] = useState<TabType>('followers')
-  const [list, setList] = useState<Follower[]>([])
-  const [friendsList, setFriendsList] = useState<Follower[]>([])
+  const [tab, setTab] = useState<TabType>('friends')
+  const [friendsList, setFriendsList] = useState<FriendUser[]>([])
   const [incomingRequests, setIncomingRequests] = useState<FriendRequestIncoming[]>([])
   const [outgoingRequests, setOutgoingRequests] = useState<FriendRequestOutgoing[]>([])
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Follower[]>([])
+  const [searchResults, setSearchResults] = useState<FriendUser[]>([])
   const [searching, setSearching] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
 
@@ -92,18 +86,7 @@ export default function ProfileFriendsSection({
   }, [isOwnProfile, supabaseConfigured, refreshRequests])
 
   useEffect(() => {
-    if (tab === 'followers' || tab === 'following') {
-      setLoading(true)
-      const endpoint = tab === 'followers' ? `/api/users/${userId}/followers` : `/api/users/${userId}/following`
-      fetch(endpoint)
-        .then((r) => r.json())
-        .then((data) => {
-          const items = tab === 'followers' ? data.followers ?? [] : data.following ?? []
-          setList(items)
-        })
-        .catch(() => setList([]))
-        .finally(() => setLoading(false))
-    } else if (tab === 'friends') {
+    if (tab === 'friends') {
       setLoading(true)
       fetch(`/api/users/${userId}/friends`)
         .then((r) => r.json())
@@ -142,7 +125,7 @@ export default function ProfileFriendsSection({
     idKey = 'id',
     action,
   }: {
-    user: Follower | FriendRequestIncoming | FriendRequestOutgoing
+    user: FriendUser | FriendRequestIncoming | FriendRequestOutgoing
     idKey?: 'id' | 'requesterId' | 'addresseeId'
     action?: React.ReactNode
   }) => {
@@ -178,8 +161,6 @@ export default function ProfileFriendsSection({
   }
 
   const tabs: { key: TabType; label: string; show: boolean }[] = [
-    { key: 'followers', label: `${followersCount} Followers`, show: true },
-    { key: 'following', label: `${followingCount} Following`, show: true },
     { key: 'friends', label: `${friendsCount} Friends`, show: true },
     {
       key: 'requests',
@@ -242,9 +223,7 @@ export default function ProfileFriendsSection({
                           size="sm"
                           onStatusChange={() => {}}
                         />
-                      ) : (
-                        <FollowUserButton targetUserId={u.id} size="sm" />
-                      )
+                      ) : null
                     }
                   />
                 ))}
@@ -265,7 +244,7 @@ export default function ProfileFriendsSection({
                     {incomingRequests.map((r) => (
                       <UserRow
                         key={r.id}
-                        user={{ ...r, id: r.requesterId } as Follower}
+                        user={{ ...r, id: r.requesterId } as FriendUser}
                         idKey="requesterId"
                         action={
                           <AddFriendButton
@@ -286,7 +265,7 @@ export default function ProfileFriendsSection({
                     {outgoingRequests.map((r) => (
                       <UserRow
                         key={r.id}
-                        user={{ ...r, id: r.addresseeId } as Follower}
+                        user={{ ...r, id: r.addresseeId } as FriendUser}
                         idKey="addresseeId"
                         action={
                           <AddFriendButton
@@ -322,30 +301,7 @@ export default function ProfileFriendsSection({
               ))}
             </ul>
           )
-        ) : loading ? (
-          <p className="text-slate-500 text-sm">Loading...</p>
-        ) : list.length === 0 ? (
-          <p className="text-slate-500 text-sm">
-            {tab === 'followers' ? 'No followers yet.' : 'Not following anyone yet.'}
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {list.map((u) => (
-              <UserRow
-                key={u.id}
-                user={u}
-                action={
-                  !isOwnProfile &&
-                  (supabaseConfigured ? (
-                    <AddFriendButton targetUserId={u.id} size="sm" />
-                  ) : (
-                    <FollowUserButton targetUserId={u.id} size="sm" />
-                  ))
-                }
-              />
-            ))}
-          </ul>
-        )}
+        ) : null}
       </div>
     </div>
   )

@@ -34,21 +34,28 @@ export async function GET(
 
     const goingUserIds = [...new Set(goingRows.map((r) => r.user_id))]
 
-    const { data: followRows } = await supabaseServer
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', viewerId)
-      .in('following_id', goingUserIds)
+    const { data: friendRows } = await supabaseServer
+      .from('friend_requests')
+      .select('requester_id, addressee_id')
+      .eq('status', 'accepted')
+      .or('requester_id.eq.' + viewerId + ',addressee_id.eq.' + viewerId)
 
-    if (!followRows || followRows.length === 0) {
+    if (!friendRows || friendRows.length === 0) {
       return NextResponse.json({ users: [] })
     }
 
-    const friendIds = followRows.map((r) => r.following_id)
+    const friendIds = friendRows.map((r) =>
+      r.requester_id === viewerId ? r.addressee_id : r.requester_id
+    )
+    const friendIdsInGoing = friendIds.filter((id) => goingUserIds.includes(id))
+
+    if (friendIdsInGoing.length === 0) {
+      return NextResponse.json({ users: [] })
+    }
     const { data: profiles } = await supabaseServer
       .from('user_profiles')
       .select('id, display_name, avatar_url, username')
-      .in('id', friendIds)
+      .in('id', friendIdsInGoing)
 
     const users = (profiles || []).map((p) => ({
       id: p.id,

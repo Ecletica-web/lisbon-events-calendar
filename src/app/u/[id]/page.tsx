@@ -5,7 +5,6 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
-import FollowUserButton from '@/components/FollowUserButton'
 import AddFriendButton from '@/components/AddFriendButton'
 import ProfileFriendsSection from '@/components/ProfileFriendsSection'
 import EventModal from '@/app/calendar/components/EventModal'
@@ -18,8 +17,6 @@ interface ProfileData {
   bio?: string | null
   username?: string | null
   coverUrl?: string | null
-  followersCount: number
-  followingCount: number
   friendsCount?: number
   eventVisibility?: 'public' | 'friends_only'
 }
@@ -168,7 +165,7 @@ export default function PublicProfilePage() {
                   (supabaseAuth?.isConfigured ? (
                     <AddFriendButton targetUserId={profileData.id} />
                   ) : (
-                    <FollowUserButton targetUserId={profileData.id} />
+                    <AddFriendButton targetUserId={profileData.id} />
                   ))}
               </div>
             </div>
@@ -178,8 +175,6 @@ export default function PublicProfilePage() {
               <h2 className="text-xl font-semibold mb-4 text-slate-200">Friends</h2>
               <ProfileFriendsSection
                 userId={profileData.id}
-                followersCount={profileData.followersCount}
-                followingCount={profileData.followingCount}
                 friendsCount={profileData.friendsCount ?? 0}
                 isOwnProfile={false}
               />

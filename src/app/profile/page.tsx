@@ -21,8 +21,6 @@ interface ProfileData {
   bio?: string | null
   username?: string | null
   coverUrl?: string | null
-  followersCount: number
-  followingCount: number
   friendsCount?: number
 }
 
@@ -378,8 +376,6 @@ export default function ProfilePage() {
             <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Friends</h2>
             <ProfileFriendsSection
               userId={profileData.id}
-              followersCount={profileData.followersCount}
-              followingCount={profileData.followingCount}
               friendsCount={profileData.friendsCount ?? 0}
               isOwnProfile
             />

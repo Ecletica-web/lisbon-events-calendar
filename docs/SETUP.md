@@ -75,8 +75,9 @@ If you use Supabase, run **all** migrations in `supabase/migrations/` **in numer
 | 011_friend_requests_event_visibility | Friend requests and event visibility |
 | 012_user_interactions_activity | User interactions / activity |
 | 013_friend_requests_delete_policy | RLS policy for friend request delete |
+| 014_drop_user_follows | Drops user-to-user follows table (friends only; see docs/FRIENDS_VS_FOLLOWS.md) |
 
-Details: [SUPABASE_SETUP.md](../SUPABASE_SETUP.md).
+Details: [SUPABASE_SETUP.md](../SUPABASE_SETUP.md). See [docs/FRIENDS_VS_FOLLOWS.md](FRIENDS_VS_FOLLOWS.md) for friends vs follow distinction.
 
 ---
 
@@ -85,3 +86,4 @@ Details: [SUPABASE_SETUP.md](../SUPABASE_SETUP.md).
 - **CSV column contract:** [docs/SCHEMA.md](SCHEMA.md)
 - **Supabase auth and OAuth:** [SUPABASE_SETUP.md](../SUPABASE_SETUP.md), [OAUTH_SETUP.md](../OAUTH_SETUP.md)
 - **Features and roadmap:** [docs/MASTER_TASK_LIST_ARCHITECTURE.md](MASTER_TASK_LIST_ARCHITECTURE.md)
+- **Friends vs follow distinction:** [docs/FRIENDS_VS_FOLLOWS.md](FRIENDS_VS_FOLLOWS.md)

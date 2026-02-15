@@ -26,7 +26,7 @@ Single entrypoint for understanding this codebase. Keep this file short; update 
 | Events listing / fetch | `lib/eventsAdapter.ts` (fetchEvents), `data/loaders/eventsLoader.ts` |
 | Calendar UI | `app/calendar/page.tsx`, `app/calendar/components/` (EventModal, EventListView, etc.) |
 | Event actions (like, going, save, interested) | `lib/eventActions.ts`, `lib/userActions.ts` |
-| Profile, social, follows | `lib/db/schema.ts` (types), `lib/profileApi.ts` (parse profile update body); profile UI in `app/profile/`, `components/Profile*` |
+| Profile, social, friends | `lib/db/schema.ts` (types), `lib/profileApi.ts` (parse profile update body), `lib/friendRequests.ts`; profile UI in `app/profile/`, `components/Profile*`. See docs/FRIENDS_VS_FOLLOWS.md for friends vs follow distinction. |
 | Venues / promoters pages | `app/venues/`, `app/promoters/`; data from `eventsAdapter` (fetchVenues, fetchPromoters) |
 | Saved views, personas | `lib/savedViews.ts`, `lib/savedViewsSync.ts`; personas API under `app/api/personas/` |
 | For You / recommendations | `app/api/foryou/route.ts`, `lib/recommendationEngine.ts` |
@@ -34,5 +34,6 @@ Single entrypoint for understanding this codebase. Keep this file short; update 
 ## Docs
 
 - **Setup and env checklist:** `docs/SETUP.md`
+- **Friends vs follow distinction:** `docs/FRIENDS_VS_FOLLOWS.md`
 - **CSV/schema contract:** `docs/SCHEMA.md`
 - **Features and phases:** `docs/MASTER_TASK_LIST_ARCHITECTURE.md`

@@ -34,8 +34,9 @@ Run **all** SQL migrations in **numeric order** in your Supabase project's SQL E
 | 11 | 011_friend_requests_event_visibility.sql | Friend requests and event visibility |
 | 12 | 012_user_interactions_activity.sql | User interactions / activity |
 | 13 | 013_friend_requests_delete_policy.sql | RLS policy for friend request delete |
+| 14 | 014_drop_user_follows.sql | Drops user-to-user follows table (friends only; see docs/FRIENDS_VS_FOLLOWS.md) |
 
-All tables use Row Level Security (RLS) so users can only access their own data. For a full env and migration checklist, see [docs/SETUP.md](docs/SETUP.md).
+All tables use Row Level Security (RLS) so users can only access their own data. For a full env and migration checklist, see [docs/SETUP.md](docs/SETUP.md). For friends vs follow distinction, see [docs/FRIENDS_VS_FOLLOWS.md](docs/FRIENDS_VS_FOLLOWS.md).
 
 ## 3. Key Files
 
