@@ -1,0 +1,12 @@
+---
+description: API route conventions — thin handlers, lib/data for logic, consistent responses
+globs: src/app/api/**/*.ts
+alwaysApply: false
+---
+
+# API conventions
+
+- **Thin handlers** — Route files should parse the request, call one or two functions from `lib/` or `data/`, and return JSON. If a route grows past ~40 lines, move logic into a `lib/` module.
+- **Responses** — Use `NextResponse.json(body)` for success and errors. Prefer a consistent error shape, e.g. `{ error: string }` with an appropriate status code (400, 401, 404, 500).
+- **No inline business logic** — Validation, DB access, and data transformation belong in `lib/` or `data/`; the route only wires HTTP to those functions.
+- **Document exceptions** — If a route does more than "call one lib function" (e.g. special auth or multi-step flow), add a short comment at the top of the handler explaining why.

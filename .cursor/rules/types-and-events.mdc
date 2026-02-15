@@ -1,0 +1,12 @@
+---
+description: Event pipeline — models/Event, loaders, eventsAdapter; no ad-hoc event fetching
+globs: "src/lib/eventsAdapter.ts,src/data/loaders/eventsLoader.ts,src/models/Event.ts"
+alwaysApply: false
+---
+
+# Events and types
+
+- **Canonical event type** — Domain shape is in `models/Event`. CSV columns are defined in `data/schema/eventColumns.ts`; see `docs/SCHEMA.md` for the contract.
+- **Pipeline** — CSV/Sheets → `data/loaders/eventsLoader` (loadEvents, filterEventsForListing) → `lib/eventsAdapter` (fetchEvents, NormalizedEvent for FullCalendar). Venues and promoters flow through the same adapter (fetchVenues, fetchPromoters).
+- **Single public API** — Use `lib/eventsAdapter` for all "get events/venues/promoters" and filtering. Do not add new ad-hoc fetch paths or duplicate types. Do not use `lib/events.ts` (legacy/deprecated).
+- **Extending** — To add fields or behavior: extend the loader or adapter in place, or add a small helper in the same layer; keep one pipeline.

@@ -19,10 +19,11 @@ A read-only, Google Calendar-like event calendar for Lisbon cultural events.
    npm install
    ```
 
-2. Create `.env.local` file:
+2. Create `.env.local` from the example and add at least the events CSV URL:
    ```bash
-   cp .env.local.example .env.local
+   cp .env.example .env.local
    ```
+   Set `NEXT_PUBLIC_EVENTS_CSV_URL` (required). For the full list of optional variables (venues, tags, Supabase, NextAuth), see [docs/SETUP.md](docs/SETUP.md).
 
 3. Add your Google Sheets CSV URL to `.env.local`:
    ```
@@ -43,24 +44,14 @@ A read-only, Google Calendar-like event calendar for Lisbon cultural events.
 
 5. Open [http://localhost:3000/calendar](http://localhost:3000/calendar)
 
+**Further setup:** Auth and user actions (Supabase), OAuth, and database migrations are documented in [docs/SETUP.md](docs/SETUP.md), [SUPABASE_SETUP.md](SUPABASE_SETUP.md), and [OAUTH_SETUP.md](OAUTH_SETUP.md).
+
 ## CSV Format
 
-Expected columns in your Google Sheet:
-
-- `id` (string, required) - Stable unique identifier
-- `title` (string, required) - Event title
-- `start_datetime` (ISO string, required) - Start date/time in Lisbon timezone
-- `end_datetime` (ISO string, optional) - End date/time
-- `venue_name` (string, optional) - Venue name
-- `tags` (comma-separated string, optional) - Event tags
-- `source_url` (URL string, optional) - Source link
-
-Rows missing `id`, `title`, or `start_datetime` will be ignored.
+Minimum for events: `id` (or `event_id`), `title`, `start_datetime`. Optional: `end_datetime`, `venue_name`, `tags`, `source_url`, and many more. Full column reference: [docs/SCHEMA.md](docs/SCHEMA.md). Rows missing required fields are ignored.
 
 ## Tech Stack
 
-- Next.js 14 (App Router)
-- TypeScript
-- Tailwind CSS
-- FullCalendar
-- PapaParse (CSV parsing)
+- Next.js 14 (App Router), TypeScript, Tailwind CSS
+- FullCalendar, PapaParse (CSV parsing)
+- Supabase (auth, profiles, follows, likes, saved views), NextAuth (fallback)

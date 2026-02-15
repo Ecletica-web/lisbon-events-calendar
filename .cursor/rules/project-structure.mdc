@@ -1,0 +1,14 @@
+---
+description: Where code lives — app, components, lib, data, models. API routes stay thin.
+alwaysApply: true
+---
+
+# Project structure
+
+- **app/** — Routes and route handlers only. Pages in `app/**/page.tsx`; API handlers in `app/api/**/route.ts`. No business logic in route files; call `lib/` or `data/`.
+- **components/** — Shared UI components used across pages. Prefer `@/components/` for imports.
+- **lib/** — Shared logic: auth, adapters (e.g. eventsAdapter), utilities, hooks. API routes and pages call lib for behavior.
+- **data/** — Loaders (CSV/Sheets → normalized data), schema (column names), canonical data (venues, tag lists). Use `data/loaders/*` and `data/schema/*`; do not put API or UI here.
+- **models/** — Domain types (Event, Venue, Promoter, etc.). Types live here; logic in lib or data.
+
+When adding code: new API route → thin handler in `app/api/` calling `lib/` or `data/`. New shared UI → `components/`. New event/venue logic → extend `lib/eventsAdapter` or `data/loaders/`, not ad-hoc files.

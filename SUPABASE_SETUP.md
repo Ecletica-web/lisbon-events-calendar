@@ -17,22 +17,25 @@ When these are set, the app uses **Supabase Auth** (email/password) and persists
 
 ## 2. Database Migration
 
-Run the SQL migrations in order in your Supabase project's SQL Editor:
+Run **all** SQL migrations in **numeric order** in your Supabase project's SQL Editor. Files are in `supabase/migrations/`:
 
-1. **001_user_actions.sql** – Creates:
-   - `user_profiles` – optional profile data synced from auth.users
-   - `user_follow_venues` – followed venues (venue_id TEXT)
-   - `user_follow_promoters` – followed promoters (promoter_id TEXT)
-   - `user_wishlist_events` – wishlisted events (event_id TEXT) – legacy, now using event_user_actions
-   - `user_like_events` – liked events (event_id TEXT)
+| Order | File | Purpose |
+|-------|------|---------|
+| 1 | 001_user_actions.sql | user_profiles, user_follow_venues, user_follow_promoters, user_wishlist_events, user_like_events |
+| 2 | 002_event_user_actions.sql | Event interactions: going, interested, saved, reminder |
+| 3 | 003_user_profiles_extend.sql | display_name, avatar_url, bio, location, social_link, private_mode |
+| 4 | 004_wishlist_to_event_actions.sql | Backfill wishlist into event_user_actions(saved) |
+| 5 | 005_follows.sql | User-to-user follows (asymmetric) |
+| 6 | 006_profile_cover_username.sql | cover_url, username on user_profiles |
+| 7 | 007_profile_storage_bucket.sql | Storage bucket for profile assets |
+| 8 | 008_user_profile_notifications.sql | Notification settings |
+| 9 | 009_notify_venues_personas_promoters.sql | Venue/persona/promoter notifications |
+| 10 | 010_onboarding.sql | Onboarding fields on user_profiles |
+| 11 | 011_friend_requests_event_visibility.sql | Friend requests and event visibility |
+| 12 | 012_user_interactions_activity.sql | User interactions / activity |
+| 13 | 013_friend_requests_delete_policy.sql | RLS policy for friend request delete |
 
-2. **002_event_user_actions.sql** – Event interactions: going, interested, saved, reminder (and optional went later)
-
-3. **003_user_profiles_extend.sql** – Adds display_name, avatar_url, bio, location, social_link, private_mode to user_profiles
-
-4. **004_wishlist_to_event_actions.sql** – Backfills existing wishlist data into event_user_actions(saved)
-
-All tables use Row Level Security (RLS) so users can only access their own data.
+All tables use Row Level Security (RLS) so users can only access their own data. For a full env and migration checklist, see [docs/SETUP.md](docs/SETUP.md).
 
 ## 3. Key Files
 

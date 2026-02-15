@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { supabaseServer } from '@/lib/supabase/server'
+import { supabaseServer, createAuthenticatedClient } from '@/lib/supabase/server'
+import { parseProfileUpdateBody } from '@/lib/profileApi'
 
-function createUserClient(accessToken: string) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  return createClient(url, anonKey, {
-    global: { headers: { Authorization: `Bearer ${accessToken}` } },
-  })
+function getBearer(request: NextRequest): string | null {
+  const authHeader = request.headers.get('authorization')
+  return authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
 }
 
 export async function PATCH(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+  const bearer = getBearer(request)
   if (!bearer) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -27,95 +23,20 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
-    // Use service role (bypasses RLS) when available; otherwise user-scoped client
-    const hasServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY
-    const dbClient = hasServiceRole ? supabaseServer : createUserClient(bearer)
-    const body = await request.json()
-    const updates: Record<string, unknown> = {}
-
-    if (typeof body.cover_url === 'string') {
-      updates.cover_url = body.cover_url || null
-    }
-    if (typeof body.username === 'string') {
-      const u = body.username.trim().toLowerCase()
-      if (u.length > 0) {
-        if (u.length < 3 || u.length > 30) {
-          return NextResponse.json(
-            { error: 'Username must be 3–30 characters' },
-            { status: 400 }
-          )
-        }
-        if (!/^[a-z0-9_]+$/.test(u)) {
-          return NextResponse.json(
-            { error: 'Username can only contain lowercase letters, numbers, and underscores' },
-            { status: 400 }
-          )
-        }
-        updates.username = u
-      } else {
-        updates.username = null
-      }
-    }
-    if (typeof body.bio === 'string') {
-      const b = body.bio.trim()
-      if (b.length > 200) {
-        return NextResponse.json({ error: 'Bio must be 200 characters or less' }, { status: 400 })
-      }
-      updates.bio = b || null
-    }
-    if (typeof body.display_name === 'string') {
-      updates.display_name = body.display_name.trim() || null
-    }
-    if (typeof body.avatar_url === 'string') {
-      updates.avatar_url = body.avatar_url || null
-    }
-    if (typeof body.event_visibility === 'string' && ['public', 'friends_only'].includes(body.event_visibility)) {
-      updates.event_visibility = body.event_visibility
+    const body = await request.json().catch(() => null)
+    const result = parseProfileUpdateBody(body)
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: result.status })
     }
 
-    // Onboarding preferences (standalone /onboarding page; not tied to auth flow)
-    if (typeof body.onboarding_complete === 'boolean') {
-      updates.onboarding_complete = body.onboarding_complete
-    }
-    if (typeof body.onboarding_intent === 'string') {
-      updates.onboarding_intent = body.onboarding_intent.trim() || null
-    }
-    if (Array.isArray(body.onboarding_tags)) {
-      updates.onboarding_tags = body.onboarding_tags.filter((t: unknown) => typeof t === 'string' && t.trim())
-    }
-    if (typeof body.onboarding_vibe === 'string') {
-      updates.onboarding_vibe = body.onboarding_vibe.trim() || null
-    }
-    if (typeof body.onboarding_free_only === 'boolean') {
-      updates.onboarding_free_only = body.onboarding_free_only
-    }
-    if (typeof body.onboarding_english_friendly === 'boolean') {
-      updates.onboarding_english_friendly = body.onboarding_english_friendly
-    }
-    if (typeof body.onboarding_accessible === 'boolean') {
-      updates.onboarding_accessible = body.onboarding_accessible
-    }
-    if (typeof body.onboarding_avoid_sold_out === 'boolean') {
-      updates.onboarding_avoid_sold_out = body.onboarding_avoid_sold_out
-    }
-    if (typeof body.onboarding_near_me === 'boolean') {
-      updates.onboarding_near_me = body.onboarding_near_me
-    }
-    if (typeof body.onboarding_lat === 'number') {
-      updates.onboarding_lat = body.onboarding_lat
-    }
-    if (typeof body.onboarding_lng === 'number') {
-      updates.onboarding_lng = body.onboarding_lng
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
-    }
+    const dbClient = process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? supabaseServer
+      : createAuthenticatedClient(bearer) ?? supabaseServer
 
     const { data, error } = await dbClient
       .from('user_profiles')
       .upsert(
-        { id: user.id, ...updates, updated_at: new Date().toISOString() },
+        { id: user.id, ...result.updates, updated_at: new Date().toISOString() },
         { onConflict: 'id' }
       )
       .select()
