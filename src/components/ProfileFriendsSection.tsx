@@ -111,11 +111,21 @@ export default function ProfileFriendsSection({
 
   const prevTabRef = useRef<TabType | null>(null)
   const lastFriendsFetchRef = useRef(0)
+  const hasLoadedFriendsOnceRef = useRef(false)
   const FRIENDS_FETCH_THROTTLE_MS = 2000
 
   useEffect(() => {
     if (isOwnProfile && supabaseConfigured) refreshRequests()
   }, [isOwnProfile, supabaseConfigured, refreshRequests])
+
+  // Load friends list when section mounts with Friends tab (ensures list shows even if tab effect runs late)
+  useEffect(() => {
+    if (!userId || tab !== 'friends') return
+    if (!hasLoadedFriendsOnceRef.current) {
+      hasLoadedFriendsOnceRef.current = true
+      refreshFriends(false)
+    }
+  }, [userId, tab, refreshFriends])
 
   useEffect(() => {
     const prevTab = prevTabRef.current
