@@ -94,7 +94,7 @@ export default function ProfileFriendsSection({
     async (showLoading = true) => {
       if (showLoading) setLoading(true)
       try {
-        const res = await fetch(`/api/users/${userId}/friends`)
+        const res = await fetch(`/api/users/${userId}/friends`, { cache: 'no-store' })
         const data = await res.json().catch(() => ({}))
         const list = res.ok && Array.isArray(data.friends) ? data.friends : []
         setFriendsList(list)
@@ -409,7 +409,21 @@ export default function ProfileFriendsSection({
                             status="pending_received"
                             onStatusChange={(s) => {
                               refreshRequests()
-                              if (s === 'friends') refreshFriends(false)
+                              if (s === 'friends') {
+                                const newFriend: FriendUser = {
+                                  id: r.requesterId,
+                                  displayName: r.displayName ?? null,
+                                  avatarUrl: r.avatarUrl ?? null,
+                                  username: r.username ?? null,
+                                }
+                                setFriendsList((prev) => {
+                                  if (prev.some((f) => f.id === newFriend.id)) return prev
+                                  const next = [...prev, newFriend]
+                                  onFriendsCountChangeRef.current?.(next.length)
+                                  return next
+                                })
+                                refreshFriends(false)
+                              }
                             }}
                           />
                         }
