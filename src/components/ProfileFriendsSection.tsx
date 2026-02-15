@@ -94,7 +94,8 @@ export default function ProfileFriendsSection({
     async (showLoading = true) => {
       if (showLoading) setLoading(true)
       try {
-        const res = await fetch(`/api/users/${userId}/friends`, { cache: 'no-store' })
+        const headers = await getAuthHeaders()
+        const res = await fetch(`/api/users/${userId}/friends`, { cache: 'no-store', headers })
         const data = await res.json().catch(() => ({}))
         const list = res.ok && Array.isArray(data.friends) ? data.friends : []
         setFriendsList(list)

@@ -1,13 +1,19 @@
 /**
- * List friends (accepted friend requests)
+ * List friends (accepted friend requests).
+ * Uses authenticated client when Bearer token is sent so RLS allows reading friend_requests.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseServer } from '@/lib/supabase/server'
+import { supabaseServer, createAuthenticatedClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
+function getBearer(request: NextRequest): string | null {
+  const authHeader = request.headers.get('authorization')
+  return authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+}
+
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   const { id: userId } = await context.params
@@ -15,7 +21,10 @@ export async function GET(
 
   if (!supabaseServer) return NextResponse.json({ friends: [] })
 
-  const { data: rows, error: frError } = await supabaseServer
+  const bearer = getBearer(request)
+  const supabase = bearer ? (createAuthenticatedClient(bearer) ?? supabaseServer) : supabaseServer
+
+  const { data: rows, error: frError } = await supabase
     .from('friend_requests')
     .select('requester_id, addressee_id')
     .eq('status', 'accepted')
@@ -32,7 +41,7 @@ export async function GET(
 
   if (friendIds.length === 0) return NextResponse.json({ friends: [] })
 
-  const { data: profiles } = await supabaseServer
+  const { data: profiles } = await supabase
     .from('user_profiles')
     .select('id, display_name, avatar_url, username')
     .in('id', friendIds)

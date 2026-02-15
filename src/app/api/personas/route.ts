@@ -21,24 +21,57 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  let userId: string | null = null
+  let isGuest = false
   try {
-    const { userId, isGuest } = await resolveUserId(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    if (isGuest) {
-      return NextResponse.json({ error: 'Guest cannot save data. Sign in to create personas.' }, { status: 403 })
-    }
-    const body = await request.json()
-    const { title, descriptionShort, rules, isPublic } = body
-    if (!title || !rules) {
-      return NextResponse.json({ error: 'Title and rules are required' }, { status: 400 })
-    }
-    const rulesJson = JSON.stringify(rules as PersonaRules)
-    const persona = createPersona(userId, title, rulesJson, descriptionShort, !!isPublic)
+    const resolved = await resolveUserId(request)
+    userId = resolved.userId
+    isGuest = resolved.isGuest
+  } catch (authError) {
+    console.error('Create persona auth error:', authError)
+    return NextResponse.json({ error: 'Authentication failed' }, { status: 401 })
+  }
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  if (isGuest) {
+    return NextResponse.json({ error: 'Guest cannot save data. Sign in to create personas.' }, { status: 403 })
+  }
+
+  let body: Record<string, unknown>
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
+  const { title, descriptionShort, rules, isPublic } = body
+  if (!title || typeof title !== 'string' || !title.trim()) {
+    return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+  }
+  if (rules === undefined || rules === null) {
+    return NextResponse.json({ error: 'Rules are required' }, { status: 400 })
+  }
+  if (typeof rules !== 'object' || Array.isArray(rules)) {
+    return NextResponse.json({ error: 'Rules must be an object' }, { status: 400 })
+  }
+
+  let rulesJson: string
+  try {
+    rulesJson = JSON.stringify(rules as PersonaRules)
+  } catch {
+    return NextResponse.json({ error: 'Invalid rules format' }, { status: 400 })
+  }
+
+  try {
+    const persona = createPersona(userId, title.trim(), rulesJson, descriptionShort as string | undefined, !!isPublic)
     return NextResponse.json({ persona })
   } catch (error) {
-    console.error('Create persona error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const err = error instanceof Error ? error : new Error(String(error))
+    console.error('Create persona error:', err.message, err)
+    const isFileError = err.message?.includes('ENOENT') || err.message?.includes('EACCES') || err.message?.includes('EPERM')
+    return NextResponse.json(
+      { error: isFileError ? 'Unable to save persona. Storage may be read-only or unavailable.' : 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
