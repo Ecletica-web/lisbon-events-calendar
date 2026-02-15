@@ -35,6 +35,7 @@ export default function AddFriendButton({
   const [error, setError] = useState<string | null>(null)
   const onStatusChangeRef = useRef(onStatusChange)
   onStatusChangeRef.current = onStatusChange
+  const versionRef = useRef(0)
 
   const refresh = useCallback(async () => {
     setError(null)
@@ -42,15 +43,18 @@ export default function AddFriendButton({
       setChecked(true)
       return
     }
+    const v = versionRef.current
     try {
       const s = await getFriendStatus(viewer.id, targetUserId)
-      setStatus(s)
-      onStatusChangeRef.current?.(s)
+      if (versionRef.current === v) {
+        setStatus(s)
+        onStatusChangeRef.current?.(s)
+      }
     } catch (e) {
       console.error('AddFriendButton: getFriendStatus failed', e)
-      setStatus(null)
+      if (versionRef.current === v) setStatus(null)
     } finally {
-      setChecked(true)
+      if (versionRef.current === v) setChecked(true)
     }
   }, [supabaseConfigured, viewer?.id, targetUserId])
 
@@ -75,13 +79,16 @@ export default function AddFriendButton({
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok) {
+        versionRef.current += 1
         setStatus('pending_sent')
-        onStatusChange?.('pending_sent')
+        onStatusChangeRef.current?.('pending_sent')
       } else if (data.action === 'already_friends') {
+        versionRef.current += 1
         setStatus('friends')
       } else if (data.action === 'already_sent') {
+        versionRef.current += 1
         setStatus('pending_sent')
-        onStatusChange?.('pending_sent')
+        onStatusChangeRef.current?.('pending_sent')
       } else {
         setError(data.error || `Failed to send request (${res.status})`)
       }
@@ -103,7 +110,10 @@ export default function AddFriendButton({
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ action: 'accept' }),
       })
-      if (res.ok) setStatus('friends')
+      if (res.ok) {
+        versionRef.current += 1
+        setStatus('friends')
+      }
     } catch (e) {
       console.error('Accept friend request error:', e)
     } finally {
@@ -121,8 +131,9 @@ export default function AddFriendButton({
         headers,
       })
       if (res.ok) {
+        versionRef.current += 1
         setStatus(null)
-        onStatusChange?.(null)
+        onStatusChangeRef.current?.(null)
       }
     } catch (e) {
       console.error('Friend request action error:', e)

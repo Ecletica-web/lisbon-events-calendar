@@ -24,6 +24,15 @@ export function getFullInviteText(): string {
   return `${getAppInviteMessage()} ${getAppUrl()}`
 }
 
+/** Invite text when sharing your profile (invite to your calendar) */
+export function getProfileInviteMessage(): string {
+  return 'Invite friends to your calendar — here’s my profile:'
+}
+
+export function getFullProfileInviteText(profileUrl: string): string {
+  return `${getProfileInviteMessage()} ${profileUrl}`
+}
+
 export function supportsShare(): boolean {
   return typeof navigator !== 'undefined' && !!navigator.share
 }
