@@ -10,6 +10,8 @@ interface AddFriendButtonProps {
   targetUserId: string
   size?: 'sm' | 'md'
   onStatusChange?: (status: FriendStatus) => void
+  /** When set, use this status and do not fetch (avoids N concurrent requests in lists) */
+  status?: FriendStatus
 }
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
@@ -25,13 +27,14 @@ export default function AddFriendButton({
   targetUserId,
   size = 'md',
   onStatusChange,
+  status: controlledStatus,
 }: AddFriendButtonProps) {
   const supabaseAuth = useSupabaseAuth()
   const viewer = supabaseAuth?.user
   const supabaseConfigured = supabaseAuth?.isConfigured ?? false
-  const [status, setStatus] = useState<FriendStatus>(null)
+  const [internalStatus, setInternalStatus] = useState<FriendStatus>(null)
   const [loading, setLoading] = useState(false)
-  const [checked, setChecked] = useState(false)
+  const [checked, setChecked] = useState(controlledStatus !== undefined)
   const [error, setError] = useState<string | null>(null)
   const onStatusChangeRef = useRef(onStatusChange)
   onStatusChangeRef.current = onStatusChange
@@ -39,10 +42,13 @@ export default function AddFriendButton({
   const effectRunIdRef = useRef(0)
 
   const viewerId = viewer?.id
+  const isControlled = controlledStatus !== undefined
+  const status = isControlled ? controlledStatus : internalStatus
+  const isChecked = isControlled ? true : checked
 
   useEffect(() => {
-    if (!supabaseConfigured || !viewerId || viewerId === targetUserId) {
-      setChecked(true)
+    if (isControlled || !supabaseConfigured || !viewerId || viewerId === targetUserId) {
+      if (!isControlled) setChecked(true)
       return
     }
     const runId = ++effectRunIdRef.current
@@ -51,18 +57,18 @@ export default function AddFriendButton({
     getFriendStatus(viewerId, targetUserId)
       .then((s) => {
         if (versionRef.current === v && effectRunIdRef.current === runId) {
-          setStatus(s)
+          setInternalStatus(s)
           onStatusChangeRef.current?.(s)
         }
       })
       .catch((e) => {
         console.error('AddFriendButton: getFriendStatus failed', e)
-        if (versionRef.current === v && effectRunIdRef.current === runId) setStatus(null)
+        if (versionRef.current === v && effectRunIdRef.current === runId) setInternalStatus(null)
       })
       .finally(() => {
         if (effectRunIdRef.current === runId) setChecked(true)
       })
-  }, [supabaseConfigured, viewerId, targetUserId])
+  }, [isControlled, supabaseConfigured, viewerId, targetUserId])
 
   const handleSendRequest = async () => {
     if (!viewer || loading) return
@@ -82,14 +88,15 @@ export default function AddFriendButton({
       const data = await res.json().catch(() => ({}))
       if (res.ok) {
         versionRef.current += 1
-        setStatus('pending_sent')
+        if (!isControlled) setInternalStatus('pending_sent')
         onStatusChangeRef.current?.('pending_sent')
       } else if (data.action === 'already_friends') {
         versionRef.current += 1
-        setStatus('friends')
+        if (!isControlled) setInternalStatus('friends')
+        onStatusChangeRef.current?.('friends')
       } else if (data.action === 'already_sent') {
         versionRef.current += 1
-        setStatus('pending_sent')
+        if (!isControlled) setInternalStatus('pending_sent')
         onStatusChangeRef.current?.('pending_sent')
       } else {
         setError(data.error || `Failed to send request (${res.status})`)
@@ -114,7 +121,8 @@ export default function AddFriendButton({
       })
       if (res.ok) {
         versionRef.current += 1
-        setStatus('friends')
+        if (!isControlled) setInternalStatus('friends')
+        onStatusChangeRef.current?.('friends')
       }
     } catch (e) {
       console.error('Accept friend request error:', e)
@@ -134,7 +142,7 @@ export default function AddFriendButton({
       })
       if (res.ok) {
         versionRef.current += 1
-        setStatus(null)
+        if (!isControlled) setInternalStatus(null)
         onStatusChangeRef.current?.(null)
       }
     } catch (e) {
@@ -155,14 +163,14 @@ export default function AddFriendButton({
       <div className="flex items-center gap-1">
         <button
           onClick={handleAccept}
-          disabled={loading || !checked}
+          disabled={loading || !isChecked}
           className={`${baseClass} bg-indigo-600/80 text-white hover:bg-indigo-500`}
         >
           {loading ? '...' : 'Accept'}
         </button>
         <button
           onClick={handleRejectOrCancelOrUnfriend}
-          disabled={loading || !checked}
+          disabled={loading || !isChecked}
           className={`${baseClass} border border-slate-600/50 text-slate-300 hover:bg-slate-700/80`}
         >
           Decline
@@ -175,7 +183,7 @@ export default function AddFriendButton({
     return (
       <button
         onClick={handleRejectOrCancelOrUnfriend}
-        disabled={loading || !checked}
+        disabled={loading || !isChecked}
         className={`${baseClass} bg-slate-700/60 text-slate-300 border border-slate-600/50 hover:bg-slate-600/80`}
         title="Unfriend"
       >
@@ -188,7 +196,7 @@ export default function AddFriendButton({
     return (
       <button
         onClick={handleRejectOrCancelOrUnfriend}
-        disabled={loading || !checked}
+        disabled={loading || !isChecked}
         className={`${baseClass} border border-slate-600/50 text-slate-400 hover:bg-slate-700/80`}
         title="Cancel request"
       >
@@ -202,7 +210,7 @@ export default function AddFriendButton({
       {error && <span className="text-xs text-red-400">{error}</span>}
       <button
         onClick={handleSendRequest}
-        disabled={loading || !checked}
+        disabled={loading || !isChecked}
         className={`${baseClass} bg-indigo-600/80 text-white hover:bg-indigo-500`}
       >
         {loading ? '...' : 'Add friend'}

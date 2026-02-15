@@ -63,6 +63,9 @@ export default function ProfileFriendsSection({
   const [browseLoading, setBrowseLoading] = useState(false)
   const [searching, setSearching] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
+  type FriendStatus = 'friends' | 'pending_sent' | 'pending_received' | null
+  const [addTabStatusMap, setAddTabStatusMap] = useState<Record<string, FriendStatus>>({})
+  const [addTabStatusIdsKey, setAddTabStatusIdsKey] = useState('')
 
   const refreshRequests = useCallback(async () => {
     if (!isOwnProfile || !supabaseConfigured) return
@@ -156,6 +159,39 @@ export default function ProfileFriendsSection({
       fetchBrowse()
     }
   }, [tab, isOwnProfile, browseList.length, browseLoading, fetchBrowse])
+
+  const currentUserId = supabaseAuth?.user?.id
+  const addTabUserIds = tab === 'add'
+    ? (searchQuery.trim().length >= 2 ? searchResults : browseList)
+        .filter((u) => u.id !== currentUserId)
+        .map((u) => u.id)
+    : []
+  const addTabIdsKeySorted = addTabUserIds.length > 0 ? [...addTabUserIds].sort().join(',') : ''
+
+  useEffect(() => {
+    if (tab !== 'add' || addTabUserIds.length === 0 || !isOwnProfile) {
+      setAddTabStatusIdsKey('')
+      return
+    }
+    const idsKey = [...addTabUserIds].sort().join(',')
+    getAuthHeaders().then((headers) => {
+      if (!headers.Authorization) {
+        setAddTabStatusMap({})
+        setAddTabStatusIdsKey('')
+        return
+      }
+      fetch(`/api/users/friend-status?ids=${idsKey}`, { headers })
+        .then((res) => res.json().catch(() => ({ statuses: {} })))
+        .then((data) => {
+          setAddTabStatusMap(data.statuses ?? {})
+          setAddTabStatusIdsKey(idsKey)
+        })
+        .catch(() => {
+          setAddTabStatusMap({})
+          setAddTabStatusIdsKey(idsKey)
+        })
+    })
+  }, [tab, isOwnProfile, addTabIdsKeySorted])
 
   useEffect(() => {
     const q = searchQuery.trim()
@@ -271,11 +307,19 @@ export default function ProfileFriendsSection({
                         user={u}
                         action={
                           supabaseConfigured ? (
-                            <AddFriendButton
-                              targetUserId={u.id}
-                              size="sm"
-                              onStatusChange={(s) => s === 'friends' && refreshFriends()}
-                            />
+                            addTabStatusIdsKey !== addTabIdsKeySorted ? (
+                              <span className="text-slate-500 text-sm">...</span>
+                            ) : (
+                              <AddFriendButton
+                                targetUserId={u.id}
+                                size="sm"
+                                status={addTabStatusMap[u.id]}
+                                onStatusChange={(s) => {
+                                  setAddTabStatusMap((prev) => ({ ...prev, [u.id]: s ?? null }))
+                                  if (s === 'friends') refreshFriends(false)
+                                }}
+                              />
+                            )
                           ) : null
                         }
                       />
@@ -298,11 +342,19 @@ export default function ProfileFriendsSection({
                         user={u}
                         action={
                           supabaseConfigured ? (
-                            <AddFriendButton
-                              targetUserId={u.id}
-                              size="sm"
-                              onStatusChange={(s) => s === 'friends' && refreshFriends()}
-                            />
+                            addTabStatusIdsKey !== addTabIdsKeySorted ? (
+                              <span className="text-slate-500 text-sm">...</span>
+                            ) : (
+                              <AddFriendButton
+                                targetUserId={u.id}
+                                size="sm"
+                                status={addTabStatusMap[u.id]}
+                                onStatusChange={(s) => {
+                                  setAddTabStatusMap((prev) => ({ ...prev, [u.id]: s ?? null }))
+                                  if (s === 'friends') refreshFriends(false)
+                                }}
+                              />
+                            )
                           ) : null
                         }
                       />
