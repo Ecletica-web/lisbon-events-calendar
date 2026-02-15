@@ -43,10 +43,20 @@ export default function PublicProfilePage() {
   const [selectedEvent, setSelectedEvent] = useState<NormalizedEvent | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
 
+  const closeImagePreview = useCallback(() => setImagePreviewUrl(null), [])
+
   // Close image preview when navigating to a different profile
   useEffect(() => {
     setImagePreviewUrl(null)
   }, [id])
+
+  // Escape key to close image preview (must run every render for hook count consistency)
+  useEffect(() => {
+    if (!imagePreviewUrl) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeImagePreview() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [imagePreviewUrl, closeImagePreview])
 
   useEffect(() => {
     if (!id) {
@@ -126,21 +136,12 @@ export default function PublicProfilePage() {
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 p-4">
         <p className="text-slate-300">{error}</p>
         <div className="flex gap-4">
-          <Link href="/calendar" className="text-indigo-400 hover:underline">Back to Calendar</Link>
-          <Link href="/profile" className="text-slate-400 hover:underline">My profile</Link>
+          <a href="/calendar" className="text-indigo-400 hover:underline">Back to Calendar</a>
+          <a href="/profile" className="text-slate-400 hover:underline">My profile</a>
         </div>
       </div>
     )
   }
-
-  const closeImagePreview = useCallback(() => setImagePreviewUrl(null), [])
-
-  useEffect(() => {
-    if (!imagePreviewUrl) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeImagePreview() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [imagePreviewUrl, closeImagePreview])
 
   if (mode === 'profile' && profileData) {
     const isOwnProfile = currentUser?.id === profileData.id
@@ -173,7 +174,7 @@ export default function PublicProfilePage() {
         )}
         <div className="max-w-2xl mx-auto">
           <div className="px-4 sm:px-6 pt-2 pb-1">
-            <Link href="/calendar" className="text-slate-400 hover:text-indigo-400 text-sm">← Back to Calendar</Link>
+            <a href="/calendar" className="text-slate-400 hover:text-indigo-400 text-sm">← Back to Calendar</a>
           </div>
           <div className="-mx-4 sm:-mx-6 md:0 -mt-0">
             <div className="relative h-40 sm:h-48 bg-slate-800 overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
@@ -298,7 +299,7 @@ export default function PublicProfilePage() {
             {eventsData && eventsData.visible && eventsData.upcoming.length === 0 && eventsData.past.length === 0 && (
               <p className="text-slate-500 text-sm mb-8">No events yet.</p>
             )}
-            <Link href="/calendar" className="text-indigo-400 hover:underline">← Back to Calendar</Link>
+            <a href="/calendar" className="text-indigo-400 hover:underline">← Back to Calendar</a>
           </div>
         </div>
         <EventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
@@ -355,9 +356,9 @@ export default function PublicProfilePage() {
           )}
 
           <div className="mt-8">
-            <Link href="/calendar" className="text-indigo-400 hover:underline">
+            <a href="/calendar" className="text-indigo-400 hover:underline">
               ← Back to Calendar
-            </Link>
+            </a>
           </div>
         </div>
       </div>
@@ -367,7 +368,7 @@ export default function PublicProfilePage() {
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 p-4">
       <p className="text-slate-300">Not found</p>
-      <Link href="/calendar" className="text-indigo-400 hover:underline">Go home</Link>
+      <a href="/calendar" className="text-indigo-400 hover:underline">Go home</a>
     </div>
   )
 }

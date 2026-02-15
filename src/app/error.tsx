@@ -8,16 +8,30 @@ export default function Error({
   reset: () => void
 }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold mb-4">Something went wrong!</h2>
-        <p className="text-gray-600 mb-4">{error.message}</p>
-        <button
-          onClick={reset}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          Try again
-        </button>
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center justify-center p-6">
+      <div className="max-w-md w-full text-center space-y-6">
+        <h2 className="text-xl font-semibold text-white">Something went wrong</h2>
+        <p className="text-slate-400 text-sm">{error.message}</p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
+          <a
+            href="/calendar"
+            className="px-4 py-2.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition-colors text-center"
+          >
+            Back to Calendar
+          </a>
+          <a
+            href="/profile"
+            className="px-4 py-2.5 rounded-lg border border-slate-600 text-slate-300 font-medium hover:bg-slate-800 transition-colors text-center"
+          >
+            My profile
+          </a>
+          <button
+            onClick={reset}
+            className="px-4 py-2.5 rounded-lg bg-slate-700 text-slate-200 font-medium hover:bg-slate-600 transition-colors"
+          >
+            Try again
+          </button>
+        </div>
       </div>
     </div>
   )

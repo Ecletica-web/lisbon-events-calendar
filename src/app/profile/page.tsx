@@ -235,7 +235,7 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 pt-24">
         <div className="text-slate-400">Loading...</div>
-        <Link href="/calendar" className="text-slate-500 hover:text-indigo-400 text-sm">Back to Calendar</Link>
+        <a href="/calendar" className="text-slate-500 hover:text-indigo-400 text-sm">Back to Calendar</a>
       </div>
     )
   }
@@ -245,8 +245,8 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 p-4">
         <p className="text-slate-400">Sign in to view your profile.</p>
         <div className="flex gap-4">
-          <Link href="/calendar" className="text-indigo-400 hover:underline">Back to Calendar</Link>
-          <Link href="/login" className="text-slate-300 hover:underline">Sign in</Link>
+          <a href="/calendar" className="text-indigo-400 hover:underline">Back to Calendar</a>
+          <a href="/login" className="text-slate-300 hover:underline">Sign in</a>
         </div>
       </div>
     )
@@ -256,7 +256,7 @@ export default function ProfilePage() {
     <div className="min-h-screen min-h-[100dvh] bg-slate-900/95 text-slate-100 relative z-0 isolate pointer-events-auto">
       <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 pt-20 md:pt-28 pb-[calc(2rem+env(safe-area-inset-bottom))] relative z-10">
         <div className="mb-4">
-          <Link href="/calendar" className="text-slate-400 hover:text-indigo-400 text-sm">← Back to Calendar</Link>
+          <a href="/calendar" className="text-slate-400 hover:text-indigo-400 text-sm">← Back to Calendar</a>
         </div>
         {/* Profile header with cover & avatar (Supabase) */}
         {isSupabaseUser && user && (

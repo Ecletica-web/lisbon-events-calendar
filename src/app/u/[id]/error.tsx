@@ -1,7 +1,5 @@
 'use client'
 
-import Link from 'next/link'
-
 export default function PublicProfileError({
   error,
   reset,
@@ -14,25 +12,25 @@ export default function PublicProfileError({
       <div className="max-w-md w-full text-center space-y-6">
         <h2 className="text-xl font-semibold text-white">Something went wrong loading this profile</h2>
         <p className="text-slate-400 text-sm">{error.message}</p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link
+        <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
+          <a
             href="/calendar"
-            className="px-4 py-2.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition-colors"
+            className="px-4 py-2.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition-colors text-center"
           >
             Back to Calendar
-          </Link>
+          </a>
+          <a
+            href="/profile"
+            className="px-4 py-2.5 rounded-lg border border-slate-600 text-slate-300 font-medium hover:bg-slate-800 transition-colors text-center"
+          >
+            My profile
+          </a>
           <button
             onClick={reset}
             className="px-4 py-2.5 rounded-lg bg-slate-700 text-slate-200 font-medium hover:bg-slate-600 transition-colors"
           >
             Try again
           </button>
-          <Link
-            href="/profile"
-            className="px-4 py-2.5 rounded-lg border border-slate-600 text-slate-300 font-medium hover:bg-slate-800 transition-colors"
-          >
-            My profile
-          </Link>
         </div>
       </div>
     </div>
