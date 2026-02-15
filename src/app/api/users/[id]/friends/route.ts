@@ -37,12 +37,22 @@ export async function GET(
     .select('id, display_name, avatar_url, username')
     .in('id', friendIds)
 
-  const friends = (profiles || []).map((p) => ({
-    id: p.id,
-    displayName: p.display_name,
-    avatarUrl: p.avatar_url,
-    username: p.username,
-  }))
+  const profileMap = new Map(
+    (profiles || []).map((p) => [
+      p.id,
+      { displayName: p.display_name, avatarUrl: p.avatar_url, username: p.username },
+    ])
+  )
+
+  const friends = friendIds.map((id) => {
+    const p = profileMap.get(id)
+    return {
+      id,
+      displayName: p?.displayName ?? null,
+      avatarUrl: p?.avatarUrl ?? null,
+      username: p?.username ?? null,
+    }
+  })
 
   return NextResponse.json({ friends })
 }

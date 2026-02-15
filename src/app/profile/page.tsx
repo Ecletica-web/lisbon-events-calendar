@@ -90,7 +90,7 @@ export default function ProfilePage() {
     }
 
     if (isSupabaseUser && supabaseUser) {
-      fetch(`/api/users/${supabaseUser.id}/profile`)
+      fetch(`/api/users/${supabaseUser.id}/profile`, { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           if (data) setProfileData(data)
@@ -238,6 +238,7 @@ export default function ProfilePage() {
         {/* Profile header with cover & avatar (Supabase) */}
         {isSupabaseUser && user && (
           <div className="mb-8 -mx-4 sm:-mx-6 md:-mx-8">
+            {/* Cover only – no text on top */}
             <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800 overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/50 via-purple-900/50 to-pink-900/50" />
               {profileData?.coverUrl && (
@@ -249,21 +250,22 @@ export default function ProfilePage() {
                 />
               )}
             </div>
-            <div className="relative px-4 sm:px-6 md:px-8 -mt-16 sm:-mt-20">
+            {/* Name, username, bio and actions in a solid strip below the cover */}
+            <div className="bg-slate-900 px-4 sm:px-6 md:px-8 pt-4 pb-5 rounded-b-2xl border-b border-slate-700/50">
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
                 {profileData?.avatarUrl && !avatarError ? (
                   <img
                     src={profileData.avatarUrl}
                     alt=""
-                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 object-cover bg-slate-700 flex-shrink-0"
+                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 object-cover bg-slate-700 flex-shrink-0 -mt-14 sm:-mt-16"
                     onError={() => setAvatarError(true)}
                   />
                 ) : (
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 bg-slate-700 flex items-center justify-center text-3xl sm:text-4xl font-bold text-slate-400 flex-shrink-0">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 bg-slate-700 flex items-center justify-center text-3xl sm:text-4xl font-bold text-slate-400 flex-shrink-0 -mt-14 sm:-mt-16">
                     {(profileData?.displayName || user.name || user.email || '?')[0].toUpperCase()}
                   </div>
                 )}
-                <div className="flex-1 pb-1">
+                <div className="flex-1 pb-1 -mt-8 sm:-mt-0">
                   <h1 className="text-2xl sm:text-3xl font-bold text-white">
                     {profileData?.displayName || user.name || 'Profile'}
                   </h1>
@@ -305,12 +307,12 @@ export default function ProfilePage() {
                       variant="button"
                     />
                   )}
-                    <button
-                      onClick={() => setShowEditForm(!showEditForm)}
-                      className="px-4 py-2 rounded-lg border border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:text-white transition-colors text-sm font-medium"
-                    >
-                      {showEditForm ? 'Cancel' : 'Edit profile'}
-                    </button>
+                  <button
+                    onClick={() => setShowEditForm(!showEditForm)}
+                    className="px-4 py-2 rounded-lg border border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:text-white transition-colors text-sm font-medium"
+                  >
+                    {showEditForm ? 'Cancel' : 'Edit profile'}
+                  </button>
                 </div>
               </div>
             </div>
@@ -370,7 +372,7 @@ export default function ProfilePage() {
                     username: saved.username ?? profileData.username,
                   })
                 } else if (supabaseUser) {
-                  fetch(`/api/users/${supabaseUser.id}/profile`)
+                  fetch(`/api/users/${supabaseUser.id}/profile`, { cache: 'no-store' })
                     .then((r) => (r.ok ? r.json() : null))
                     .then((data) => { if (data) setProfileData(data) })
                 }
