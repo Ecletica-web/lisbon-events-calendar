@@ -36,31 +36,33 @@ export default function AddFriendButton({
   const onStatusChangeRef = useRef(onStatusChange)
   onStatusChangeRef.current = onStatusChange
   const versionRef = useRef(0)
+  const effectRunIdRef = useRef(0)
 
-  const refresh = useCallback(async () => {
-    setError(null)
-    if (!supabaseConfigured || !viewer || viewer.id === targetUserId) {
+  const viewerId = viewer?.id
+
+  useEffect(() => {
+    if (!supabaseConfigured || !viewerId || viewerId === targetUserId) {
       setChecked(true)
       return
     }
+    const runId = ++effectRunIdRef.current
+    setError(null)
     const v = versionRef.current
-    try {
-      const s = await getFriendStatus(viewer.id, targetUserId)
-      if (versionRef.current === v) {
-        setStatus(s)
-        onStatusChangeRef.current?.(s)
-      }
-    } catch (e) {
-      console.error('AddFriendButton: getFriendStatus failed', e)
-      if (versionRef.current === v) setStatus(null)
-    } finally {
-      if (versionRef.current === v) setChecked(true)
-    }
-  }, [supabaseConfigured, viewer?.id, targetUserId])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+    getFriendStatus(viewerId, targetUserId)
+      .then((s) => {
+        if (versionRef.current === v && effectRunIdRef.current === runId) {
+          setStatus(s)
+          onStatusChangeRef.current?.(s)
+        }
+      })
+      .catch((e) => {
+        console.error('AddFriendButton: getFriendStatus failed', e)
+        if (versionRef.current === v && effectRunIdRef.current === runId) setStatus(null)
+      })
+      .finally(() => {
+        if (effectRunIdRef.current === runId) setChecked(true)
+      })
+  }, [supabaseConfigured, viewerId, targetUserId])
 
   const handleSendRequest = async () => {
     if (!viewer || loading) return

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 import AddFriendButton from './AddFriendButton'
@@ -83,28 +83,38 @@ export default function ProfileFriendsSection({
     }
   }, [userId, isOwnProfile, supabaseConfigured])
 
-  const refreshFriends = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/users/${userId}/friends`)
-      const data = await res.json().catch(() => ({}))
-      if (res.ok && Array.isArray(data.friends)) setFriendsList(data.friends)
-      else setFriendsList([])
-    } catch {
-      setFriendsList([])
-    } finally {
-      setLoading(false)
-    }
-  }, [userId])
+  const refreshFriends = useCallback(
+    async (showLoading = true) => {
+      if (showLoading) setLoading(true)
+      try {
+        const res = await fetch(`/api/users/${userId}/friends`)
+        const data = await res.json().catch(() => ({}))
+        if (res.ok && Array.isArray(data.friends)) setFriendsList(data.friends)
+        else setFriendsList([])
+      } catch {
+        setFriendsList([])
+      } finally {
+        setLoading(false)
+      }
+    },
+    [userId]
+  )
+
+  const prevTabRef = useRef<TabType | null>(null)
 
   useEffect(() => {
     if (isOwnProfile && supabaseConfigured) refreshRequests()
   }, [isOwnProfile, supabaseConfigured, refreshRequests])
 
   useEffect(() => {
+    const prevTab = prevTabRef.current
+    prevTabRef.current = tab
     if (tab === 'friends') {
-      refreshFriends()
-    } else if (tab === 'requests' && isOwnProfile) {
+      if (prevTab !== 'friends') {
+        const alreadyHadData = friendsList.length > 0
+        refreshFriends(!alreadyHadData)
+      }
+    } else if (tab === 'requests' && isOwnProfile && prevTab !== 'requests') {
       setLoading(true)
       refreshRequests().finally(() => setLoading(false))
     }
