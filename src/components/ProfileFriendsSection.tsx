@@ -59,6 +59,8 @@ export default function ProfileFriendsSection({
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<FriendUser[]>([])
+  const [browseList, setBrowseList] = useState<FriendUser[]>([])
+  const [browseLoading, setBrowseLoading] = useState(false)
   const [searching, setSearching] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
 
@@ -81,25 +83,34 @@ export default function ProfileFriendsSection({
     }
   }, [userId, isOwnProfile, supabaseConfigured])
 
+  const refreshFriends = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/users/${userId}/friends`)
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && Array.isArray(data.friends)) setFriendsList(data.friends)
+      else setFriendsList([])
+    } catch {
+      setFriendsList([])
+    } finally {
+      setLoading(false)
+    }
+  }, [userId])
+
   useEffect(() => {
     if (isOwnProfile && supabaseConfigured) refreshRequests()
   }, [isOwnProfile, supabaseConfigured, refreshRequests])
 
   useEffect(() => {
     if (tab === 'friends') {
-      setLoading(true)
-      fetch(`/api/users/${userId}/friends`)
-        .then((r) => r.json())
-        .then((data) => setFriendsList(data.friends ?? []))
-        .catch(() => setFriendsList([]))
-        .finally(() => setLoading(false))
+      refreshFriends()
     } else if (tab === 'requests' && isOwnProfile) {
       setLoading(true)
       refreshRequests().finally(() => setLoading(false))
     }
-  }, [userId, tab, isOwnProfile, refreshRequests])
+  }, [userId, tab, isOwnProfile, refreshRequests, refreshFriends])
 
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     const q = searchQuery.trim()
     if (q.length < 2) {
       setSearchResults([])
@@ -115,7 +126,36 @@ export default function ProfileFriendsSection({
     } finally {
       setSearching(false)
     }
-  }
+  }, [searchQuery])
+
+  const fetchBrowse = useCallback(async () => {
+    setBrowseLoading(true)
+    try {
+      const res = await fetch('/api/users/search?browse=1&limit=20')
+      const data = await res.json()
+      setBrowseList(data.users ?? [])
+    } catch {
+      setBrowseList([])
+    } finally {
+      setBrowseLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tab === 'add' && isOwnProfile && browseList.length === 0 && !browseLoading) {
+      fetchBrowse()
+    }
+  }, [tab, isOwnProfile, browseList.length, browseLoading, fetchBrowse])
+
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (q.length < 2) {
+      setSearchResults([])
+      return
+    }
+    const t = setTimeout(() => handleSearch(), 300)
+    return () => clearTimeout(t)
+  }, [searchQuery, handleSearch])
 
   const displayName = (u: { displayName?: string | null; username?: string | null }) =>
     u.displayName || u.username || 'Unknown'
@@ -207,27 +247,61 @@ export default function ProfileFriendsSection({
                 {searching ? 'Searching...' : 'Search'}
               </button>
             </div>
-            {searchResults.length === 0 && searchQuery.trim().length >= 2 && !searching && (
-              <p className="text-slate-500 text-sm">No users found. Try a different search.</p>
-            )}
-            {searchResults.length > 0 && (
-              <ul className="space-y-2">
-                {searchResults.map((u) => (
-                  <UserRow
-                    key={u.id}
-                    user={u}
-                    action={
-                      supabaseConfigured ? (
-                        <AddFriendButton
-                          targetUserId={u.id}
-                          size="sm"
-                          onStatusChange={() => {}}
-                        />
-                      ) : null
-                    }
-                  />
-                ))}
-              </ul>
+            {searchQuery.trim().length >= 2 ? (
+              <>
+                {searching && <p className="text-slate-500 text-sm">Searching...</p>}
+                {!searching && searchResults.length === 0 && (
+                  <p className="text-slate-500 text-sm">No users found. Try a different search.</p>
+                )}
+                {!searching && searchResults.length > 0 && (
+                  <ul className="space-y-2">
+                    {searchResults.map((u) => (
+                      <UserRow
+                        key={u.id}
+                        user={u}
+                        action={
+                          supabaseConfigured ? (
+                            <AddFriendButton
+                              targetUserId={u.id}
+                              size="sm"
+                              onStatusChange={(s) => s === 'friends' && refreshFriends()}
+                            />
+                          ) : null
+                        }
+                      />
+                    ))}
+                  </ul>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-slate-500 text-sm">Type 2+ characters to search, or browse existing users below.</p>
+                {browseLoading ? (
+                  <p className="text-slate-500 text-sm">Loading users...</p>
+                ) : browseList.length > 0 ? (
+                  <ul className="space-y-2">
+                    {browseList
+                      .filter((u) => u.id !== supabaseAuth?.user?.id)
+                      .map((u) => (
+                      <UserRow
+                        key={u.id}
+                        user={u}
+                        action={
+                          supabaseConfigured ? (
+                            <AddFriendButton
+                              targetUserId={u.id}
+                              size="sm"
+                              onStatusChange={(s) => s === 'friends' && refreshFriends()}
+                            />
+                          ) : null
+                        }
+                      />
+                    ))}
+                  </ul>
+                ) : !browseLoading ? (
+                  <p className="text-slate-500 text-sm">No users to show yet.</p>
+                ) : null}
+              </>
             )}
           </div>
         ) : tab === 'requests' && isOwnProfile ? (
@@ -250,7 +324,10 @@ export default function ProfileFriendsSection({
                           <AddFriendButton
                             targetUserId={r.requesterId}
                             size="sm"
-                            onStatusChange={refreshRequests}
+                            onStatusChange={(s) => {
+                              refreshRequests()
+                              if (s === 'friends') refreshFriends()
+                            }}
                           />
                         }
                       />
@@ -271,7 +348,10 @@ export default function ProfileFriendsSection({
                           <AddFriendButton
                             targetUserId={r.addresseeId}
                             size="sm"
-                            onStatusChange={refreshRequests}
+                            onStatusChange={(s) => {
+                              refreshRequests()
+                              if (s === 'friends') refreshFriends()
+                            }}
                           />
                         }
                       />

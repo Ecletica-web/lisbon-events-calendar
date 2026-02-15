@@ -13,11 +13,16 @@ export async function GET(
 
   if (!supabaseServer) return NextResponse.json({ friends: [] })
 
-  const { data: rows } = await supabaseServer
+  const { data: rows, error: frError } = await supabaseServer
     .from('friend_requests')
     .select('requester_id, addressee_id')
     .eq('status', 'accepted')
     .or('requester_id.eq.' + userId + ',addressee_id.eq.' + userId)
+
+  if (frError) {
+    console.error('Friends list fetch error:', frError)
+    return NextResponse.json({ friends: [], error: frError.message }, { status: 500 })
+  }
 
   const friendIds = (rows || [])
     .map((r) => (r.requester_id === userId ? r.addressee_id : r.requester_id))

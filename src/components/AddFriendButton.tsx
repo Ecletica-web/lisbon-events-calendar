@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 import { getFriendStatus } from '@/lib/friendRequests'
 
@@ -33,6 +33,8 @@ export default function AddFriendButton({
   const [loading, setLoading] = useState(false)
   const [checked, setChecked] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const onStatusChangeRef = useRef(onStatusChange)
+  onStatusChangeRef.current = onStatusChange
 
   const refresh = useCallback(async () => {
     setError(null)
@@ -43,14 +45,14 @@ export default function AddFriendButton({
     try {
       const s = await getFriendStatus(viewer.id, targetUserId)
       setStatus(s)
-      onStatusChange?.(s)
+      onStatusChangeRef.current?.(s)
     } catch (e) {
       console.error('AddFriendButton: getFriendStatus failed', e)
       setStatus(null)
     } finally {
       setChecked(true)
     }
-  }, [supabaseConfigured, viewer, targetUserId, onStatusChange])
+  }, [supabaseConfigured, viewer?.id, targetUserId])
 
   useEffect(() => {
     refresh()
