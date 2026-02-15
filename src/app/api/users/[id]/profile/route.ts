@@ -3,6 +3,32 @@ import { supabaseServer } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
+const PROFILE_IMAGES_BUCKET = 'profile-images'
+const SIGNED_URL_EXPIRES = 3600 // 1 hour
+
+/** If url is our Supabase profile-images storage, return a signed URL so it loads for viewers (e.g. private bucket). */
+async function ensureViewableProfileImageUrl(url: string | null): Promise<string | null> {
+  if (!url || !supabaseServer) return url
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  if (!supabaseUrl || !url.includes(supabaseUrl) || !url.includes(`/${PROFILE_IMAGES_BUCKET}/`)) {
+    return url
+  }
+  try {
+    const pathname = new URL(url).pathname
+    const bucketSegment = `/${PROFILE_IMAGES_BUCKET}/`
+    const idx = pathname.indexOf(bucketSegment)
+    const path = idx >= 0 ? pathname.slice(idx + bucketSegment.length) : null
+    if (!path) return url
+    const { data, error } = await supabaseServer.storage
+      .from(PROFILE_IMAGES_BUCKET)
+      .createSignedUrl(path, SIGNED_URL_EXPIRES)
+    if (error || !data?.signedUrl) return url
+    return data.signedUrl
+  } catch {
+    return url
+  }
+}
+
 export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -82,14 +108,19 @@ export async function GET(
 
     const friendsCount = friendRows?.length ?? 0
 
+    const [avatarUrl, coverUrl] = await Promise.all([
+      ensureViewableProfileImageUrl(profile.avatar_url),
+      ensureViewableProfileImageUrl(profile.cover_url),
+    ])
+
     return NextResponse.json(
       {
         id: profile.id,
         displayName: profile.display_name,
-        avatarUrl: profile.avatar_url,
+        avatarUrl,
         bio: profile.bio,
         username: profile.username,
-        coverUrl: profile.cover_url,
+        coverUrl,
         eventVisibility: profile.event_visibility ?? 'public',
         friendsCount,
       },

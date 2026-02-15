@@ -255,9 +255,6 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen min-h-[100dvh] bg-slate-900/95 text-slate-100 relative z-0 isolate pointer-events-auto">
       <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 pt-20 md:pt-28 pb-[calc(2rem+env(safe-area-inset-bottom))] relative z-10">
-        <div className="mb-4">
-          <a href="/calendar" className="text-slate-400 hover:text-indigo-400 text-sm">← Back to Calendar</a>
-        </div>
         {/* Profile header with cover & avatar (Supabase) */}
         {isSupabaseUser && user && (
           <div className="mb-8 -mx-4 sm:-mx-6 md:-mx-8">

@@ -22,6 +22,8 @@ export default function Navigation() {
     : session?.user
 
   const pathname = usePathname()
+  // When on profile pages, use plain <a> for main nav so full page load works (avoids stuck state from session/auth)
+  const isProfilePage = pathname === '/profile' || pathname.startsWith('/profile/') || pathname.startsWith('/u/')
 
   // Close mobile nav when resizing to desktop
   useEffect(() => {
@@ -68,36 +70,20 @@ export default function Navigation() {
     setShowMobileNav(false)
   }
 
-  const navLinks = (
+  const navLinkClass = 'block md:inline text-slate-300 hover:text-white px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all'
+  const navLinks = isProfilePage ? (
     <>
-      <Link
-        href="/foryou"
-        className="block md:inline text-slate-300 hover:text-white px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all"
-        onClick={closeMenus}
-      >
-        For You
-      </Link>
-      <Link
-        href="/calendar"
-        className="block md:inline text-slate-300 hover:text-white px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all"
-        onClick={closeMenus}
-      >
-        Calendar
-      </Link>
-      <Link
-        href="/venues"
-        className="block md:inline text-slate-300 hover:text-white px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all"
-        onClick={closeMenus}
-      >
-        Venues
-      </Link>
-      <Link
-        href="/promoters"
-        className="block md:inline text-slate-300 hover:text-white px-4 md:px-3 py-3 md:py-2 rounded-lg hover:bg-slate-800/80 transition-all"
-        onClick={closeMenus}
-      >
-        Promoters
-      </Link>
+      <a href="/foryou" className={navLinkClass} onClick={closeMenus}>For You</a>
+      <a href="/calendar" className={navLinkClass} onClick={closeMenus}>Calendar</a>
+      <a href="/venues" className={navLinkClass} onClick={closeMenus}>Venues</a>
+      <a href="/promoters" className={navLinkClass} onClick={closeMenus}>Promoters</a>
+    </>
+  ) : (
+    <>
+      <Link href="/foryou" className={navLinkClass} onClick={closeMenus}>For You</Link>
+      <Link href="/calendar" className={navLinkClass} onClick={closeMenus}>Calendar</Link>
+      <Link href="/venues" className={navLinkClass} onClick={closeMenus}>Venues</Link>
+      <Link href="/promoters" className={navLinkClass} onClick={closeMenus}>Promoters</Link>
     </>
   )
 
@@ -204,16 +190,27 @@ export default function Navigation() {
       
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative z-[80] flex justify-between items-center h-14 md:h-16 gap-4">
-          {/* Logo/Title */}
+          {/* Logo/Title - use <a> on profile so full page load always works */}
           <div className="flex items-center flex-shrink-0 min-w-fit pr-2">
-            <Link 
-              href="/calendar" 
-              className="text-base md:text-xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent hover:from-indigo-300 hover:via-purple-300 hover:to-pink-300 transition-all duration-300 drop-shadow-lg relative whitespace-nowrap z-10 flex-shrink-0"
-              style={{ animation: 'neon-pulse 3s ease-in-out infinite' }}
-            >
-              <span className="hidden sm:inline">Lisbon Events Calendar</span>
-              <span className="sm:hidden">LEC</span>
-            </Link>
+            {isProfilePage ? (
+              <a
+                href="/calendar"
+                className="text-base md:text-xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent hover:from-indigo-300 hover:via-purple-300 hover:to-pink-300 transition-all duration-300 drop-shadow-lg relative whitespace-nowrap z-10 flex-shrink-0"
+                style={{ animation: 'neon-pulse 3s ease-in-out infinite' }}
+              >
+                <span className="hidden sm:inline">Lisbon Events Calendar</span>
+                <span className="sm:hidden">LEC</span>
+              </a>
+            ) : (
+              <Link
+                href="/calendar"
+                className="text-base md:text-xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent hover:from-indigo-300 hover:via-purple-300 hover:to-pink-300 transition-all duration-300 drop-shadow-lg relative whitespace-nowrap z-10 flex-shrink-0"
+                style={{ animation: 'neon-pulse 3s ease-in-out infinite' }}
+              >
+                <span className="hidden sm:inline">Lisbon Events Calendar</span>
+                <span className="sm:hidden">LEC</span>
+              </Link>
+            )}
           </div>
 
           {/* Navigation Links - Desktop */}

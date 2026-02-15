@@ -277,8 +277,9 @@ export default function ProfileFriendsSection({
     )
   }
 
+  const displayedFriendsCount = Math.max(friendsCount, friendsList.length)
   const tabs: { key: TabType; label: string; show: boolean }[] = [
-    { key: 'friends', label: `${friendsCount} Friends`, show: true },
+    { key: 'friends', label: `${displayedFriendsCount} Friends`, show: true },
     {
       key: 'requests',
       label: pendingCount > 0 ? `Friend Requests (${pendingCount})` : 'Friend Requests',

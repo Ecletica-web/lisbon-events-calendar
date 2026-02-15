@@ -173,9 +173,6 @@ export default function PublicProfilePage() {
           </div>
         )}
         <div className="max-w-2xl mx-auto">
-          <div className="px-4 sm:px-6 pt-2 pb-1">
-            <a href="/calendar" className="text-slate-400 hover:text-indigo-400 text-sm">← Back to Calendar</a>
-          </div>
           <div className="-mx-4 sm:-mx-6 md:0 -mt-0">
             <div className="relative h-40 sm:h-48 bg-slate-800 overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/50 via-purple-900/50 to-pink-900/50" />
