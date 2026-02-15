@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
+import InviteToAppButton from '@/components/InviteToAppButton'
 
 export default function Navigation() {
   const { data: session, status } = useSession()
@@ -272,6 +273,9 @@ export default function Navigation() {
                             {user.name}
                           </div>
                         )}
+                        <div className="px-2 py-2 border-b border-slate-700/50">
+                          <InviteToAppButton variant="button" className="w-full justify-center" onAfterClick={() => setShowMenu(false)} />
+                        </div>
                         <button
                           onClick={async () => {
                             if (supabaseConfigured && supabaseUser && supabaseSignOut) {
@@ -368,6 +372,9 @@ export default function Navigation() {
                       </span>
                     )}
                   </Link>
+                  <div className="px-4 py-2">
+                    <InviteToAppButton variant="button" className="w-full justify-center" onAfterClick={closeMenus} />
+                  </div>
                   <button
                     onClick={async () => {
                       if (supabaseConfigured && supabaseUser && supabaseSignOut) {

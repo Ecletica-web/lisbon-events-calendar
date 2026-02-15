@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
 import AddFriendButton from '@/components/AddFriendButton'
+import ShareProfileButton from '@/components/ShareProfileButton'
 import ProfileFriendsSection from '@/components/ProfileFriendsSection'
 import EventModal from '@/app/calendar/components/EventModal'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
@@ -161,12 +162,14 @@ export default function PublicProfilePage() {
                     <p className="text-slate-300 mt-2 text-sm max-w-xl">{profileData.bio}</p>
                   )}
                 </div>
-                {!isOwnProfile &&
-                  (supabaseAuth?.isConfigured ? (
-                    <AddFriendButton targetUserId={profileData.id} />
-                  ) : (
-                    <AddFriendButton targetUserId={profileData.id} />
-                  ))}
+                <div className="flex items-center gap-2 flex-wrap">
+                    <ShareProfileButton
+                      userId={profileData.id}
+                      displayName={profileData.displayName}
+                      variant="button"
+                    />
+                    {!isOwnProfile && <AddFriendButton targetUserId={profileData.id} />}
+                  </div>
               </div>
             </div>
           </div>

@@ -10,6 +10,8 @@ import { FEATURE_FLAGS } from '@/lib/featureFlags'
 import ProfileSupabaseSections from '@/components/ProfileSupabaseSections'
 import ProfileEditForm from '@/components/ProfileEditForm'
 import ProfileFriendsSection from '@/components/ProfileFriendsSection'
+import ShareProfileButton from '@/components/ShareProfileButton'
+import InviteToAppButton from '@/components/InviteToAppButton'
 import PersonaManager from '@/components/PersonaManager'
 import EventModal from '@/app/calendar/components/EventModal'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
@@ -285,7 +287,7 @@ export default function ProfilePage() {
                     </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 self-start sm:self-end">
+                <div className="flex items-center gap-2 self-start sm:self-end flex-wrap">
                   <Link
                     href="/profile/settings"
                     className="p-2 rounded-lg border border-slate-600/50 text-slate-400 hover:bg-slate-700/80 hover:text-white transition-colors"
@@ -296,6 +298,13 @@ export default function ProfilePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </Link>
+                  {profileData?.id && (
+                    <ShareProfileButton
+                      userId={profileData.id}
+                      displayName={profileData.displayName || user?.name}
+                      variant="button"
+                    />
+                  )}
                     <button
                       onClick={() => setShowEditForm(!showEditForm)}
                       className="px-4 py-2 rounded-lg border border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:text-white transition-colors text-sm font-medium"
@@ -373,7 +382,10 @@ export default function ProfilePage() {
         {/* Friends section (Supabase) */}
         {isSupabaseUser && profileData && (
           <div className="mb-8">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Friends</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h2 className="text-xl sm:text-2xl font-semibold text-slate-200">Friends</h2>
+              <InviteToAppButton variant="link" />
+            </div>
             <ProfileFriendsSection
               userId={profileData.id}
               friendsCount={profileData.friendsCount ?? 0}
