@@ -22,7 +22,15 @@ export async function GET(
   if (!supabaseServer) return NextResponse.json({ friends: [] })
 
   const bearer = getBearer(request)
-  const supabase = bearer ? (createAuthenticatedClient(bearer) ?? supabaseServer) : supabaseServer
+  let supabase = supabaseServer
+  if (bearer) {
+    const { data: { user } } = await supabaseServer.auth.getUser(bearer)
+    // When viewing another user's profile, use server client (service role) so we can read their friends; RLS would otherwise only return rows involving the viewer.
+    if (user && user.id === userId) {
+      const authClient = createAuthenticatedClient(bearer) ?? supabaseServer
+      supabase = authClient
+    }
+  }
 
   const { data: rows, error: frError } = await supabase
     .from('friend_requests')

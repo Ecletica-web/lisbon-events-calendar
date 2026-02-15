@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
@@ -41,6 +41,12 @@ export default function PublicProfilePage() {
   const [mode, setMode] = useState<'profile' | 'public' | null>(null)
   const [eventsData, setEventsData] = useState<{ upcoming: NormalizedEvent[]; past: NormalizedEvent[]; visible: boolean } | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<NormalizedEvent | null>(null)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
+
+  // Close image preview when navigating to a different profile
+  useEffect(() => {
+    setImagePreviewUrl(null)
+  }, [id])
 
   useEffect(() => {
     if (!id) {
@@ -48,12 +54,14 @@ export default function PublicProfilePage() {
       setError('Invalid profile')
       return
     }
-
+    let cancelled = false
     async function load() {
       try {
         const profileRes = await fetch(`/api/users/${id}/profile`)
+        if (cancelled) return
         if (profileRes.ok) {
           const json = await profileRes.json()
+          if (cancelled) return
           setProfileData(json)
           setMode('profile')
           setLoading(false)
@@ -61,8 +69,10 @@ export default function PublicProfilePage() {
         }
         if (FEATURE_FLAGS.SHARED_VIEWS) {
           const publicRes = await fetch(`/api/users/${id}/public`)
+          if (cancelled) return
           if (publicRes.ok) {
             const json = await publicRes.json()
+            if (cancelled) return
             setPublicData(json)
             setMode('public')
           } else {
@@ -72,16 +82,18 @@ export default function PublicProfilePage() {
           setError('Profile not found')
         }
       } catch {
-        setError('Failed to load profile')
+        if (!cancelled) setError('Failed to load profile')
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     load()
+    return () => { cancelled = true }
   }, [id])
 
   useEffect(() => {
     if (!id || !profileData || mode !== 'profile') return
+    let cancelled = false
     async function loadEvents() {
       try {
         const { supabase } = await import('@/lib/supabase/client')
@@ -89,13 +101,16 @@ export default function PublicProfilePage() {
         const headers: Record<string, string> = {}
         if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
         const res = await fetch(`/api/users/${id}/events`, { headers })
-        const data = await res.json()
+        if (cancelled) return
+        const data = await res.json().catch(() => ({}))
+        if (cancelled) return
         setEventsData({ upcoming: data.upcoming ?? [], past: data.past ?? [], visible: data.visible ?? false })
       } catch {
-        setEventsData({ upcoming: [], past: [], visible: false })
+        if (!cancelled) setEventsData({ upcoming: [], past: [], visible: false })
       }
     }
     loadEvents()
+    return () => { cancelled = true }
   }, [id, profileData, mode])
 
   if (loading) {
@@ -110,41 +125,93 @@ export default function PublicProfilePage() {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 p-4">
         <p className="text-slate-300">{error}</p>
-        <Link href="/calendar" className="text-indigo-400 hover:underline">Go home</Link>
+        <div className="flex gap-4">
+          <Link href="/calendar" className="text-indigo-400 hover:underline">Back to Calendar</Link>
+          <Link href="/profile" className="text-slate-400 hover:underline">My profile</Link>
+        </div>
       </div>
     )
   }
+
+  const closeImagePreview = useCallback(() => setImagePreviewUrl(null), [])
+
+  useEffect(() => {
+    if (!imagePreviewUrl) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeImagePreview() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [imagePreviewUrl, closeImagePreview])
 
   if (mode === 'profile' && profileData) {
     const isOwnProfile = currentUser?.id === profileData.id
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100">
+        {imagePreviewUrl && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Image preview"
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80"
+            onClick={closeImagePreview}
+          >
+            <img
+              src={imagePreviewUrl}
+              alt=""
+              className="max-w-full max-h-full object-contain rounded-lg shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              type="button"
+              onClick={closeImagePreview}
+              className="absolute top-4 right-4 p-2 rounded-full bg-slate-800/90 text-slate-200 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              aria-label="Close preview"
+            >
+              <span className="sr-only">Close</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        )}
         <div className="max-w-2xl mx-auto">
+          <div className="px-4 sm:px-6 pt-2 pb-1">
+            <Link href="/calendar" className="text-slate-400 hover:text-indigo-400 text-sm">← Back to Calendar</Link>
+          </div>
           <div className="-mx-4 sm:-mx-6 md:0 -mt-0">
             <div className="relative h-40 sm:h-48 bg-slate-800 overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/50 via-purple-900/50 to-pink-900/50" />
               {profileData.coverUrl && (
-                <img
-                  src={profileData.coverUrl}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover"
-                  onError={(e) => { e.currentTarget.style.display = 'none' }}
-                />
+                <button
+                  type="button"
+                  onClick={() => setImagePreviewUrl(profileData.coverUrl!)}
+                  className="absolute inset-0 w-full h-full block focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-400"
+                >
+                  <img
+                    src={profileData.coverUrl}
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => { e.currentTarget.style.display = 'none' }}
+                  />
+                </button>
               )}
             </div>
             <div className="relative px-4 sm:px-6 md:px-8 -mt-20">
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
                 {profileData.avatarUrl ? (
-                  <img
-                    src={profileData.avatarUrl}
-                    alt=""
-                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 object-cover bg-slate-700 flex-shrink-0"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none'
-                      const fallback = e.currentTarget.nextElementSibling
-                      if (fallback instanceof HTMLElement) fallback.classList.remove('hidden')
-                    }}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setImagePreviewUrl(profileData.avatarUrl!)}
+                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 overflow-hidden flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+                  >
+                    <img
+                      src={profileData.avatarUrl}
+                      alt=""
+                      className="w-full h-full object-cover bg-slate-700"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none'
+                        const fallback = e.currentTarget.closest('button')?.nextElementSibling
+                        if (fallback instanceof HTMLElement) fallback.classList.remove('hidden')
+                      }}
+                    />
+                  </button>
                 ) : null}
                 <div
                   className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 bg-slate-700 flex items-center justify-center text-3xl sm:text-4xl font-bold text-slate-400 flex-shrink-0 ${profileData.avatarUrl ? 'hidden' : ''}`}
@@ -180,6 +247,7 @@ export default function PublicProfilePage() {
                 userId={profileData.id}
                 friendsCount={profileData.friendsCount ?? 0}
                 isOwnProfile={false}
+                onFriendsCountChange={(count) => setProfileData((prev) => prev ? { ...prev, friendsCount: count } : prev)}
               />
             </div>
             {eventsData && eventsData.visible && (eventsData.upcoming.length > 0 || eventsData.past.length > 0) && (
