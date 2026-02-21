@@ -14,6 +14,37 @@ function getBearer(request: NextRequest): string | null {
 
 const norm = (s: string) => (s || '').toLowerCase().trim()
 
+const FOR_YOU_LIMIT = 50
+
+/** Fisher–Yates shuffle; returns a new array. */
+function shuffle<T>(arr: T[]): T[] {
+  const out = [...arr]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
+/** Random sample of upcoming events when user has no follows/likes/persona/friends signal. */
+function randomUpcoming(upcoming: Awaited<ReturnType<typeof fetchEvents>>, limit: number): Awaited<ReturnType<typeof fetchEvents>> {
+  if (upcoming.length <= limit) return upcoming
+  return shuffle(upcoming).slice(0, limit)
+}
+
+/** True if the user has any signal we can use for personalization. */
+function hasFeedSignals(
+  bulk: Awaited<ReturnType<typeof import('@/lib/interactions').fetchUserInteractionsBulk>>,
+  personaWeights: PersonaWeights | null,
+  friendsGoingByEventId: Map<string, number>
+): boolean {
+  if (bulk.followedVenueIds.size > 0 || bulk.followedPromoterIds.size > 0) return true
+  if (bulk.likedEventIds.size > 0 || bulk.wishlistedEventIds.size > 0) return true
+  if (personaWeights?.includeTags?.length || personaWeights?.includeCategories?.length || personaWeights?.includeVenues?.length) return true
+  if (friendsGoingByEventId.size > 0) return true
+  return false
+}
+
 export async function GET(request: NextRequest) {
   try {
     const bearer = getBearer(request)
@@ -39,14 +70,14 @@ export async function GET(request: NextRequest) {
 
     if (!bearer || !supabaseServer) {
       return NextResponse.json({
-        events: upcoming.slice(0, 50),
+        events: randomUpcoming(upcoming, FOR_YOU_LIMIT),
         reasons: {},
       })
     }
 
     const { data: { user }, error: authError } = await supabaseServer.auth.getUser(bearer)
     if (authError || !user) {
-      return NextResponse.json({ events: upcoming.slice(0, 50), reasons: {} })
+      return NextResponse.json({ events: randomUpcoming(upcoming, FOR_YOU_LIMIT), reasons: {} })
     }
 
     const userId = user.id
@@ -104,7 +135,9 @@ export async function GET(request: NextRequest) {
       freeEventAttendenceScore: bulk.wishlistedEventIds.size > 0 ? 0.5 : 0,
     }
 
-    const feed = getPersonalizedFeed(upcoming, ctx, { limit: 50, upcomingOnly: true })
+    const feed = hasFeedSignals(bulk, personaWeights, friendsGoingByEventId)
+      ? getPersonalizedFeed(upcoming, ctx, { limit: FOR_YOU_LIMIT, upcomingOnly: true })
+      : randomUpcoming(upcoming, FOR_YOU_LIMIT)
 
     const reasons: Record<string, string[]> = {}
     feed.forEach((event) => {
