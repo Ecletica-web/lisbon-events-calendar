@@ -50,9 +50,25 @@ export default function ForYouPage() {
       }
       const res = await fetch('/api/foryou', { headers })
       const data = await res.json()
-      setEvents(data.events || [])
-      setReasons(data.reasons || {})
-      logActivity('scroll_feed', 'event', undefined, { count: (data.events || []).length })
+      let feedEvents: NormalizedEvent[] = data.events || []
+      const reasonsMap: Record<string, string[]> = data.reasons || {}
+
+      if (feedEvents.length === 0) {
+        const eventsRes = await fetch('/api/events')
+        if (eventsRes.ok) {
+          const allEvents: NormalizedEvent[] = await eventsRes.json()
+          const now = new Date().toISOString()
+          const upcoming = allEvents.filter((e) => e.start >= now)
+          if (upcoming.length > 0) {
+            const shuffled = [...upcoming].sort(() => Math.random() - 0.5)
+            feedEvents = shuffled.slice(0, 50)
+          }
+        }
+      }
+
+      setEvents(feedEvents)
+      setReasons(reasonsMap)
+      logActivity('scroll_feed', 'event', undefined, { count: feedEvents.length })
     } catch (e) {
       console.error('For You fetch error:', e)
       setEvents([])
