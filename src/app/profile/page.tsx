@@ -266,6 +266,8 @@ export default function ProfilePage() {
                   src={profileData.coverUrl}
                   alt=""
                   className="absolute inset-0 w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
                   onError={(e) => { e.currentTarget.style.display = 'none' }}
                 />
               )}
@@ -278,6 +280,8 @@ export default function ProfilePage() {
                     src={profileData.avatarUrl}
                     alt=""
                     className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 object-cover bg-slate-700 flex-shrink-0 -mt-14 sm:-mt-16"
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
                     onError={() => setAvatarError(true)}
                   />
                 ) : (

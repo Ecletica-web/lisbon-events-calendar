@@ -186,6 +186,8 @@ export default function PublicProfilePage() {
                     src={profileData.coverUrl}
                     alt=""
                     className="absolute inset-0 w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
                     onError={(e) => { e.currentTarget.style.display = 'none' }}
                   />
                 </button>
@@ -203,6 +205,8 @@ export default function PublicProfilePage() {
                       src={profileData.avatarUrl}
                       alt=""
                       className="w-full h-full object-cover bg-slate-700"
+                      referrerPolicy="no-referrer"
+                      crossOrigin="anonymous"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none'
                         const fallback = e.currentTarget.closest('button')?.nextElementSibling
