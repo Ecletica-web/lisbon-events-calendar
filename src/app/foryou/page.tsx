@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 import { useUserActions } from '@/contexts/UserActionsContext'
@@ -13,6 +13,9 @@ import FollowVenueButton from '@/components/FollowVenueButton'
 import FollowPromoterButton from '@/components/FollowPromoterButton'
 import EventModal from '@/app/calendar/components/EventModal'
 import { logActivity } from '@/lib/activityLog'
+
+const SWIPE_THRESHOLD = 80
+const SWIPE_EXIT_MS = 250
 
 function SkeletonCard() {
   return (
@@ -34,10 +37,12 @@ function SkeletonCard() {
 export default function ForYouPage() {
   const auth = useSupabaseAuth()
   const user = auth?.user
+  const actions = useUserActions()
   const [events, setEvents] = useState<NormalizedEvent[]>([])
   const [reasons, setReasons] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState<NormalizedEvent | null>(null)
+  const [currentCardIndex, setCurrentCardIndex] = useState(0)
 
   const fetchFeed = useCallback(async () => {
     setLoading(true)
@@ -68,6 +73,7 @@ export default function ForYouPage() {
 
       setEvents(feedEvents)
       setReasons(reasonsMap)
+      setCurrentCardIndex(0)
       logActivity('scroll_feed', 'event', undefined, { count: feedEvents.length })
     } catch (e) {
       console.error('For You fetch error:', e)
@@ -109,26 +115,51 @@ export default function ForYouPage() {
               <SkeletonCard key={i} />
             ))}
           </div>
-        ) : (
-          <div className="space-y-8">
-            {events.map((event, i) => (
-              <div
-                key={event.id}
-                className="opacity-0 animate-[fadeSlideIn_0.5s_ease-out_forwards]"
-                style={{ animationDelay: `${Math.min(i * 80, 400)}ms` }}
-              >
+        ) : events.length > 0 ? (
+          <div className="relative" style={{ minHeight: '420px' }}>
+            {/* Next card peeking behind */}
+            {currentCardIndex + 1 < events.length && (
+              <div className="absolute inset-0 top-2 left-1 right-1 scale-[0.96] opacity-90 pointer-events-none">
                 <FeedCard
-                  event={event}
-                  reasons={reasons[event.id] || []}
-                  onOpen={() => {
-                    setSelectedEvent(event)
-                    logActivity('view_event_modal', 'event', event.id, { title: event.title })
-                  }}
+                  event={events[currentCardIndex + 1]}
+                  reasons={reasons[events[currentCardIndex + 1].id] || []}
+                  onOpen={() => {}}
+                  showSwipeButtons={false}
                 />
               </div>
-            ))}
+            )}
+            {/* Current swipeable card */}
+            {currentCardIndex < events.length && (
+              <SwipeableFeedCard
+                key={events[currentCardIndex].id}
+                event={events[currentCardIndex]}
+                reasons={reasons[events[currentCardIndex].id] || []}
+                onOpen={() => {
+                  setSelectedEvent(events[currentCardIndex])
+                  logActivity('view_event_modal', 'event', events[currentCardIndex].id, { title: events[currentCardIndex].title })
+                }}
+                onLike={async () => {
+                  if (actions) await actions.likeEvent(events[currentCardIndex].id)
+                  setCurrentCardIndex((i) => i + 1)
+                }}
+                onPass={() => setCurrentCardIndex((i) => i + 1)}
+              />
+            )}
+            {!loading && currentCardIndex >= events.length && events.length > 0 && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl border border-slate-700/50 bg-slate-800/30 backdrop-blur-sm py-12">
+                <p className="text-slate-400 text-lg font-medium">You&apos;re all caught up</p>
+                <p className="text-slate-500 text-sm mt-1">Come back later for more events</p>
+                <button
+                  type="button"
+                  onClick={() => setCurrentCardIndex(0)}
+                  className="mt-6 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors"
+                >
+                  Browse again
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        ) : null}
 
         <EventModal
           event={selectedEvent}
@@ -174,14 +205,132 @@ function EmptyState() {
   )
 }
 
-function FeedCard({
+function SwipeableFeedCard({
   event,
   reasons,
   onOpen,
+  onLike,
+  onPass,
 }: {
   event: NormalizedEvent
   reasons: string[]
   onOpen: () => void
+  onLike: () => void | Promise<void>
+  onPass: () => void
+}) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [dragOffset, setDragOffset] = useState(0)
+  const [isExiting, setIsExiting] = useState<'like' | 'pass' | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const pointerStart = useRef<{ x: number; y: number } | null>(null)
+  const didMoveEnough = useRef(false)
+
+  const handleStart = useCallback((clientX: number) => {
+    pointerStart.current = { x: clientX, y: 0 }
+    didMoveEnough.current = false
+    setIsDragging(true)
+  }, [])
+
+  const handleMove = useCallback((clientX: number) => {
+    if (pointerStart.current === null || isExiting) return
+    const delta = clientX - pointerStart.current.x
+    if (Math.abs(delta) > 10) didMoveEnough.current = true
+    const clamped = Math.max(-200, Math.min(200, delta))
+    setDragOffset(clamped)
+  }, [isExiting])
+
+  const handleEnd = useCallback(() => {
+    if (isExiting) return
+    const commit = dragOffset > SWIPE_THRESHOLD ? 'like' : dragOffset < -SWIPE_THRESHOLD ? 'pass' : null
+    if (commit) {
+      didMoveEnough.current = true
+      setIsExiting(commit)
+      setDragOffset(commit === 'like' ? 400 : -400)
+      setTimeout(() => {
+        if (commit === 'like') void Promise.resolve(onLike()).then(() => {})
+        else onPass()
+      }, SWIPE_EXIT_MS)
+    } else {
+      setDragOffset(0)
+    }
+    pointerStart.current = null
+    setIsDragging(false)
+  }, [dragOffset, isExiting, onLike, onPass])
+
+  useEffect(() => {
+    const onTouchEnd = () => handleEnd()
+    const onMouseUp = () => handleEnd()
+    window.addEventListener('touchend', onTouchEnd)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('touchend', onTouchEnd)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [handleEnd])
+
+  const handleCardClick = useCallback(() => {
+    if (!didMoveEnough.current && !isExiting) onOpen()
+  }, [onOpen, isExiting])
+
+  return (
+    <div
+      ref={cardRef}
+      className="relative w-full"
+      style={{ touchAction: 'pan-y' }}
+      onTouchStart={(e) => handleStart(e.touches[0].clientX)}
+      onTouchMove={(e) => handleMove(e.touches[0].clientX)}
+      onMouseDown={(e) => { e.preventDefault(); handleStart(e.clientX) }}
+      onMouseMove={(e) => e.buttons === 1 && handleMove(e.clientX)}
+    >
+      <div
+        className="relative transition-transform duration-200"
+        style={{
+          transform: `translateX(${dragOffset}px) rotate(${dragOffset * 0.03}deg)`,
+          transition: isDragging ? 'none' : undefined,
+        }}
+      >
+        <FeedCard
+          event={event}
+          reasons={reasons}
+          onOpen={handleCardClick}
+          showSwipeButtons
+          onLike={() => { if (!isExiting) { setIsExiting('like'); setDragOffset(400); setTimeout(() => void Promise.resolve(onLike()).then(() => {}), SWIPE_EXIT_MS) } }}
+          onPass={() => { if (!isExiting) { setIsExiting('pass'); setDragOffset(-400); setTimeout(onPass, SWIPE_EXIT_MS) } }}
+        />
+        {/* Swipe hints on card */}
+        {!isExiting && isDragging && (
+          <>
+            {dragOffset > 30 && (
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-end pr-6 rounded-2xl border-4 border-emerald-500/80 bg-emerald-500/10">
+                <span className="text-emerald-400 font-bold text-2xl">LIKE</span>
+              </div>
+            )}
+            {dragOffset < -30 && (
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-start pl-6 rounded-2xl border-4 border-red-500/80 bg-red-500/10">
+                <span className="text-red-400 font-bold text-2xl">PASS</span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function FeedCard({
+  event,
+  reasons,
+  onOpen,
+  showSwipeButtons = false,
+  onLike,
+  onPass,
+}: {
+  event: NormalizedEvent
+  reasons: string[]
+  onOpen: () => void
+  showSwipeButtons?: boolean
+  onLike?: () => void
+  onPass?: () => void
 }) {
   const p = event.extendedProps
   const start = new Date(event.start)
@@ -252,6 +401,32 @@ function FeedCard({
             </span>
           ))}
         </div>
+        {showSwipeButtons && (onPass != null || onLike != null) && (
+          <div className="flex items-center justify-center gap-6 mb-4" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onPass?.() }}
+              className="w-14 h-14 rounded-full border-2 border-slate-500 bg-slate-800/80 text-slate-400 hover:border-red-400 hover:bg-red-500/20 hover:text-red-400 flex items-center justify-center transition-colors shadow-lg"
+              aria-label="Pass"
+              title="Pass"
+            >
+              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onLike?.() }}
+              className="w-14 h-14 rounded-full border-2 border-slate-500 bg-slate-800/80 text-slate-400 hover:border-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-400 flex items-center justify-center transition-colors shadow-lg"
+              aria-label="Like"
+              title="Like"
+            >
+              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </button>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <EventCounts eventId={event.id} />
