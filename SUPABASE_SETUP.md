@@ -92,6 +92,58 @@ To enable "Continue with Google" and "Continue with Facebook" when using Supabas
 
 Replace `<your-project-ref>` with your Supabase project URL (e.g. `abcdefgh.supabase.co` → ref is `abcdefgh`).
 
+---
+
+## 4.2 B4: Production (e.g. Vercel) checklist
+
+Use this when you deploy to a production URL (e.g. `https://your-app.vercel.app`).
+
+### Step 1: Choose your Supabase project
+
+- **Option A:** Use the **same** Supabase project for local dev and production (simplest; one DB, one set of users).
+- **Option B:** Create a **separate** Supabase project for production (different DB and users).
+
+### Step 2: Run migrations on the production project
+
+1. Open [Supabase Dashboard](https://supabase.com/dashboard) and select the project you use for production.
+2. Go to **SQL Editor**.
+3. Run **every** migration in `supabase/migrations/` **in numeric order** (001 → 014).  
+   - Open each file (e.g. `001_user_actions.sql`), copy its contents, paste into a new query, run.  
+   - Repeat for 002, 003, … 014.  
+   If you already ran them for dev and use the same project, skip this.
+
+### Step 3: Set production URLs in Supabase
+
+1. In Supabase Dashboard go to **Authentication** → **URL Configuration**.
+2. **Site URL:** set to your production URL, e.g. `https://your-app.vercel.app` (no trailing slash).
+3. **Redirect URLs:** add your production URLs, one per line, for example:
+   - `https://your-app.vercel.app`
+   - `https://your-app.vercel.app/profile`
+   - `https://your-app.vercel.app/**`  
+   Keep `http://localhost:3000/profile` (and any other dev URLs) if you use the same project for local dev.
+4. Save.
+
+Without this, after Google/Facebook login in production the browser would be sent to a URL Supabase doesn’t allow and sign-in would fail.
+
+### Step 4: (Optional) Google / Facebook production URLs
+
+- **Google Cloud Console:** Your OAuth client’s “Authorized redirect URIs” should already include `https://<your-project-ref>.supabase.co/auth/v1/callback`. You do **not** need to add your Vercel URL there; Supabase is the callback.
+- **Facebook:** Same idea — “Valid OAuth Redirect URIs” should include `https://<your-project-ref>.supabase.co/auth/v1/callback`.
+
+No change needed unless you use a different Supabase project for production (then use that project’s callback URL).
+
+### Step 5: Vercel env vars
+
+In Vercel → Project → **Settings** → **Environment Variables**, set for **Production** (and Preview if you want):
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Redeploy after changing env vars.
+
+---
+
 ## 5. Logged-Out Actions
 
 If a user is not logged in and clicks follow, wishlist, or like:

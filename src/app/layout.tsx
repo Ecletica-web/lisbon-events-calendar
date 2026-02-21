@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Navigation from '@/components/Navigation'
-import SessionProvider from '@/components/SessionProvider'
+import ConditionalSessionProvider from '@/components/ConditionalSessionProvider'
 import { SupabaseAuthProvider } from '@/lib/auth/supabaseAuth'
 import { UserActionsProvider } from '@/contexts/UserActionsContext'
 
 export const metadata: Metadata = {
   title: 'Lisbon Events Calendar',
   description: 'Cultural events calendar for Lisbon',
+  manifest: '/manifest.json',
 }
 
 export const viewport: Viewport = {
@@ -25,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="overflow-x-hidden">
       <body className="overflow-x-hidden">
-        <SessionProvider>
+        <ConditionalSessionProvider>
           <SupabaseAuthProvider>
             <UserActionsProvider>
               <header className="sticky top-0 z-[99999] shrink-0">
@@ -36,7 +37,7 @@ export default function RootLayout({
               </main>
             </UserActionsProvider>
           </SupabaseAuthProvider>
-        </SessionProvider>
+        </ConditionalSessionProvider>
       </body>
     </html>
   )

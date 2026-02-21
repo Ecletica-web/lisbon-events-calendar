@@ -4,6 +4,9 @@ import { fetchEvents, toCanonicalTagKey } from '@/lib/eventsAdapter'
 import { fetchUserInteractionsBulk } from '@/lib/interactions'
 import { getPersonalizedFeed, type UserFeedContext, type PersonaWeights } from '@/lib/recommendationEngine'
 
+/** Uses request.headers (Authorization) and user-specific data — must not be statically rendered */
+export const dynamic = 'force-dynamic'
+
 function getBearer(request: NextRequest): string | null {
   const authHeader = request.headers.get('authorization')
   return authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null

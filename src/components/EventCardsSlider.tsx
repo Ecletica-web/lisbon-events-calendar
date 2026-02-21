@@ -90,9 +90,7 @@ export default function EventCardsSlider({
   const [locError, setLocError] = useState<string | null>(null)
   const [locLoading, setLocLoading] = useState(false)
   const sliderRef = useRef<HTMLDivElement>(null)
-  const [isDragging, setIsDragging] = useState(false)
   const [startX, setStartX] = useState(0)
-  const [scrollLeft, setScrollLeft] = useState(0)
   const [didDrag, setDidDrag] = useState(false)
 
   const debouncedCategories = useDebounce(localCategories, 200)
@@ -241,48 +239,36 @@ export default function EventCardsSlider({
     return filtered.map((e) => ({ event: e, km: undefined }))
   }, [events, dateRange, localTags, localCategories, freeOnly, excludeExhibitions, excludeContinuous, timeRange, skipFiltering, nearMeEnabled, radiusKm, userPos, venueCoordsMap])
 
-  const DRAG_THRESHOLD = 5
+  const DRAG_THRESHOLD = 8
+  const pointerDownRef = useRef(false)
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (mode !== 'slider') return
-    setIsDragging(true)
     setDidDrag(false)
-    setStartX(e.pageX - (sliderRef.current?.offsetLeft || 0))
-    setScrollLeft(sliderRef.current?.scrollLeft || 0)
+    pointerDownRef.current = true
+    const x = 'touches' in e ? e.touches[0].pageX : e.pageX
+    setStartX(x)
   }
-  const handleMouseLeave = () => {
-    setIsDragging(false)
+  const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (mode !== 'slider' || !pointerDownRef.current) return
+    const x = 'touches' in e ? e.touches[0].pageX : e.pageX
+    if (Math.abs(x - startX) > DRAG_THRESHOLD) setDidDrag(true)
   }
-  const handleMouseUp = () => {
-    setIsDragging(false)
+  const handlePointerUp = () => {
+    pointerDownRef.current = false
   }
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || mode !== 'slider') return
-    const x = e.pageX - (sliderRef.current?.offsetLeft || 0)
-    const walk = Math.abs(x - startX)
-    if (walk > DRAG_THRESHOLD) setDidDrag(true)
-    e.preventDefault()
-    const delta = (x - startX) * 2
-    if (sliderRef.current) sliderRef.current.scrollLeft = scrollLeft - delta
+  const scrollLeftBtn = () => {
+    const el = sliderRef.current
+    if (!el) return
+    const cardWidth = 280 + 16
+    el.scrollBy({ left: -cardWidth, behavior: 'smooth' })
   }
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (mode !== 'slider') return
-    setIsDragging(true)
-    setDidDrag(false)
-    setStartX(e.touches[0].pageX - (sliderRef.current?.offsetLeft || 0))
-    setScrollLeft(sliderRef.current?.scrollLeft || 0)
+  const scrollRightBtn = () => {
+    const el = sliderRef.current
+    if (!el) return
+    const cardWidth = 280 + 16
+    el.scrollBy({ left: cardWidth, behavior: 'smooth' })
   }
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || mode !== 'slider') return
-    const x = e.touches[0].pageX - (sliderRef.current?.offsetLeft || 0)
-    const walk = Math.abs(x - startX)
-    if (walk > DRAG_THRESHOLD) setDidDrag(true)
-    const delta = (x - startX) * 2
-    if (sliderRef.current) sliderRef.current.scrollLeft = scrollLeft - delta
-  }
-  const handleTouchEnd = () => setIsDragging(false)
-  const scrollLeftBtn = () => sliderRef.current?.scrollBy({ left: -300, behavior: 'smooth' })
-  const scrollRightBtn = () => sliderRef.current?.scrollBy({ left: 300, behavior: 'smooth' })
 
   const handleRemoveTag = (tag: string) => {
     onTagsChange?.(selectedTags.filter((t) => t !== tag))
@@ -373,25 +359,27 @@ export default function EventCardsSlider({
           )}
           <div
             ref={sliderRef}
-            onMouseDown={handleMouseDown}
-            onMouseLeave={handleMouseLeave}
-            onMouseUp={handleMouseUp}
-            onMouseMove={handleMouseMove}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            className={`${mode === 'slider' ? 'flex gap-4 overflow-x-auto overflow-y-hidden scrollbar-hide scroll-smooth px-4 md:px-6 pb-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4 px-4 md:px-6'} ${isDragging ? 'cursor-grabbing' : mode === 'slider' ? 'cursor-grab' : ''}`}
+            onMouseDown={handlePointerDown}
+            onMouseLeave={handlePointerUp}
+            onMouseUp={handlePointerUp}
+            onMouseMove={handlePointerMove}
+            onTouchStart={handlePointerDown}
+            onTouchMove={handlePointerMove}
+            onTouchEnd={handlePointerUp}
+            onTouchCancel={handlePointerUp}
+            className={`${mode === 'slider' ? 'flex gap-4 overflow-x-auto overflow-y-hidden scrollbar-hide scroll-smooth snap-x snap-mandatory px-4 md:px-6 pb-4 slider-touch' : 'grid grid-cols-1 md:grid-cols-2 gap-4 px-4 md:px-6'} ${mode === 'slider' ? 'cursor-grab active:cursor-grabbing' : ''}`}
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
           >
             {filteredEvents.map(({ event, km }) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                onClick={() => { if (!didDrag) onEventClick(event) }}
-                mode={mode}
-                distanceKm={km}
-                reasons={undefined}
-              />
+              <div key={event.id} className={mode === 'slider' ? 'snap-center flex-shrink-0' : undefined}>
+                <EventCard
+                  event={event}
+                  onClick={() => { if (!didDrag) onEventClick(event) }}
+                  mode={mode}
+                  distanceKm={km}
+                  reasons={undefined}
+                />
+              </div>
             ))}
           </div>
         </div>
@@ -457,7 +445,7 @@ function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: {
   return (
     <div
       onClick={onClick}
-      className={`bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-xl p-4 cursor-pointer transition-all hover:shadow-xl hover:scale-[1.02] touch-manipulation active:scale-[0.99] ${mode === 'slider' ? 'min-w-[260px] sm:min-w-[280px] md:min-w-[320px] flex-shrink-0' : ''}`}
+      className={`bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-xl p-4 cursor-pointer transition-all hover:shadow-xl hover:scale-[1.02] touch-manipulation active:scale-[0.99] ${mode === 'slider' ? 'min-w-[260px] sm:min-w-[280px] md:min-w-[320px]' : ''}`}
     >
       <div className="flex gap-3">
         <div className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20">

@@ -194,6 +194,12 @@ html {
   display: none;
 }
 
+/* Reel-like horizontal scroll: native momentum */
+.slider-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
 /* Auth slide-in panel */
 @keyframes authSlideIn {
   from {

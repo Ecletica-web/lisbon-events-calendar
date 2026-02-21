@@ -81,7 +81,31 @@ Details: [SUPABASE_SETUP.md](../SUPABASE_SETUP.md). See [docs/FRIENDS_VS_FOLLOWS
 
 ---
 
-## 3. Other docs
+## 3. Auth: Supabase vs NextAuth
+
+- **When Supabase is configured** (URL + anon key in env), the app uses **Supabase only** for login, signup, and session. NextAuth is not loaded.
+- **When Supabase is not set** (e.g. local dev without Supabase), the app falls back to **NextAuth** (credentials + OAuth). Set `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and OAuth client IDs as in the table above.
+
+For production on Vercel, set Supabase env vars so the app runs with a single auth system.
+
+---
+
+## 4. Deploying to Vercel
+
+1. **Environment variables (B3)**  
+   In Vercel: Project → Settings → Environment Variables, add the same vars as in section 1 (at least `NEXT_PUBLIC_EVENTS_CSV_URL`; for auth add Supabase URL, anon key, and service role key for Production).
+
+2. **Supabase production (B4)**  
+   - Use the same Supabase project or a separate one for production. Run the same migrations (section 2) on that project’s SQL Editor.  
+   - In **Supabase Dashboard → Authentication → URL configuration**, add your **production site URL** (e.g. `https://your-app.vercel.app`) to **Redirect URLs**. Otherwise Google/Facebook sign-in will fail after deploy.
+
+---
+
+## 5. PWA (installable web app)
+
+The app includes a web app manifest so users can “Add to Home Screen” on mobile. Icons live in `public/`; replace `icon-192.png` and `icon-512.png` with your own for a custom install icon.
+
+## 6. Other docs
 
 - **CSV column contract:** [docs/SCHEMA.md](SCHEMA.md)
 - **Supabase auth and OAuth:** [SUPABASE_SETUP.md](../SUPABASE_SETUP.md), [OAUTH_SETUP.md](../OAUTH_SETUP.md)

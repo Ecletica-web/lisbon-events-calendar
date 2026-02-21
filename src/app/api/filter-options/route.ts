@@ -1,8 +1,8 @@
 /**
  * Filter options API — returns tags, categories, venues for persona/view filter pickers.
  * Uses same cached events as /api/events (5 min).
+ * Marked dynamic so build does not run loaders (no-store fetch to Sheets).
  */
-
 import { NextResponse } from 'next/server'
 import { fetchEvents } from '@/lib/eventsAdapter'
 import {
@@ -12,6 +12,7 @@ import {
   getAllPromoters,
 } from '@/lib/eventsAdapter'
 
+export const dynamic = 'force-dynamic'
 export const revalidate = 300
 
 export async function GET() {
