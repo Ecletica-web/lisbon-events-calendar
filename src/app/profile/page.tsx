@@ -270,8 +270,8 @@ export default function ProfilePage() {
                 />
               )}
             </div>
-            {/* Name, username, bio and actions in a solid strip below the cover */}
-            <div className="bg-slate-900 px-4 sm:px-6 md:px-8 pt-4 pb-5 rounded-b-2xl border-b border-slate-700/50">
+            {/* Name, username, bio and actions in a solid strip directly under the cover (no gap) */}
+            <div className="bg-slate-900 px-4 sm:px-6 md:px-8 pt-0 pb-5 rounded-b-2xl border-b border-slate-700/50 -mt-px">
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
                 {profileData?.avatarUrl && !avatarError ? (
                   <img

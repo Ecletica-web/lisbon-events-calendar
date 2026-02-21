@@ -259,8 +259,12 @@ const EVENTS_REVALIDATE_SECONDS = 300 // 5 min
 async function fetchEventsFromSource(): Promise<NormalizedEvent[]> {
   const csvUrl = process.env.NEXT_PUBLIC_EVENTS_CSV_URL
   if (!csvUrl) {
-    console.warn('NEXT_PUBLIC_EVENTS_CSV_URL is not set.')
+    console.warn('[eventsAdapter] NEXT_PUBLIC_EVENTS_CSV_URL is not set — no events will load. Set it in Vercel env to your published CSV URL.')
     return []
+  }
+  // Common mistake: using the sheet *edit* URL instead of *publish* URL (File → Share → Publish to web → CSV)
+  if (csvUrl.includes('/edit') && !csvUrl.includes('/pub')) {
+    console.warn('[eventsAdapter] Events CSV URL looks like an edit link (/edit). Use the published CSV URL: File → Share → Publish to web → choose CSV.')
   }
 
   const [eventTags, venueTags] = await Promise.all([
@@ -551,8 +555,8 @@ export interface VenueForDisplay {
 }
 
 /**
- * Fetch venues for /venues page and calendar filter. Uses CSV if set, else canonical fallback.
- * Client-side: fetches from /api/venues (avoids CORS). Server-side: loads directly from CSV.
+ * Fetch venues for /venues page and calendar filter. From CSV only (NEXT_PUBLIC_VENUES_CSV_URL).
+ * Client-side: fetches from /api/venues. Server-side: loads from CSV. Returns [] if no CSV or fetch fails.
  */
 export async function fetchVenues(): Promise<VenueForDisplay[]> {
   if (typeof window !== 'undefined') {
@@ -570,28 +574,19 @@ export async function fetchVenues(): Promise<VenueForDisplay[]> {
   const venueTags = venueTagsUrl ? await loadVenueTags(venueTagsUrl) : []
   const allowedVenueTags = venueTags.length > 0 ? venueTags : null
   const { venues } = await loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags)
-  if (venues.length > 0) {
-    return venues.map((v) => ({
-      venue_id: v.venue_id,
-      name: v.name,
-      slug: v.slug,
-      neighborhood: v.neighborhood,
-      venue_address: v.venue_address,
-      description_short: v.description_short,
-      primary_image_url: sanitizeImageUrl(v.primary_image_url),
-      website_url: v.website_url,
-      instagram_handle: v.instagram_handle,
-      tags: v.tags,
-      latitude: v.latitude,
-      longitude: v.longitude,
-    }))
-  }
-  // Fallback when CSV empty/fails (e.g. env not set on Vercel, parse error)
-  return CANONICAL_VENUES.map((c) => ({
-    venue_id: c.key,
-    name: c.name,
-    slug: c.key,
-    tags: [],
+  return venues.map((v) => ({
+    venue_id: v.venue_id,
+    name: v.name,
+    slug: v.slug,
+    neighborhood: v.neighborhood,
+    venue_address: v.venue_address,
+    description_short: v.description_short,
+    primary_image_url: sanitizeImageUrl(v.primary_image_url),
+    website_url: v.website_url,
+    instagram_handle: v.instagram_handle,
+    tags: v.tags,
+    latitude: v.latitude,
+    longitude: v.longitude,
   }))
 }
 
@@ -703,11 +698,20 @@ export interface VenueOption {
 }
 
 /**
- * Get all venues from the canonical list (full list so filter always shows rumu, etc.).
- * Selecting a venue with no matching events just shows 0 events.
+ * Get unique venue options from events (for filter UI). No hardcoded list.
  */
-export function getAllVenues(_events?: NormalizedEvent[]): VenueOption[] {
-  return CANONICAL_VENUES.map((v) => ({ key: v.key, name: v.name })).sort((a, b) => a.name.localeCompare(b.name))
+export function getAllVenues(events?: NormalizedEvent[]): VenueOption[] {
+  if (!events?.length) return []
+  const byKey = new Map<string, string>()
+  for (const e of events) {
+    const id = e.extendedProps.venueId || e.extendedProps.venueKey
+    const name = e.extendedProps.venueName
+    const key = (id || name?.toLowerCase().trim().replace(/\s+/g, '-') || '').trim()
+    if (key && !byKey.has(key)) byKey.set(key, name || key)
+  }
+  return Array.from(byKey.entries())
+    .map(([key, name]) => ({ key, name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /** Public helper to get canonical venue key (for filtering) */

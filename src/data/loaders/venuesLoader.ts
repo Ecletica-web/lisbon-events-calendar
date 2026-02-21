@@ -6,7 +6,6 @@ import Papa from 'papaparse'
 import type { Venue } from '@/models/Venue'
 import { normalizeVenueTags, normalizeNumber } from './utils'
 import { resolveVenueColumn } from '@/data/schema/venueColumns'
-import { CANONICAL_VENUES } from '@/data/canonicalVenues'
 
 export interface RawVenueRow {
   [key: string]: string | number | boolean | string[] | undefined
@@ -118,16 +117,6 @@ export async function loadVenues(
     }
   }
 
-  // Fallback: convert canonical venues to Venue format
-  const venues: Venue[] = CANONICAL_VENUES.map((c) => ({
-    venue_id: c.key,
-    name: c.name,
-    slug: c.key,
-    aliases: [],
-    instagram_handle: c.handle || undefined,
-    tags: [],
-    instagram_url: c.handle ? `https://instagram.com/${c.handle.replace(/^@/, '')}` : undefined,
-  }))
-
-  return { venues, quarantined }
+  // No hardcoded fallback — venues come from CSV only. Set NEXT_PUBLIC_VENUES_CSV_URL or use events-only.
+  return { venues: [], quarantined }
 }

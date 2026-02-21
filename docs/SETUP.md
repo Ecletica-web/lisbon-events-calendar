@@ -10,7 +10,7 @@ Copy `.env.example` to `.env.local` and fill in values. Full list:
 
 | Variable | Description |
 |----------|-------------|
-| `NEXT_PUBLIC_EVENTS_CSV_URL` | Google Sheets CSV URL for events (File → Share → Publish to web → CSV). Required for the calendar to load. |
+| `NEXT_PUBLIC_EVENTS_CSV_URL` | **Published** CSV URL for events. In Google Sheets: **File → Share → Publish to web** → pick the sheet → **Comma-separated values (.csv)** → copy the link. Do **not** use the normal sheet URL (the one with `/edit?gid=...`) — that returns HTML and events will not load. Required for the calendar to load. |
 
 ### Optional CSV URLs (enrich data)
 
