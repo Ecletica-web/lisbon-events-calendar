@@ -10,6 +10,8 @@ interface FollowPromoterButtonProps {
   displayName: string
   size?: 'sm' | 'md'
   variant?: 'default' | 'outline'
+  /** When true, shows "Follow promoter" / "Following promoter" instead of "Follow" / "Following" */
+  showContextLabel?: boolean
 }
 
 export default function FollowPromoterButton({
@@ -17,6 +19,7 @@ export default function FollowPromoterButton({
   displayName,
   size = 'sm',
   variant = 'outline',
+  showContextLabel = false,
 }: FollowPromoterButtonProps) {
   const auth = useSupabaseAuth()
   const user = auth?.user
@@ -52,6 +55,9 @@ export default function FollowPromoterButton({
       ? 'border border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:text-white'
       : 'bg-indigo-600/80 text-white hover:bg-indigo-500'
 
+  const followText = showContextLabel ? 'Follow promoter' : 'Follow'
+  const followingText = showContextLabel ? 'Following promoter' : 'Following'
+
   const button = (
     <button
       onClick={user ? handleClick : undefined}
@@ -59,7 +65,7 @@ export default function FollowPromoterButton({
       className={`${baseClass} ${isFollowing ? 'bg-indigo-600/50 text-indigo-200 border-indigo-500/50' : variantClass}`}
       title={isFollowing ? `Unfollow ${displayName}` : `Follow ${displayName}`}
     >
-      {loading ? '...' : isFollowing ? 'Following' : 'Follow'}
+      {loading ? '...' : isFollowing ? followingText : followText}
     </button>
   )
 

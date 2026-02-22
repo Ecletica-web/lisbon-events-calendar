@@ -9,6 +9,8 @@ interface EventShareButtonProps {
   eventTitle: string
   eventUrl?: string
   className?: string
+  /** 'top' opens menu above the button (e.g. when button is near bottom of viewport) */
+  placement?: 'top' | 'bottom'
 }
 
 interface Friend {
@@ -18,7 +20,7 @@ interface Friend {
   avatarUrl?: string | null
 }
 
-export default function EventShareButton({ eventId, eventTitle, eventUrl, className = '' }: EventShareButtonProps) {
+export default function EventShareButton({ eventId, eventTitle, eventUrl, className = '', placement = 'bottom' }: EventShareButtonProps) {
   const auth = useSupabaseAuth()
   const user = auth?.user
   const [open, setOpen] = useState(false)
@@ -86,7 +88,11 @@ export default function EventShareButton({ eventId, eventTitle, eventUrl, classN
         </svg>
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 py-2 rounded-lg bg-slate-800 border border-slate-600/50 shadow-xl z-50 min-w-[200px]">
+        <div
+          className={`absolute right-0 py-2 rounded-lg bg-slate-800 border border-slate-600/50 shadow-xl z-50 min-w-[200px] ${
+            placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
+          }`}
+        >
           <a
             href={whatsappUrl}
             target="_blank"

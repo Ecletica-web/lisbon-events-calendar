@@ -1017,6 +1017,9 @@ function CalendarPageContent() {
           
           {!sidebarMinimized && (
             <>
+          <p className="text-slate-400 text-xs mb-4 md:mb-2 leading-relaxed">
+            Browse and filter events in Lisbon. Tap an event for details, to save it, or to share with a friend.
+          </p>
           {/* Search Bar */}
           <div className="mb-4 md:mb-6">
             <div className="text-xs md:text-sm font-semibold mb-2 md:mb-3 text-slate-200">Search Events</div>

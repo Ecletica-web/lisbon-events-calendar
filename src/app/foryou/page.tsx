@@ -105,7 +105,7 @@ export default function ForYouPage() {
             </span>
           </h1>
           <p className="text-slate-400 text-base sm:text-lg max-w-md leading-relaxed">
-            Your personal event feed — powered by venues you follow, promoters, personas, and what your friends are going to.
+            Your personal event feed — powered by venues you follow, promoters, personas, and what your friends are going to. Swipe or use the buttons to like or pass; tap a card for details or to share with a friend.
           </p>
         </header>
 
@@ -385,22 +385,27 @@ function FeedCard({
         </div>
       </div>
       <div className="p-4 sm:p-5">
-        <div className="flex items-center gap-2 text-sm text-slate-400 mb-3">
-          <time dateTime={event.start}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm mb-4">
+          <time dateTime={event.start} className="text-slate-400 font-medium tabular-nums">
             {start.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
           </time>
+          <div className="flex flex-wrap gap-1.5">
+            {p.tags.slice(0, 4).map((tag) => (
+              <span
+                key={tag}
+                className="px-2.5 py-1 rounded-lg text-xs font-medium border"
+                style={{ borderColor: categoryColor, color: categoryColor }}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {p.tags.slice(0, 4).map((tag) => (
-            <span
-              key={tag}
-              className="px-2.5 py-1 rounded-lg text-xs font-medium border"
-              style={{ borderColor: categoryColor, color: categoryColor }}
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+        {p.descriptionShort && (
+          <p className="text-slate-300 text-sm leading-relaxed line-clamp-2 mb-4">
+            {p.descriptionShort}
+          </p>
+        )}
         {showSwipeButtons && (onPass != null || onLike != null) && (
           <div className="flex items-center justify-center gap-6 mb-4" onClick={(e) => e.stopPropagation()}>
             <button
@@ -433,9 +438,9 @@ function FeedCard({
             <EventLikeCount eventId={event.id} />
           </div>
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            {p.venueId && <FollowVenueButton venueId={p.venueId} displayName={p.venueName || p.venueId} />}
-            {p.promoterId && <FollowPromoterButton promoterId={p.promoterId} displayName={p.promoterName || p.promoterId} />}
-            <EventActionButtons eventId={event.id} eventTitle={event.title} eventStart={event.start} compact />
+            {p.venueId && <FollowVenueButton venueId={p.venueId} displayName={p.venueName || p.venueId} showContextLabel />}
+            {p.promoterId && <FollowPromoterButton promoterId={p.promoterId} displayName={p.promoterName || p.promoterId} showContextLabel />}
+            <EventActionButtons eventId={event.id} eventTitle={event.title} eventStart={event.start} compact shareMenuPlacement="top" />
           </div>
         </div>
       </div>

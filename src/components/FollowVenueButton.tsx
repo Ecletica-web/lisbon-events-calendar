@@ -10,6 +10,8 @@ interface FollowVenueButtonProps {
   displayName: string
   size?: 'sm' | 'md'
   variant?: 'default' | 'outline'
+  /** When true, shows "Follow venue" / "Following venue" instead of "Follow" / "Following" */
+  showContextLabel?: boolean
 }
 
 export default function FollowVenueButton({
@@ -17,6 +19,7 @@ export default function FollowVenueButton({
   displayName,
   size = 'sm',
   variant = 'outline',
+  showContextLabel = false,
 }: FollowVenueButtonProps) {
   const auth = useSupabaseAuth()
   const user = auth?.user
@@ -52,6 +55,9 @@ export default function FollowVenueButton({
       ? 'border border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:text-white'
       : 'bg-indigo-600/80 text-white hover:bg-indigo-500'
 
+  const followText = showContextLabel ? 'Follow venue' : 'Follow'
+  const followingText = showContextLabel ? 'Following venue' : 'Following'
+
   const button = (
     <button
       onClick={user ? handleClick : undefined}
@@ -59,7 +65,7 @@ export default function FollowVenueButton({
       className={`${baseClass} ${isFollowing ? 'bg-indigo-600/50 text-indigo-200 border-indigo-500/50' : variantClass}`}
       title={isFollowing ? `Unfollow ${displayName}` : `Follow ${displayName}`}
     >
-      {loading ? '...' : isFollowing ? 'Following' : 'Follow'}
+      {loading ? '...' : isFollowing ? followingText : followText}
     </button>
   )
 

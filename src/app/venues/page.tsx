@@ -89,9 +89,12 @@ export default function VenuesPage() {
           ← Back to Calendar
         </Link>
 
-        <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+        <h1 className="text-xl sm:text-2xl font-bold mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
           Venues
         </h1>
+        <p className="text-slate-400 text-sm mb-4 sm:mb-6 max-w-xl">
+          Explore venues in Lisbon and see their upcoming events. Follow a venue to get it in your For You feed.
+        </p>
 
         <div className="mb-6 space-y-3">
           <input

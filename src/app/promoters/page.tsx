@@ -57,9 +57,12 @@ export default function PromotersPage() {
           ← Back to Calendar
         </Link>
 
-        <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+        <h1 className="text-xl sm:text-2xl font-bold mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
           Promoters
         </h1>
+        <p className="text-slate-400 text-sm mb-4 sm:mb-6 max-w-xl">
+          Discover event promoters and organisers. Follow promoters to see their events in your For You feed.
+        </p>
 
         {loading ? (
           <div className="text-slate-400">Loading...</div>

@@ -300,6 +300,9 @@ export default function ProfilePage() {
                   {profileData?.username && (
                     <p className="text-slate-400">@{profileData.username}</p>
                   )}
+                  <p className="text-slate-400 text-xs sm:text-sm mt-1 max-w-xl">
+                    Manage your profile, friends, follows, and event preferences. Add friends to see what they&apos;re going to and to chat or share events.
+                  </p>
                   <div className="flex items-start gap-2 mt-2">
                     <p className="text-slate-300 text-sm max-w-xl flex-1">
                       {profileData?.bio || (
