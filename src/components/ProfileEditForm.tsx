@@ -208,7 +208,7 @@ export default function ProfileEditForm({
         </div>
       </div>
       <div>
-        <label className="block mb-2 text-sm font-medium text-slate-200">Username</label>
+        <label className="block mb-2 text-sm font-medium text-slate-200">Username <span className="text-slate-500 font-normal">(unique)</span></label>
         <input
           type="text"
           value={username}
@@ -217,15 +217,15 @@ export default function ProfileEditForm({
           maxLength={30}
           className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
         />
-        <p className="text-xs text-slate-500 mt-1">3–30 characters, letters, numbers, underscores only</p>
+        <p className="text-xs text-slate-500 mt-1">Unique across the app. 3–30 characters, letters, numbers, underscores only.</p>
       </div>
       <div>
-        <label className="block mb-2 text-sm font-medium text-slate-200">Display name</label>
+        <label className="block mb-2 text-sm font-medium text-slate-200">Display name <span className="text-slate-500 font-normal">(first and last name)</span></label>
         <input
           type="text"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
-          placeholder="Your name"
+          placeholder="First and last name"
           className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
         />
       </div>

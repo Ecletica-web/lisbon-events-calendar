@@ -54,23 +54,23 @@ export async function POST(
       return NextResponse.json({ success: true, action: 'accepted' })
     }
 
-    const { data: ourRequest } = await supabase
+    const { data: ourRequestRows } = await supabase
       .from('friend_requests')
       .select('id')
       .eq('requester_id', currentUserId)
       .eq('addressee_id', targetId)
-      .maybeSingle()
+      .limit(1)
 
-    if (ourRequest) return NextResponse.json({ success: true, action: 'already_sent' })
+    if (ourRequestRows?.length) return NextResponse.json({ success: true, action: 'already_sent' })
 
-    const { data: accepted } = await supabase
+    const { data: acceptedRows } = await supabase
       .from('friend_requests')
       .select('id')
       .eq('status', 'accepted')
       .or('and(requester_id.eq.' + currentUserId + ',addressee_id.eq.' + targetId + '),and(requester_id.eq.' + targetId + ',addressee_id.eq.' + currentUserId + ')')
-      .maybeSingle()
+      .limit(1)
 
-    if (accepted) return NextResponse.json({ success: true, action: 'already_friends' })
+    if (acceptedRows?.length) return NextResponse.json({ success: true, action: 'already_friends' })
 
     const { error } = await supabase
       .from('friend_requests')
@@ -111,28 +111,29 @@ export async function DELETE(
   const supabase = createAuthenticatedClient(bearer) ?? supabaseServer
   const currentUserId = user.id
   const orFilter = 'and(requester_id.eq.' + currentUserId + ',addressee_id.eq.' + targetId + '),and(requester_id.eq.' + targetId + ',addressee_id.eq.' + currentUserId + ')'
-  const { data: row } = await supabase
+  const { data: rows } = await supabase
     .from('friend_requests')
     .select('id, requester_id, addressee_id, status')
     .or(orFilter)
-    .maybeSingle()
 
-  if (!row) return NextResponse.json({ error: 'No request found' }, { status: 404 })
+  if (!rows?.length) return NextResponse.json({ error: 'No request found' }, { status: 404 })
 
-  if (row.status === 'pending') {
-    if (row.addressee_id === currentUserId) {
-      const { error } = await supabase
-        .from('friend_requests')
-        .update({ status: 'rejected', updated_at: new Date().toISOString() })
-        .eq('id', row.id)
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    } else {
+  for (const row of rows) {
+    if (row.status === 'pending') {
+      if (row.addressee_id === currentUserId) {
+        const { error } = await supabase
+          .from('friend_requests')
+          .update({ status: 'rejected', updated_at: new Date().toISOString() })
+          .eq('id', row.id)
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      } else {
+        const { error } = await supabase.from('friend_requests').delete().eq('id', row.id)
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+    } else if (row.status === 'accepted') {
       const { error } = await supabase.from('friend_requests').delete().eq('id', row.id)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     }
-  } else if (row.status === 'accepted') {
-    const { error } = await supabase.from('friend_requests').delete().eq('id', row.id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })

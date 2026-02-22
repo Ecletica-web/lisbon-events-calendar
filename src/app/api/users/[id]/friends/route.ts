@@ -43,9 +43,11 @@ export async function GET(
     return NextResponse.json({ friends: [], error: frError.message }, { status: 500 })
   }
 
-  const friendIds = (rows || [])
-    .map((r) => (r.requester_id === userId ? r.addressee_id : r.requester_id))
-    .filter(Boolean)
+  const friendIds = [...new Set(
+    (rows || [])
+      .map((r) => (r.requester_id === userId ? r.addressee_id : r.requester_id))
+      .filter(Boolean)
+  )]
 
   if (friendIds.length === 0) return NextResponse.json({ friends: [] })
 

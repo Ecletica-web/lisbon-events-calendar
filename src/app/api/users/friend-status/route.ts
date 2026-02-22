@@ -48,12 +48,14 @@ export async function GET(request: NextRequest) {
         .in('requester_id', ids),
     ])
     const rows = [...(res1.data ?? []), ...(res2.data ?? [])]
+    const order: Array<'friends' | 'pending_received' | 'pending_sent'> = ['friends', 'pending_received', 'pending_sent']
+    const rank = (s: typeof order[number]) => order.indexOf(s)
     for (const r of rows) {
       const otherId = r.requester_id === viewerId ? r.addressee_id : r.requester_id
       if (!ids.includes(otherId)) continue
-      if (r.status === 'accepted') statuses[otherId] = 'friends'
-      else if (r.requester_id === viewerId) statuses[otherId] = 'pending_sent'
-      else statuses[otherId] = 'pending_received'
+      const next = r.status === 'accepted' ? 'friends' : r.requester_id === viewerId ? 'pending_sent' : 'pending_received'
+      const cur = statuses[otherId]
+      if (!cur || rank(next) < rank(cur)) statuses[otherId] = next
     }
   } catch (e) {
     console.error('Friend status batch error:', e)

@@ -195,8 +195,8 @@ export default function PublicProfilePage() {
         )}
         <div className="max-w-2xl mx-auto">
           <div className="-mx-4 sm:-mx-6 md:mx-0">
-            {/* Cover */}
-            <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800 overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
+            {/* Cover (z-0 so avatar strip sits on top) */}
+            <div className="relative z-0 h-32 sm:h-40 md:h-48 bg-slate-800 overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/50 via-purple-900/50 to-pink-900/50" />
               {profileData.coverUrl && (
                 <button
@@ -215,8 +215,8 @@ export default function PublicProfilePage() {
                 </button>
               )}
             </div>
-            {/* Strip: avatar + name + actions (aligned with own profile) */}
-            <div className="relative bg-slate-900 px-4 sm:px-6 md:px-8 pt-0 pb-5 rounded-b-2xl border-b border-slate-700/50 -mt-px">
+            {/* Strip: avatar + name + actions (z-10 so avatar overlaps on top of cover) */}
+            <div className="relative z-10 bg-slate-900 px-4 sm:px-6 md:px-8 pt-0 pb-5 rounded-b-2xl border-b border-slate-700/50 -mt-px">
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
                 {/* Single avatar slot: image or initial */}
                 <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 bg-slate-700 flex-shrink-0 -mt-14 sm:-mt-16 overflow-hidden flex items-center justify-center">

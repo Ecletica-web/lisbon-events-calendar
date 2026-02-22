@@ -343,6 +343,12 @@ function FeedCard({
         ? `From ${p.priceMin} €`
         : null
 
+  const descriptionText = (p.descriptionLong && p.descriptionLong.trim().length > 0)
+    ? p.descriptionLong.trim()
+    : (p.descriptionShort && p.descriptionShort.trim().length > 0)
+      ? p.descriptionShort.trim()
+      : null
+
   return (
     <article
       className="group rounded-2xl bg-slate-800 border border-slate-700 overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-indigo-500/5 hover:border-slate-600 transition-all duration-300 cursor-pointer"
@@ -381,11 +387,11 @@ function FeedCard({
         )}
         <div className="absolute bottom-3 left-3 right-3">
           <h2 className="font-bold text-white text-lg sm:text-xl line-clamp-2 drop-shadow-lg">{event.title}</h2>
-          <p className="text-slate-200/90 text-sm mt-0.5 truncate">{p.venueName || 'TBA'}</p>
+          <p className="text-slate-200/90 text-sm sm:text-base mt-0.5 truncate">{p.venueName || 'TBA'}</p>
         </div>
       </div>
-      <div className="p-4 sm:p-5">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm mb-4">
+      <div className="p-4 sm:p-5 min-w-0">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-base sm:text-sm mb-3">
           <time dateTime={event.start} className="text-slate-400 font-medium tabular-nums">
             {start.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
           </time>
@@ -393,7 +399,7 @@ function FeedCard({
             {p.tags.slice(0, 4).map((tag) => (
               <span
                 key={tag}
-                className="px-2.5 py-1 rounded-lg text-xs font-medium border"
+                className="px-2.5 py-1 rounded-lg text-xs sm:text-xs font-medium border"
                 style={{ borderColor: categoryColor, color: categoryColor }}
               >
                 {tag}
@@ -401,17 +407,17 @@ function FeedCard({
             ))}
           </div>
         </div>
-        {p.descriptionShort && (
-          <p className="text-slate-300 text-sm leading-relaxed line-clamp-2 mb-4">
-            {p.descriptionShort}
+        {descriptionText && (
+          <p className="text-slate-300 text-base sm:text-sm leading-relaxed line-clamp-4 mb-4">
+            {descriptionText}
           </p>
         )}
         {showSwipeButtons && (onPass != null || onLike != null) && (
-          <div className="flex items-center justify-center gap-6 mb-4" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-center gap-8 sm:gap-6 mb-5" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onPass?.() }}
-              className="w-14 h-14 rounded-full border-2 border-slate-500 bg-slate-800/80 text-slate-400 hover:border-red-400 hover:bg-red-500/20 hover:text-red-400 flex items-center justify-center transition-colors shadow-lg"
+              className="w-14 h-14 sm:w-14 sm:h-14 rounded-full border-2 border-slate-500 bg-slate-800/80 text-slate-400 hover:border-red-400 hover:bg-red-500/20 hover:text-red-400 flex items-center justify-center transition-colors shadow-lg flex-shrink-0"
               aria-label="Pass"
               title="Pass"
             >
@@ -422,7 +428,7 @@ function FeedCard({
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onLike?.() }}
-              className="w-14 h-14 rounded-full border-2 border-slate-500 bg-slate-800/80 text-slate-400 hover:border-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-400 flex items-center justify-center transition-colors shadow-lg"
+              className="w-14 h-14 sm:w-14 sm:h-14 rounded-full border-2 border-slate-500 bg-slate-800/80 text-slate-400 hover:border-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-400 flex items-center justify-center transition-colors shadow-lg flex-shrink-0"
               aria-label="Like"
               title="Like"
             >
@@ -432,14 +438,14 @@ function FeedCard({
             </button>
           </div>
         )}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-wrap items-center gap-2">
+            {p.venueId && <FollowVenueButton venueId={p.venueId} displayName={p.venueName || p.venueId} showContextLabel size="md" variant="default" />}
+            {p.promoterId && <FollowPromoterButton promoterId={p.promoterId} displayName={p.promoterName || p.promoterId} showContextLabel size="md" />}
+          </div>
+          <div className="flex items-center gap-1">
             <EventCounts eventId={event.id} />
             <EventLikeCount eventId={event.id} />
-          </div>
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            {p.venueId && <FollowVenueButton venueId={p.venueId} displayName={p.venueName || p.venueId} showContextLabel />}
-            {p.promoterId && <FollowPromoterButton promoterId={p.promoterId} displayName={p.promoterName || p.promoterId} showContextLabel />}
             <EventActionButtons eventId={event.id} eventTitle={event.title} eventStart={event.start} compact shareMenuPlacement="top" />
           </div>
         </div>

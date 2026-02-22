@@ -82,13 +82,13 @@ export async function areFriends(userIdA: string, userIdB: string): Promise<bool
 /** Status relative to viewer: 'friends' | 'pending_sent' | 'pending_received' | null */
 export async function getFriendStatus(viewerId: string, targetId: string): Promise<'friends' | 'pending_sent' | 'pending_received' | null> {
   if (!supabase || viewerId === targetId) return null
-  const { data } = await supabase
+  const { data: rows } = await supabase
     .from('friend_requests')
-    .select('requester_id,status')
+    .select('requester_id, status')
     .or(`and(requester_id.eq.${viewerId},addressee_id.eq.${targetId}),and(requester_id.eq.${targetId},addressee_id.eq.${viewerId})`)
-    .maybeSingle()
-  if (!data) return null
-  if (data.status === 'accepted') return 'friends'
-  if (data.requester_id === viewerId) return 'pending_sent'
-  return 'pending_received'
+    .limit(2)
+  if (!rows?.length) return null
+  if (rows.some((r) => r.status === 'accepted')) return 'friends'
+  if (rows.some((r) => r.requester_id !== viewerId)) return 'pending_received'
+  return 'pending_sent'
 }

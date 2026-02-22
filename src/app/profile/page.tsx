@@ -262,8 +262,8 @@ export default function ProfilePage() {
         {/* Profile header with cover & avatar (Supabase) */}
         {isSupabaseUser && user && (
           <div className="mb-8 -mx-4 sm:-mx-6 md:-mx-8">
-            {/* Cover only – no text on top */}
-            <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800 overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
+            {/* Cover only – no text on top (z-0 so avatar strip can sit on top) */}
+            <div className="relative z-0 h-32 sm:h-40 md:h-48 bg-slate-800 overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/50 via-purple-900/50 to-pink-900/50" />
               {profileData?.coverUrl && (
                 <img
@@ -276,8 +276,8 @@ export default function ProfilePage() {
                 />
               )}
             </div>
-            {/* Name, username, bio and actions in a solid strip directly under the cover (no gap) */}
-            <div className="bg-slate-900 px-4 sm:px-6 md:px-8 pt-0 pb-5 rounded-b-2xl border-b border-slate-700/50 -mt-px">
+            {/* Name, username, bio and actions in a solid strip (z-10 so avatar overlaps on top of cover) */}
+            <div className="relative z-10 bg-slate-900 px-4 sm:px-6 md:px-8 pt-0 pb-5 rounded-b-2xl border-b border-slate-700/50 -mt-px">
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
                 {profileData?.avatarUrl && !avatarError ? (
                   <img
