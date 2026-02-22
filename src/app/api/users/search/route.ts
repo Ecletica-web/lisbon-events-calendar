@@ -29,14 +29,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ users })
     }
 
-    if (q.length < 2) {
+    if (q.length < 1) {
       return NextResponse.json({ users: [] })
     }
 
+    // Prefix match (starts with): escape ilike wildcards so user input is literal
+    const safe = q.replace(/[%_\\]/g, '')
+    const pattern = `${safe}%`
     const { data, error } = await supabaseServer
       .from('user_profiles')
       .select('id, display_name, avatar_url, username')
-      .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+      .or(`username.ilike.${pattern},display_name.ilike.${pattern}`)
       .limit(limit)
 
     if (error) {

@@ -41,7 +41,7 @@ async function ensureViewableProfileImageUrl(url: string | null): Promise<string
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   const { id: userId } = await context.params
@@ -54,6 +54,14 @@ export async function GET(
       return NextResponse.json({ error: 'Not configured' }, { status: 503 })
     }
 
+    let viewerId: string | null = null
+    const authHeader = request.headers.get('authorization')
+    const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+    if (bearer) {
+      const { data: { user } } = await supabaseServer.auth.getUser(bearer)
+      viewerId = user?.id ?? null
+    }
+
     let profile: {
       id: string
       display_name: string | null
@@ -62,12 +70,13 @@ export async function GET(
       username: string | null
       cover_url: string | null
       event_visibility: string | null
+      private_mode: boolean | null
     } | null = null
     let profileError: Error | null = null
 
     const { data: profileRow, error: profileErr } = await supabaseServer
       .from('user_profiles')
-      .select('id, display_name, avatar_url, bio, username, cover_url, event_visibility')
+      .select('id, display_name, avatar_url, bio, username, cover_url, event_visibility, private_mode')
       .eq('id', userId)
       .maybeSingle()
     profile = profileRow
@@ -87,6 +96,7 @@ export async function GET(
             username: authUser.user_metadata?.user_name ?? null,
             cover_url: null,
             event_visibility: 'public',
+            private_mode: false,
           }
           // Create user_profiles row so future requests and profile edits work (service role bypasses RLS)
           await supabaseServer
@@ -109,6 +119,15 @@ export async function GET(
 
     if (profileError || !profile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+    }
+
+    const isPrivate = profile.private_mode === true
+    const isOwner = viewerId === profile.id
+    if (isPrivate && !isOwner) {
+      return NextResponse.json(
+        { id: profile.id, isPrivate: true, displayName: null, avatarUrl: null, bio: null, username: null, coverUrl: null, eventVisibility: 'public', friendsCount: 0 },
+        { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', Pragma: 'no-cache' } }
+      )
     }
 
     const { data: friendRows } = await supabaseServer
@@ -134,6 +153,7 @@ export async function GET(
         coverUrl,
         eventVisibility: profile.event_visibility ?? 'public',
         friendsCount,
+        isPrivate: false,
       },
       {
         headers: {

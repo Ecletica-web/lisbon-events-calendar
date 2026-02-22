@@ -68,6 +68,11 @@ function IntroSequence({ onComplete }: { onComplete: () => void }) {
 
   return (
     <div className="text-center px-4 sm:px-6 md:px-8 w-full min-h-[50vh] flex flex-col items-center justify-center">
+      <img
+        src="/lisboa.png"
+        alt="Lisbon Events Calendar"
+        className="w-full max-w-md sm:max-w-lg mx-auto rounded-xl object-contain mb-8 sm:mb-10 shadow-xl"
+      />
       <p
         className={`text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-relaxed transition-opacity duration-300 w-full max-w-4xl mx-auto ${
           visible ? 'opacity-100' : 'opacity-0'

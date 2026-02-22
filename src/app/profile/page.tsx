@@ -95,15 +95,19 @@ export default function ProfilePage() {
 
     if (isSupabaseUser && supabaseUser) {
       let cancelled = false
-      fetch(`/api/users/${supabaseUser.id}/profile`, { cache: 'no-store' })
-        .then((r) => (cancelled ? null : r.ok ? r.json() : null))
-        .then((data) => {
-          if (!cancelled && data) setProfileData(data)
-        })
-        .catch(() => {})
-        .finally(() => {
-          if (!cancelled) setLoading(false)
-        })
+      const loadProfile = async () => {
+        const { supabase } = await import('@/lib/supabase/client')
+        const { data: { session } } = await (supabase?.auth.getSession() ?? { data: { session: null } })
+        const headers: HeadersInit = { cache: 'no-store' }
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+        const r = await fetch(`/api/users/${supabaseUser.id}/profile`, headers)
+        if (cancelled) return
+        if (r.ok) {
+          const data = await r.json()
+          if (!cancelled) setProfileData(data)
+        }
+      }
+      loadProfile().finally(() => { if (!cancelled) setLoading(false) })
       return () => { cancelled = true }
     } else {
       loadFollows()
@@ -384,7 +388,7 @@ export default function ProfilePage() {
               initialUsername={profileData?.username}
               initialBio={profileData?.bio}
               initialDisplayName={profileData?.displayName || user.name}
-              onSaved={(saved) => {
+              onSaved={async (saved) => {
                 setShowEditForm(false)
                 if (saved && profileData) {
                   setProfileData({
@@ -396,7 +400,11 @@ export default function ProfilePage() {
                     username: saved.username ?? profileData.username,
                   })
                 } else if (supabaseUser) {
-                  fetch(`/api/users/${supabaseUser.id}/profile`, { cache: 'no-store' })
+                  const { supabase } = await import('@/lib/supabase/client')
+                  const { data: { session } } = await (supabase?.auth.getSession() ?? { data: { session: null } })
+                  const headers: HeadersInit = { cache: 'no-store' }
+                  if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+                  fetch(`/api/users/${supabaseUser.id}/profile`, headers)
                     .then((r) => (r.ok ? r.json() : null))
                     .then((data) => { if (data) setProfileData(data) })
                 }

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     const { data: profile } = await supabaseServer
       .from('user_profiles')
-      .select('email_notifications, digest_frequency, notification_timezone, notify_venues, notify_personas, notify_promoters, event_visibility')
+      .select('email_notifications, digest_frequency, notification_timezone, notify_venues, notify_personas, notify_promoters, event_visibility, private_mode')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
         notify_personas: profile?.notify_personas ?? false,
         notify_promoters: profile?.notify_promoters ?? false,
         event_visibility: profile?.event_visibility ?? 'public',
+        private_profile: profile?.private_mode ?? false,
       },
     })
   } catch (e) {
@@ -82,6 +83,9 @@ export async function PATCH(request: NextRequest) {
     if (typeof body.event_visibility === 'string' && ['public', 'friends_only'].includes(body.event_visibility)) {
       updates.event_visibility = body.event_visibility
     }
+    if (typeof body.private_profile === 'boolean') {
+      updates.private_mode = body.private_profile
+    }
 
     const userClient = createUserClient(bearer)
     const { data, error } = await userClient
@@ -104,6 +108,7 @@ export async function PATCH(request: NextRequest) {
         notify_personas: data?.notify_personas ?? false,
         notify_promoters: data?.notify_promoters ?? false,
         event_visibility: data?.event_visibility ?? 'public',
+        private_profile: data?.private_mode ?? false,
       },
     })
   } catch (e) {

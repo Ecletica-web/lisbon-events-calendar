@@ -75,6 +75,7 @@ export default function Navigation() {
     <>
       <a href="/foryou" className={navLinkClass} onClick={closeMenus}>For You</a>
       <a href="/calendar" className={navLinkClass} onClick={closeMenus}>Calendar</a>
+      <a href="/chat" className={navLinkClass} onClick={closeMenus}>Chat</a>
       <a href="/venues" className={navLinkClass} onClick={closeMenus}>Venues</a>
       <a href="/promoters" className={navLinkClass} onClick={closeMenus}>Promoters</a>
     </>
@@ -82,6 +83,7 @@ export default function Navigation() {
     <>
       <Link href="/foryou" className={navLinkClass} onClick={closeMenus}>For You</Link>
       <Link href="/calendar" className={navLinkClass} onClick={closeMenus}>Calendar</Link>
+      <Link href="/chat" className={navLinkClass} onClick={closeMenus}>Chat</Link>
       <Link href="/venues" className={navLinkClass} onClick={closeMenus}>Venues</Link>
       <Link href="/promoters" className={navLinkClass} onClick={closeMenus}>Promoters</Link>
     </>

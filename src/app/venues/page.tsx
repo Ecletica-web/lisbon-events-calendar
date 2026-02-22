@@ -81,7 +81,7 @@ export default function VenuesPage() {
 
   return (
     <div className="min-h-screen min-h-[100dvh] bg-slate-900 text-slate-100">
-      <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8 pt-20 sm:pt-24 pb-[env(safe-area-inset-bottom)]">
+      <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6 pt-14 sm:pt-16 pb-[env(safe-area-inset-bottom)]">
         <Link
           href="/calendar"
           className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"

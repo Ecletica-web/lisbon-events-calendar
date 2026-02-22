@@ -345,7 +345,7 @@ function FeedCard({
 
   return (
     <article
-      className="group rounded-2xl bg-slate-800/50 border border-slate-700/50 overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-indigo-500/5 hover:border-slate-600/70 transition-all duration-300 cursor-pointer"
+      className="group rounded-2xl bg-slate-800 border border-slate-700 overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-indigo-500/5 hover:border-slate-600 transition-all duration-300 cursor-pointer"
       onClick={onOpen}
       role="button"
       tabIndex={0}

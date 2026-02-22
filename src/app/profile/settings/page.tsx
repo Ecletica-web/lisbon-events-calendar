@@ -16,6 +16,7 @@ interface NotificationSettings {
   notifyPersonas?: boolean
   notifyPromoters?: boolean
   eventVisibility?: 'public' | 'friends_only'
+  privateProfile?: boolean
 }
 
 export default function ProfileSettingsPage() {
@@ -77,6 +78,7 @@ export default function ProfileSettingsPage() {
               notifyPersonas: data.settings.notify_personas ?? false,
               notifyPromoters: data.settings.notify_promoters ?? false,
               eventVisibility: (data.settings.event_visibility as 'public' | 'friends_only') ?? 'public',
+              privateProfile: data.settings.private_profile ?? false,
             })
           } else {
             setSettings({
@@ -88,10 +90,11 @@ export default function ProfileSettingsPage() {
               notifyPersonas: false,
               notifyPromoters: false,
               eventVisibility: 'public',
+              privateProfile: false,
             })
           }
         })
-        .catch(() => setSettings({ emailEnabled: false, digestFrequency: 'weekly', instantEnabled: false, timezone: 'Europe/Lisbon', notifyVenues: false, notifyPersonas: false, notifyPromoters: false }))
+        .catch(() => setSettings({ emailEnabled: false, digestFrequency: 'weekly', instantEnabled: false, timezone: 'Europe/Lisbon', notifyVenues: false, notifyPersonas: false, notifyPromoters: false, privateProfile: false }))
         .finally(() => setLoading(false))
     } else {
       setLoading(false)
@@ -144,6 +147,7 @@ export default function ProfileSettingsPage() {
             notify_personas: updates.notifyPersonas,
             notify_promoters: updates.notifyPromoters,
             event_visibility: updates.eventVisibility,
+            private_profile: updates.privateProfile,
           }),
         })
         if (response.ok) {
@@ -157,6 +161,7 @@ export default function ProfileSettingsPage() {
             notifyPersonas: newSettings.notify_personas ?? false,
             notifyPromoters: newSettings.notify_promoters ?? false,
             eventVisibility: (newSettings.event_visibility as 'public' | 'friends_only') ?? 'public',
+            privateProfile: newSettings.private_profile ?? false,
           })
         }
       } catch (e) {
@@ -191,10 +196,23 @@ export default function ProfileSettingsPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-white">Settings</h1>
         </div>
 
-        {/* Privacy - Event visibility (Supabase only) */}
+        {/* Privacy (Supabase only) */}
         {isSupabaseUser && settings && (
           <section className="mb-10">
-            <h2 className="text-xl font-semibold mb-4 text-slate-200">Event visibility</h2>
+            <h2 className="text-xl font-semibold mb-4 text-slate-200">Privacy</h2>
+            <div className="p-4 sm:p-6 rounded-xl bg-slate-800/60 border border-slate-700/50 mb-6">
+              <label className="flex items-center justify-between gap-4 cursor-pointer p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
+                <span className="text-slate-200">Private profile</span>
+                <input
+                  type="checkbox"
+                  checked={settings.privateProfile === true}
+                  onChange={(e) => handleUpdateSettings({ privateProfile: e.target.checked })}
+                  className="rounded border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50"
+                />
+              </label>
+              <p className="text-slate-500 text-sm mt-2 px-3">When on, only you can see your profile info (name, bio, photo). Others will see &quot;This profile is private&quot;.</p>
+            </div>
+            <h3 className="text-lg font-medium mb-3 text-slate-300">Event visibility</h3>
             <div className="p-4 sm:p-6 rounded-xl bg-slate-800/60 border border-slate-700/50">
               <p className="text-slate-400 mb-4">Who can see your Going, Saved, and Liked events on your profile?</p>
               <div className="space-y-2">

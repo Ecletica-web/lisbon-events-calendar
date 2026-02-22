@@ -61,8 +61,6 @@ export default function ProfileFriendsSection({
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<FriendUser[]>([])
-  const [browseList, setBrowseList] = useState<FriendUser[]>([])
-  const [browseLoading, setBrowseLoading] = useState(false)
   const [searching, setSearching] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   type FriendStatus = 'friends' | 'pending_sent' | 'pending_received' | null
@@ -147,7 +145,7 @@ export default function ProfileFriendsSection({
 
   const handleSearch = useCallback(async () => {
     const q = searchQuery.trim()
-    if (q.length < 2) {
+    if (q.length < 1) {
       setSearchResults([])
       return
     }
@@ -163,30 +161,11 @@ export default function ProfileFriendsSection({
     }
   }, [searchQuery])
 
-  const fetchBrowse = useCallback(async () => {
-    setBrowseLoading(true)
-    try {
-      const res = await fetch('/api/users/search?browse=1&limit=20')
-      const data = await res.json()
-      setBrowseList(data.users ?? [])
-    } catch {
-      setBrowseList([])
-    } finally {
-      setBrowseLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (tab === 'add' && isOwnProfile && browseList.length === 0 && !browseLoading) {
-      fetchBrowse()
-    }
-  }, [tab, isOwnProfile, browseList.length, browseLoading, fetchBrowse])
+  // No auto-fetch of all users; only show results when user types (dynamic search)
 
   const currentUserId = supabaseAuth?.user?.id
-  const addTabUserIds = tab === 'add'
-    ? (searchQuery.trim().length >= 2 ? searchResults : browseList)
-        .filter((u) => u.id !== currentUserId)
-        .map((u) => u.id)
+  const addTabUserIds = tab === 'add' && searchQuery.trim().length >= 1
+    ? searchResults.filter((u) => u.id !== currentUserId).map((u) => u.id)
     : []
   const addTabIdsKeySorted = addTabUserIds.length > 0 ? [...addTabUserIds].sort().join(',') : ''
   const batchFetchInFlightRef = useRef(false)
@@ -224,9 +203,10 @@ export default function ProfileFriendsSection({
       .catch(clearInFlight)
   }, [tab, isOwnProfile, addTabIdsKeySorted])
 
+  // Dynamic search as you type (debounced)
   useEffect(() => {
     const q = searchQuery.trim()
-    if (q.length < 2) {
+    if (q.length < 1) {
       setSearchResults([])
       return
     }
@@ -319,17 +299,19 @@ export default function ProfileFriendsSection({
               />
               <button
                 onClick={handleSearch}
-                disabled={searching || searchQuery.trim().length < 2}
+                disabled={searching || searchQuery.trim().length < 1}
                 className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 text-sm font-medium"
               >
                 {searching ? 'Searching...' : 'Search'}
               </button>
             </div>
-            {searchQuery.trim().length >= 2 ? (
+            {searchQuery.trim().length < 1 ? (
+              <p className="text-slate-500 text-sm">Type a name or username to search. Results update as you type.</p>
+            ) : (
               <>
                 {searching && <p className="text-slate-500 text-sm">Searching...</p>}
                 {!searching && searchResults.length === 0 && (
-                  <p className="text-slate-500 text-sm">No users found. Try a different search.</p>
+                  <p className="text-slate-500 text-sm">No users found starting with &quot;{searchQuery.trim()}&quot;. Try different letters.</p>
                 )}
                 {!searching && searchResults.length > 0 && (
                   <ul className="space-y-2">
@@ -358,43 +340,6 @@ export default function ProfileFriendsSection({
                     ))}
                   </ul>
                 )}
-              </>
-            ) : (
-              <>
-                <p className="text-slate-500 text-sm">Type 2+ characters to search, or browse existing users below.</p>
-                {browseLoading ? (
-                  <p className="text-slate-500 text-sm">Loading users...</p>
-                ) : browseList.length > 0 ? (
-                  <ul className="space-y-2">
-                    {browseList
-                      .filter((u) => u.id !== supabaseAuth?.user?.id)
-                      .map((u) => (
-                      <UserRow
-                        key={u.id}
-                        user={u}
-                        action={
-                          supabaseConfigured ? (
-                            addTabStatusIdsKey !== addTabIdsKeySorted ? (
-                              <span className="text-slate-500 text-sm">...</span>
-                            ) : (
-                              <AddFriendButton
-                                targetUserId={u.id}
-                                size="sm"
-                                status={addTabStatusMap[u.id]}
-                                onStatusChange={(s) => {
-                                  setAddTabStatusMap((prev) => ({ ...prev, [u.id]: s ?? null }))
-                                  if (s === 'friends') refreshFriends(false)
-                                }}
-                              />
-                            )
-                          ) : null
-                        }
-                      />
-                    ))}
-                  </ul>
-                ) : !browseLoading ? (
-                  <p className="text-slate-500 text-sm">No users to show yet.</p>
-                ) : null}
               </>
             )}
           </div>
