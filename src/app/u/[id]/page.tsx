@@ -194,8 +194,9 @@ export default function PublicProfilePage() {
           </div>
         )}
         <div className="max-w-2xl mx-auto">
-          <div className="-mx-4 sm:-mx-6 md:0 -mt-0">
-            <div className="relative h-40 sm:h-48 bg-slate-800 overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
+          <div className="-mx-4 sm:-mx-6 md:mx-0">
+            {/* Cover */}
+            <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800 overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/50 via-purple-900/50 to-pink-900/50" />
               {profileData.coverUrl && (
                 <button
@@ -214,35 +215,41 @@ export default function PublicProfilePage() {
                 </button>
               )}
             </div>
-            <div className="relative px-4 sm:px-6 md:px-8 -mt-20">
+            {/* Strip: avatar + name + actions (aligned with own profile) */}
+            <div className="relative bg-slate-900 px-4 sm:px-6 md:px-8 pt-0 pb-5 rounded-b-2xl border-b border-slate-700/50 -mt-px">
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-                {profileData.avatarUrl ? (
-                  <button
-                    type="button"
-                    onClick={() => setImagePreviewUrl(profileData.avatarUrl!)}
-                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 overflow-hidden flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+                {/* Single avatar slot: image or initial */}
+                <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 bg-slate-700 flex-shrink-0 -mt-14 sm:-mt-16 overflow-hidden flex items-center justify-center">
+                  {profileData.avatarUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => setImagePreviewUrl(profileData.avatarUrl!)}
+                      className="absolute inset-0 w-full h-full focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-900 rounded-full"
+                    >
+                      <img
+                        src={profileData.avatarUrl}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                        crossOrigin="anonymous"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                          const wrap = e.currentTarget.closest('div')
+                          const fallback = wrap?.querySelector('[data-avatar-fallback]')
+                          if (fallback instanceof HTMLElement) fallback.classList.remove('hidden')
+                        }}
+                      />
+                    </button>
+                  ) : null}
+                  <span
+                    data-avatar-fallback
+                    className={`text-3xl sm:text-4xl font-bold text-slate-400 ${profileData.avatarUrl ? 'hidden' : ''}`}
                   >
-                    <img
-                      src={profileData.avatarUrl}
-                      alt=""
-                      className="w-full h-full object-cover bg-slate-700"
-                      referrerPolicy="no-referrer"
-                      crossOrigin="anonymous"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none'
-                        const fallback = e.currentTarget.closest('button')?.nextElementSibling
-                        if (fallback instanceof HTMLElement) fallback.classList.remove('hidden')
-                      }}
-                    />
-                  </button>
-                ) : null}
-                <div
-                  className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 bg-slate-700 flex items-center justify-center text-3xl sm:text-4xl font-bold text-slate-400 flex-shrink-0 ${profileData.avatarUrl ? 'hidden' : ''}`}
-                >
-                  {(profileData.displayName || '?')[0].toUpperCase()}
+                    {(profileData.displayName || '?')[0].toUpperCase()}
+                  </span>
                 </div>
-                <div className="flex-1 pb-1">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-white">
+                <div className="flex-1 pb-1 min-w-0">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-white truncate">
                     {profileData.displayName || 'User'}
                   </h1>
                   {profileData.username && (
@@ -252,18 +259,29 @@ export default function PublicProfilePage() {
                     <p className="text-slate-300 mt-2 text-sm max-w-xl">{profileData.bio}</p>
                   )}
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    <ShareProfileButton
-                      userId={profileData.id}
-                      displayName={profileData.displayName}
-                      variant="button"
-                    />
-                    {!isOwnProfile && <AddFriendButton targetUserId={profileData.id} />}
-                  </div>
+                <div className="flex items-center gap-2 flex-wrap self-start sm:self-end">
+                  <ShareProfileButton
+                    userId={profileData.id}
+                    displayName={profileData.displayName}
+                    variant="button"
+                  />
+                  {!isOwnProfile && currentUser && (
+                    <Link
+                      href={`/chat?with=${encodeURIComponent(profileData.id)}`}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:text-white text-sm font-medium transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      Send message
+                    </Link>
+                  )}
+                  {!isOwnProfile && <AddFriendButton targetUserId={profileData.id} />}
+                </div>
               </div>
             </div>
           </div>
-          <div className="p-4 sm:p-6 md:p-8 pt-4">
+          <div className="p-4 sm:p-6 md:p-8 pt-6">
             <div className="mb-8">
               <h2 className="text-xl font-semibold mb-4 text-slate-200">Friends</h2>
               <ProfileFriendsSection

@@ -1,44 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase/server'
+import { ensureViewableProfileImageUrl } from '@/lib/profileImageUrls'
 
 export const dynamic = 'force-dynamic'
-
-const PROFILE_IMAGES_BUCKET = 'profile-images'
-const SIGNED_URL_EXPIRES = 3600 // 1 hour
-
-/** Resolve profile image URL: path-only → full public URL; full Supabase URL → signed URL for private buckets. */
-async function ensureViewableProfileImageUrl(url: string | null): Promise<string | null> {
-  if (!url || !supabaseServer) return url
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-  if (!supabaseUrl) return url
-
-  let path: string | null = null
-
-  if (!url.startsWith('http')) {
-    path = url.replace(/^\//, '').trim()
-    if (!path) return url
-    const { data } = supabaseServer.storage.from(PROFILE_IMAGES_BUCKET).getPublicUrl(path)
-    url = data.publicUrl
-  }
-
-  if (!url.includes(supabaseUrl) || !url.includes(`/${PROFILE_IMAGES_BUCKET}/`)) {
-    return url
-  }
-  try {
-    const pathname = new URL(url).pathname
-    const bucketSegment = `/${PROFILE_IMAGES_BUCKET}/`
-    const idx = pathname.indexOf(bucketSegment)
-    path = path ?? (idx >= 0 ? pathname.slice(idx + bucketSegment.length) : null)
-    if (!path) return url
-    const { data, error } = await supabaseServer.storage
-      .from(PROFILE_IMAGES_BUCKET)
-      .createSignedUrl(path, SIGNED_URL_EXPIRES)
-    if (error || !data?.signedUrl) return url
-    return data.signedUrl
-  } catch {
-    return url
-  }
-}
 
 export async function GET(
   request: NextRequest,

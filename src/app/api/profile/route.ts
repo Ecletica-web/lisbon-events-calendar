@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer, createAuthenticatedClient } from '@/lib/supabase/server'
 import { parseProfileUpdateBody } from '@/lib/profileApi'
+import { ensureViewableProfileImageUrl } from '@/lib/profileImageUrls'
 
 function getBearer(request: NextRequest): string | null {
   const authHeader = request.headers.get('authorization')
@@ -49,13 +50,18 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    const [avatarUrl, coverUrl] = await Promise.all([
+      ensureViewableProfileImageUrl(data.avatar_url),
+      ensureViewableProfileImageUrl(data.cover_url),
+    ])
+
     return NextResponse.json({
       id: data.id,
       displayName: data.display_name,
-      avatarUrl: data.avatar_url,
+      avatarUrl,
       bio: data.bio,
       username: data.username,
-      coverUrl: data.cover_url,
+      coverUrl,
     })
   } catch (e) {
     console.error('Profile PATCH error:', e)
