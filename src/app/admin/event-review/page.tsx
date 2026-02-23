@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import Papa from 'papaparse'
 import type { ReviewEventItem } from '@/lib/adminEventReview'
 
@@ -96,7 +95,6 @@ function ReviewEventCard({
 }
 
 export default function EventReviewPage() {
-  const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabId>('raw')
   const [raw, setRaw] = useState<ReviewEventItem[]>([])
   const [needsReview, setNeedsReview] = useState<ReviewEventItem[]>([])
@@ -109,10 +107,6 @@ export default function EventReviewPage() {
     setLoading(true)
     try {
       const res = await fetch('/api/admin/event-review')
-      if (res.status === 401) {
-        router.replace('/login')
-        return
-      }
       if (!res.ok) throw new Error('Failed to load')
       const data = await res.json()
       setRaw(data.raw ?? [])
@@ -125,7 +119,7 @@ export default function EventReviewPage() {
     } finally {
       setLoading(false)
     }
-  }, [router])
+  }, [])
 
   useEffect(() => {
     loadFromApi()
