@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 
 interface ChatMember {
@@ -39,6 +40,8 @@ function chatTitle(chat: Chat, currentUserId: string) {
 export default function ChatPage() {
   const auth = useSupabaseAuth()
   const user = auth?.user
+  const searchParams = useSearchParams()
+  const withUserId = searchParams.get('with')
   const [chats, setChats] = useState<Chat[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -84,6 +87,40 @@ export default function ChatPage() {
     })
     return () => { cancelled = true }
   }, [user, getAuthHeaders])
+
+  // Open DM when visiting /chat?with=userId (e.g. from a friend's profile)
+  const withUserIdHandled = useRef(false)
+  useEffect(() => {
+    if (!user || !withUserId || withUserId === user.id || loading || withUserIdHandled.current) return
+    const existing = chats.find(
+      (c) =>
+        !c.is_group &&
+        c.members.length === 2 &&
+        c.members.some((m) => m.id === withUserId)
+    )
+    if (existing) {
+      setSelectedId(existing.id)
+      withUserIdHandled.current = true
+      return
+    }
+    withUserIdHandled.current = true
+    const headersPromise = getAuthHeaders()
+    headersPromise.then((headers) => {
+      if (!headers.Authorization) return
+      fetch('/api/chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ memberIds: [withUserId] }),
+      })
+        .then((r) => r.ok ? r.json() : null)
+        .then(async (data) => {
+          if (data?.chat?.id) {
+            await fetchChats()
+            setSelectedId(data.chat.id)
+          }
+        })
+    })
+  }, [user, withUserId, loading, chats, getAuthHeaders, fetchChats])
 
   useEffect(() => {
     if (!selectedId || !user) {
