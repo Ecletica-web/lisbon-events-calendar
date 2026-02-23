@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
@@ -37,7 +37,7 @@ function chatTitle(chat: Chat, currentUserId: string) {
   return others.map((m) => m.displayName || m.username || 'User').join(', ')
 }
 
-export default function ChatPage() {
+function ChatPageContent() {
   const auth = useSupabaseAuth()
   const user = auth?.user
   const searchParams = useSearchParams()
@@ -452,5 +452,21 @@ export default function ChatPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function ChatPageFallback() {
+  return (
+    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6">
+      <p className="text-slate-400">Loading chat...</p>
+    </div>
+  )
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={<ChatPageFallback />}>
+      <ChatPageContent />
+    </Suspense>
   )
 }
