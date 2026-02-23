@@ -74,10 +74,12 @@ function ReviewEventCard({
   item,
   review,
   onReviewChange,
+  onOpenDetails,
 }: {
   item: ReviewEventItem
   review: ReviewState | undefined
   onReviewChange: (id: string, quality: number, notes: string) => void
+  onOpenDetails: () => void
 }) {
   const quality = review?.quality ?? 0
   const notes = review?.notes ?? ''
@@ -86,7 +88,13 @@ function ReviewEventCard({
   const descriptionText = item.descriptionLong?.trim()
 
   return (
-    <article className="group rounded-2xl bg-slate-800 border border-slate-700 overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-indigo-500/5 hover:border-slate-600 transition-all duration-300">
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={onOpenDetails}
+      onKeyDown={(e) => e.key === 'Enter' && onOpenDetails()}
+      className="group rounded-2xl bg-slate-800 border border-slate-700 overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-indigo-500/5 hover:border-slate-600 transition-all duration-300 cursor-pointer"
+    >
       <div className="aspect-[4/3] relative bg-slate-800 overflow-hidden">
         <img
           src={item.imageUrl || '/lisboa.png'}
@@ -133,7 +141,7 @@ function ReviewEventCard({
             {descriptionText}
           </p>
         )}
-        <div className="flex items-center gap-2 flex-wrap mb-3">
+        <div className="flex items-center gap-2 flex-wrap mb-3" onClick={(e) => e.stopPropagation()}>
           <span className="text-slate-400 text-sm">Quality (1–10):</span>
           <select
             value={quality}
@@ -146,7 +154,7 @@ function ReviewEventCard({
             ))}
           </select>
         </div>
-        <div>
+        <div onClick={(e) => e.stopPropagation()}>
           <label className="block text-slate-400 text-xs mb-1">Notes (optional)</label>
           <textarea
             value={notes}
@@ -161,6 +169,121 @@ function ReviewEventCard({
   )
 }
 
+function ReviewDetailModal({
+  item,
+  review,
+  onReviewChange,
+  onClose,
+}: {
+  item: ReviewEventItem
+  review: ReviewState | undefined
+  onReviewChange: (id: string, quality: number, notes: string) => void
+  onClose: () => void
+}) {
+  const quality = review?.quality ?? 0
+  const notes = review?.notes ?? ''
+  const startDate = item.start ? new Date(item.start) : null
+  const categoryColor = getCategoryColor(item.category)
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Event details"
+    >
+      <div
+        className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-slate-700">
+          <h3 className="text-lg font-semibold text-white">Event details</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="overflow-y-auto flex-1 p-4 space-y-4">
+          <div className="aspect-[4/3] rounded-xl overflow-hidden bg-slate-900">
+            <img
+              src={item.imageUrl || '/lisboa.png'}
+              alt={item.title}
+              className="w-full h-full object-cover"
+              onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
+            />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white mb-1">{item.title}</h2>
+            {item.venueName && <p className="text-slate-300">{item.venueName}</p>}
+            {startDate && (
+              <time dateTime={item.start} className="text-slate-400 text-sm block mt-1">
+                {startDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </time>
+            )}
+          </div>
+          {item.validationStatus && (
+            <div className="flex flex-wrap gap-2">
+              <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-600/90 text-white">{item.validationStatus}</span>
+              {item.validationReasons && <span className="text-slate-400 text-sm">{item.validationReasons}</span>}
+            </div>
+          )}
+          {(item.tags?.length ?? 0) > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {item.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium border"
+                  style={{ borderColor: categoryColor, color: categoryColor }}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+          {item.descriptionLong?.trim() && (
+            <div>
+              <h4 className="text-slate-400 text-sm font-medium mb-1">Description / caption</h4>
+              <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{item.descriptionLong.trim()}</p>
+            </div>
+          )}
+          <div className="pt-4 border-t border-slate-700 space-y-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-slate-400 text-sm">Quality (1–10):</span>
+              <select
+                value={quality}
+                onChange={(e) => onReviewChange(item.id, Number(e.target.value), notes)}
+                className="rounded-lg px-2 py-1 bg-slate-700 border border-slate-600 text-slate-200 text-sm"
+              >
+                <option value={0}>—</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-slate-400 text-xs mb-1">Notes (optional)</label>
+              <textarea
+                value={notes}
+                onChange={(e) => onReviewChange(item.id, quality, e.target.value)}
+                placeholder="e.g. wrong venue, missing date..."
+                rows={3}
+                className="w-full rounded-lg px-3 py-2 bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-500 text-sm resize-none"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function EventReviewPage() {
   const [activeTab, setActiveTab] = useState<TabId>('raw')
   const [raw, setRaw] = useState<ReviewEventItem[]>([])
@@ -169,6 +292,7 @@ export default function EventReviewPage() {
   const [reviewsById, setReviewsById] = useState<Record<string, ReviewState>>({})
   const [loading, setLoading] = useState(true)
   const [uploadingTab, setUploadingTab] = useState<TabId | null>(null)
+  const [selectedItem, setSelectedItem] = useState<ReviewEventItem | null>(null)
 
   const loadFromApi = useCallback(async () => {
     setLoading(true)
@@ -318,9 +442,19 @@ export default function EventReviewPage() {
               item={item}
               review={reviewsById[item.id]}
               onReviewChange={handleReviewChange}
+              onOpenDetails={() => setSelectedItem(item)}
             />
           ))}
         </div>
+      )}
+
+      {selectedItem && (
+        <ReviewDetailModal
+          item={selectedItem}
+          review={reviewsById[selectedItem.id]}
+          onReviewChange={handleReviewChange}
+          onClose={() => setSelectedItem(null)}
+        />
       )}
     </div>
   )
