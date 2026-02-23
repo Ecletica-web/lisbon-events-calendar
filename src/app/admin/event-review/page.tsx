@@ -183,6 +183,39 @@ function ReviewEventCard({
   )
 }
 
+function eventFieldsList(item: ReviewEventItem): { label: string; value: string }[] {
+  const r = item.rawRow ?? {}
+  const v = (key: string) => (r[key] ?? '').trim()
+  const start = item.start || v('start_datetime') || v('caption_event_start_datetime')
+  const end = v('end_datetime') || v('caption_event_end_datetime')
+  const venue = item.venueName || v('venue_name') || v('venue_name_raw') || v('location_name')
+  const address = v('venue_address') || v('location_address')
+  const category = item.category || v('category') || v('caption_event_category')
+  const priceMin = v('price_min')
+  const priceMax = v('price_max')
+  const isFree = v('is_free')?.toLowerCase() === 'true' || v('caption_event_is_free')?.toLowerCase() === 'true'
+  const ticketUrl = v('ticket_url') || v('caption_event_ticket_url')
+  const timezone = v('timezone')
+  const status = v('status')
+  const city = v('city')
+  const neighborhood = v('neighborhood')
+  const rows: { label: string; value: string }[] = []
+  if (start) rows.push({ label: 'Start', value: new Date(start).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) })
+  if (end) rows.push({ label: 'End', value: new Date(end).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) })
+  if (timezone) rows.push({ label: 'Timezone', value: timezone })
+  if (venue) rows.push({ label: 'Venue', value: venue })
+  if (address) rows.push({ label: 'Address', value: address })
+  if (neighborhood) rows.push({ label: 'Neighborhood', value: neighborhood })
+  if (city) rows.push({ label: 'City', value: city })
+  if (category) rows.push({ label: 'Category', value: category })
+  if (item.tags?.length) rows.push({ label: 'Tags', value: item.tags.join(', ') })
+  if (isFree) rows.push({ label: 'Price', value: 'Free' })
+  else if (priceMin || priceMax) rows.push({ label: 'Price', value: [priceMin, priceMax].filter(Boolean).join(' – ') + (v('currency') ? ` ${v('currency')}` : '') })
+  if (ticketUrl) rows.push({ label: 'Ticket URL', value: ticketUrl })
+  if (status) rows.push({ label: 'Status', value: status })
+  return rows
+}
+
 function ReviewDetailModal({
   item,
   review,
@@ -196,8 +229,8 @@ function ReviewDetailModal({
 }) {
   const quality = review?.quality ?? 0
   const notes = review?.notes ?? ''
-  const startDate = item.start ? new Date(item.start) : null
   const categoryColor = getCategoryColor(item.category)
+  const fields = eventFieldsList(item)
 
   return (
     <div
@@ -248,13 +281,28 @@ function ReviewDetailModal({
           </div>
           <div>
             <h2 className="text-xl font-bold text-white mb-1">{item.title}</h2>
-            {item.venueName && <p className="text-slate-300">{item.venueName}</p>}
-            {startDate && (
-              <time dateTime={item.start} className="text-slate-400 text-sm block mt-1">
-                {startDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-              </time>
-            )}
           </div>
+          {fields.length > 0 && (
+            <div className="rounded-xl bg-slate-800/80 border border-slate-700 p-4">
+              <h4 className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-3">Event fields</h4>
+              <dl className="grid gap-2 sm:grid-cols-[auto_1fr]">
+                {fields.map(({ label, value }) => (
+                  <span key={label} className="contents">
+                    <dt className="text-slate-500 text-sm pr-4">{label}</dt>
+                    <dd className="text-slate-200 text-sm break-words">
+                      {label === 'Ticket URL' && value.startsWith('http') ? (
+                        <a href={value} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline truncate block max-w-full" title={value}>
+                          {value}
+                        </a>
+                      ) : (
+                        value
+                      )}
+                    </dd>
+                  </span>
+                ))}
+              </dl>
+            </div>
+          )}
           {item.validationStatus && (
             <div className="flex flex-wrap gap-2">
               <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-600/90 text-white">{item.validationStatus}</span>
