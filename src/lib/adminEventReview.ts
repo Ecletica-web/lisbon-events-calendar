@@ -111,6 +111,27 @@ export interface FetchReviewCsvsResult {
   processed: ReviewEventItem[]
 }
 
+function parseCsvToRows(csvText: string): Record<string, string>[] {
+  const result = Papa.parse<Record<string, string>>(csvText, {
+    header: true,
+    skipEmptyLines: true,
+  })
+  return result.data ?? []
+}
+
+/** Parse CSV text to raw items (for fallback when reading from project files). */
+export function parseRawCsvText(csvText: string): ReviewEventItem[] {
+  return parseCsvToRows(csvText).map(mapRawRow)
+}
+
+export function parseNeedsReviewCsvText(csvText: string): ReviewEventItem[] {
+  return parseCsvToRows(csvText).map(mapNeedsReviewRow)
+}
+
+export function parseProcessedCsvText(csvText: string): ReviewEventItem[] {
+  return parseCsvToRows(csvText).map(mapProcessedRow)
+}
+
 export async function fetchReviewCsvs(): Promise<FetchReviewCsvsResult> {
   const rawUrl = process.env.EVENT_REVIEW_RAW_CSV_URL
   const needsReviewUrl = process.env.EVENT_REVIEW_NEEDS_REVIEW_CSV_URL
