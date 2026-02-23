@@ -21,6 +21,16 @@ Copy `.env.example` to `.env.local` and fill in values. Full list:
 | `NEXT_PUBLIC_VENUE_TAGS_CSV_URL` | One column `tag` per row; only these tags are kept for venues. |
 | `NEXT_PUBLIC_PROMOTERS_CSV_URL` | CSV for promoters. |
 
+### Admin event review (optional)
+
+Used only by `/admin/event-review` to load pipeline CSVs for rating parsed events. If unset, the page still works with file upload.
+
+| Variable | Description |
+|----------|-------------|
+| `EVENT_REVIEW_RAW_CSV_URL` | CSV of raw scraped posts (Events_Raw). |
+| `EVENT_REVIEW_NEEDS_REVIEW_CSV_URL` | CSV of items needing review (Needs_Review). |
+| `EVENT_REVIEW_PROCESSED_CSV_URL` | CSV of processed events. |
+
 ### Feature flags (optional)
 
 | Variable | Default | Description |
