@@ -13,6 +13,58 @@ const TAB_LABELS: Record<TabId, string> = {
   processed: 'Processed Events',
 }
 
+const STATIC_CSV_PATHS: Record<TabId, string> = {
+  raw: '/event-review/Events_Raw.csv',
+  needsReview: '/event-review/Needs_Review.csv',
+  processed: '/event-review/Processed_Events.csv',
+}
+
+function parseCsvTextToItems(text: string, tab: TabId): ReviewEventItem[] {
+  const rows = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true }).data ?? []
+  const map =
+    tab === 'raw'
+      ? (r: Record<string, string>) =>
+          ({
+            id: (r.id || String(Math.random())).trim(),
+            imageUrl: (r.stored_image_url || r.thumbnail_url || '').trim() || undefined,
+            title: (r.caption_event_title || 'Raw post').trim(),
+            venueName: (r.location_name || '').trim() || undefined,
+            start: (r.caption_event_start_datetime || '').trim() || undefined,
+            descriptionLong: (r.caption || '').trim() || undefined,
+            tags: [],
+            rawRow: r,
+          }) as ReviewEventItem
+      : tab === 'needsReview'
+        ? (r: Record<string, string>) =>
+            ({
+              id: (r.review_id || String(Math.random())).trim(),
+              imageUrl: (r.stored_image_url || r.thumbnail_url || '').trim() || undefined,
+              title: (r.description_short || 'Needs review').trim(),
+              venueName: (r.venue_name_raw || '').trim() || undefined,
+              start: (r.start_datetime || '').trim() || undefined,
+              descriptionLong: (r.caption || '').trim() || undefined,
+              validationStatus: (r.validation_status || '').trim() || undefined,
+              validationReasons: (r.validation_reasons || '').trim() || undefined,
+              tags: [],
+              rawRow: r,
+            }) as ReviewEventItem
+        : (r: Record<string, string>) => {
+            const tagsStr = (r.tags || '').trim()
+            return {
+              id: (r.event_id || String(Math.random())).trim(),
+              imageUrl: (r.primary_image_url || '').trim() || undefined,
+              title: (r.title || 'Processed event').trim(),
+              venueName: (r.venue_name || r.venue_name_raw || '').trim() || undefined,
+              start: (r.start_datetime || '').trim() || undefined,
+              descriptionLong: (r.description_long || r.description_short || '').trim() || undefined,
+              category: (r.category || '').trim() || undefined,
+              tags: tagsStr ? tagsStr.split(',').map((t) => t.trim()).filter(Boolean) : [],
+              rawRow: r,
+            } as ReviewEventItem
+          }
+  return rows.map(map)
+}
+
 interface ReviewState {
   quality: number
   notes: string
@@ -124,9 +176,24 @@ export default function EventReviewPage() {
       const res = await fetch('/api/admin/event-review')
       if (!res.ok) throw new Error('Failed to load')
       const data = await res.json()
-      setRaw(data.raw ?? [])
-      setNeedsReview(data.needsReview ?? [])
-      setProcessed(data.processed ?? [])
+      let rawItems: ReviewEventItem[] = data.raw ?? []
+      let needsReviewItems: ReviewEventItem[] = data.needsReview ?? []
+      let processedItems: ReviewEventItem[] = data.processed ?? []
+
+      if (rawItems.length === 0 || needsReviewItems.length === 0 || processedItems.length === 0) {
+        const [rawText, nrText, procText] = await Promise.all([
+          rawItems.length === 0 ? fetch(STATIC_CSV_PATHS.raw).then((r) => (r.ok ? r.text() : '')) : '',
+          needsReviewItems.length === 0 ? fetch(STATIC_CSV_PATHS.needsReview).then((r) => (r.ok ? r.text() : '')) : '',
+          processedItems.length === 0 ? fetch(STATIC_CSV_PATHS.processed).then((r) => (r.ok ? r.text() : '')) : '',
+        ])
+        if (rawItems.length === 0 && rawText) rawItems = parseCsvTextToItems(rawText, 'raw')
+        if (needsReviewItems.length === 0 && nrText) needsReviewItems = parseCsvTextToItems(nrText, 'needsReview')
+        if (processedItems.length === 0 && procText) processedItems = parseCsvTextToItems(procText, 'processed')
+      }
+
+      setRaw(rawItems)
+      setNeedsReview(needsReviewItems)
+      setProcessed(processedItems)
     } catch {
       setRaw([])
       setNeedsReview([])
@@ -152,54 +219,11 @@ export default function EventReviewPage() {
     setUploadingTab(tab)
     reader.onload = () => {
       const text = String(reader.result ?? '')
-      Papa.parse<Record<string, string>>(text, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (result) => {
-          const rows = result.data ?? []
-          const map = tab === 'raw' ? (r: Record<string, string>) => ({
-            id: (r.id || String(Math.random())).trim(),
-            imageUrl: (r.stored_image_url || r.thumbnail_url || '').trim() || undefined,
-            title: (r.caption_event_title || 'Raw post').trim(),
-            venueName: (r.location_name || '').trim() || undefined,
-            start: (r.caption_event_start_datetime || '').trim() || undefined,
-            descriptionLong: (r.caption || '').trim() || undefined,
-            tags: [] as string[],
-            rawRow: r,
-          }) as ReviewEventItem
-          : tab === 'needsReview' ? (r: Record<string, string>) => ({
-            id: (r.review_id || String(Math.random())).trim(),
-            imageUrl: (r.stored_image_url || r.thumbnail_url || '').trim() || undefined,
-            title: (r.description_short || 'Needs review').trim(),
-            venueName: (r.venue_name_raw || '').trim() || undefined,
-            start: (r.start_datetime || '').trim() || undefined,
-            descriptionLong: (r.caption || '').trim() || undefined,
-            validationStatus: (r.validation_status || '').trim() || undefined,
-            validationReasons: (r.validation_reasons || '').trim() || undefined,
-            tags: [] as string[],
-            rawRow: r,
-          }) as ReviewEventItem
-          : (r: Record<string, string>) => {
-            const tagsStr = (r.tags || '').trim()
-            return {
-              id: (r.event_id || String(Math.random())).trim(),
-              imageUrl: (r.primary_image_url || '').trim() || undefined,
-              title: (r.title || 'Processed event').trim(),
-              venueName: (r.venue_name || r.venue_name_raw || '').trim() || undefined,
-              start: (r.start_datetime || '').trim() || undefined,
-              descriptionLong: (r.description_long || r.description_short || '').trim() || undefined,
-              category: (r.category || '').trim() || undefined,
-              tags: tagsStr ? tagsStr.split(',').map((t) => t.trim()).filter(Boolean) : [],
-              rawRow: r,
-            } as ReviewEventItem
-          }
-          const items = rows.map(map)
-          if (tab === 'raw') setRaw(items)
-          else if (tab === 'needsReview') setNeedsReview(items)
-          else setProcessed(items)
-          setUploadingTab(null)
-        },
-      })
+      const items = parseCsvTextToItems(text, tab)
+      if (tab === 'raw') setRaw(items)
+      else if (tab === 'needsReview') setNeedsReview(items)
+      else setProcessed(items)
+      setUploadingTab(null)
     }
     reader.readAsText(file, 'UTF-8')
   }, [])
