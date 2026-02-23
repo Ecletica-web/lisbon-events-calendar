@@ -186,34 +186,52 @@ function ReviewEventCard({
 function eventFieldsList(item: ReviewEventItem): { label: string; value: string }[] {
   const r = item.rawRow ?? {}
   const v = (key: string) => (r[key] ?? '').trim()
-  const start = item.start || v('start_datetime') || v('caption_event_start_datetime')
-  const end = v('end_datetime') || v('caption_event_end_datetime')
-  const venue = item.venueName || v('venue_name') || v('venue_name_raw') || v('location_name')
+  const rawDate = v('date')
+  const rawTime = v('time')
+  const startIso = item.start || v('start_datetime') || v('caption_event_start_datetime')
+  const endIso = v('end_datetime') || v('caption_event_end_datetime')
+  const venue = item.venueName || v('venue_name') || v('venue_name_raw') || v('location_name') || v('venue')
   const address = v('venue_address') || v('location_address')
   const category = item.category || v('category') || v('caption_event_category')
   const priceMin = v('price_min')
   const priceMax = v('price_max')
   const isFree = v('is_free')?.toLowerCase() === 'true' || v('caption_event_is_free')?.toLowerCase() === 'true'
   const ticketUrl = v('ticket_url') || v('caption_event_ticket_url')
-  const timezone = v('timezone')
-  const status = v('status')
-  const city = v('city')
-  const neighborhood = v('neighborhood')
-  const rows: { label: string; value: string }[] = []
-  if (start) rows.push({ label: 'Start', value: new Date(start).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) })
-  if (end) rows.push({ label: 'End', value: new Date(end).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) })
-  if (timezone) rows.push({ label: 'Timezone', value: timezone })
-  if (venue) rows.push({ label: 'Venue', value: venue })
-  if (address) rows.push({ label: 'Address', value: address })
-  if (neighborhood) rows.push({ label: 'Neighborhood', value: neighborhood })
-  if (city) rows.push({ label: 'City', value: city })
-  if (category) rows.push({ label: 'Category', value: category })
-  if (item.tags?.length) rows.push({ label: 'Tags', value: item.tags.join(', ') })
-  if (isFree) rows.push({ label: 'Price', value: 'Free' })
-  else if (priceMin || priceMax) rows.push({ label: 'Price', value: [priceMin, priceMax].filter(Boolean).join(' – ') + (v('currency') ? ` ${v('currency')}` : '') })
-  if (ticketUrl) rows.push({ label: 'Ticket URL', value: ticketUrl })
-  if (status) rows.push({ label: 'Status', value: status })
-  return rows
+
+  let startVal = '—'
+  if (startIso) {
+    try {
+      startVal = new Date(startIso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+    } catch {
+      startVal = startIso
+    }
+  } else if (rawDate || rawTime) {
+    startVal = [rawDate, rawTime].filter(Boolean).join(' ') || '—'
+  }
+
+  let endVal = '—'
+  if (endIso) {
+    try {
+      endVal = new Date(endIso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+    } catch {
+      endVal = endIso
+    }
+  }
+
+  let priceVal = '—'
+  if (isFree) priceVal = 'Free'
+  else if (priceMin || priceMax) priceVal = [priceMin, priceMax].filter(Boolean).join(' – ') + (v('currency') ? ` ${v('currency')}` : '')
+
+  return [
+    { label: 'Start', value: startVal },
+    { label: 'End', value: endVal },
+    { label: 'Venue', value: venue || '—' },
+    { label: 'Address', value: address || '—' },
+    { label: 'Category', value: category || '—' },
+    { label: 'Tags', value: item.tags?.length ? item.tags.join(', ') : '—' },
+    { label: 'Price', value: priceVal },
+    { label: 'Ticket URL', value: ticketUrl || '—' },
+  ]
 }
 
 function ReviewDetailModal({
@@ -289,7 +307,7 @@ function ReviewDetailModal({
                 {fields.map(({ label, value }) => (
                   <span key={label} className="contents">
                     <dt className="text-slate-500 text-sm pr-4">{label}</dt>
-                    <dd className="text-slate-200 text-sm break-words">
+                    <dd className={`text-sm break-words ${value === '—' ? 'text-slate-500' : 'text-slate-200'}`}>
                       {label === 'Ticket URL' && value.startsWith('http') ? (
                         <a href={value} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline truncate block max-w-full" title={value}>
                           {value}
