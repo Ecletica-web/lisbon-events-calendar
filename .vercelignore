@@ -1,0 +1,4 @@
+# Pipeline is a separate Node package — do not send to Vercel app builds
+pipeline/node_modules
+pipeline/out
+pipeline/.env

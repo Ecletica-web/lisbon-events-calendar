@@ -8,6 +8,7 @@ import {
 import { appendProcessedToSheets, isAppSheetsConfigured } from '@/lib/googleSheets'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin(request)

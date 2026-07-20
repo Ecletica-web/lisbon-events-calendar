@@ -1,10 +1,11 @@
 /**
  * Google Sheets helpers for the Next.js admin (Watchlist + Processed Events).
  * Uses the same service-account env vars as the pipeline.
+ * googleapis is loaded dynamically so Vercel/webpack does not bundle it at build time.
  */
 
 import * as fs from 'fs'
-import { google, sheets_v4 } from 'googleapis'
+import type { sheets_v4 } from 'googleapis'
 
 const TAB_WATCHLIST = 'Watchlist'
 const TAB_PROCESSED = 'Processed Events'
@@ -36,11 +37,12 @@ export function isAppSheetsConfigured(): boolean {
   return !!(process.env.GOOGLE_SHEETS_ID && process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON)
 }
 
-function getSheets(): sheets_v4.Sheets {
+async function getSheets(): Promise<sheets_v4.Sheets> {
   if (sheetsApi) return sheetsApi
   const raw = process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON
   const id = process.env.GOOGLE_SHEETS_ID
   if (!raw || !id) throw new Error('GOOGLE_SHEETS_ID / GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON not configured')
+  const { google } = await import('googleapis')
   const credentials = loadServiceAccount(raw)
   const auth = new google.auth.GoogleAuth({
     credentials,
@@ -60,7 +62,7 @@ export function getSheetsEditUrl(): string | null {
 }
 
 async function readTab(tabName: string): Promise<{ header: string[]; rows: Record<string, string>[] }> {
-  const api = getSheets()
+  const api = await getSheets()
   const res = await api.spreadsheets.values.get({
     spreadsheetId: spreadsheetId(),
     range: `'${tabName}'`,
@@ -83,7 +85,7 @@ export interface WatchlistRow {
   type: string
   active: boolean
   notes: string
-  rowIndex: number // 1-based sheet row (header is 1)
+  rowIndex: number
 }
 
 export async function readWatchlistFromSheets(): Promise<WatchlistRow[]> {
@@ -103,7 +105,7 @@ export async function readWatchlistFromSheets(): Promise<WatchlistRow[]> {
 export async function writeWatchlistToSheets(
   entries: Array<{ handle: string; type: string; active: boolean; notes?: string }>
 ): Promise<void> {
-  const api = getSheets()
+  const api = await getSheets()
   const values = [
     WATCHLIST_HEADER,
     ...entries.map((e) => [
@@ -131,8 +133,7 @@ export async function readProcessedFromSheets(limit = 200): Promise<Record<strin
 }
 
 export async function appendProcessedToSheets(row: Record<string, string>): Promise<void> {
-  const api = getSheets()
-  // Ensure header exists
+  const api = await getSheets()
   const existing = await api.spreadsheets.values.get({
     spreadsheetId: spreadsheetId(),
     range: `'${TAB_PROCESSED}'!1:1`,
