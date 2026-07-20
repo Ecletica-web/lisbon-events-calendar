@@ -47,7 +47,7 @@ Admin can also enqueue runs via `/admin/scrapers` → `pipeline_runs` (status=`q
 
 | Tab | Purpose |
 |-----|---------|
-| `Watchlist` | IG handles: `handle`, `type`, `active`, `notes` — editable in Sheets or `/admin/scrapers` |
+| `Watchlist` / **`Fontes IG`** | IG sources. LEC uses tab **Fontes IG** (`Name`, `Handle / Website`, `Venue Type`, `Event Types`). Falls back to a legacy `Watchlist` tab if present. |
 | `Processed Events` | Publishable events — edit in Sheets; calendar CSV source |
 
 Legacy tabs (`Events_Raw`, `Needs_Review`, `Verification_Log`, `Run_Log`) are no longer

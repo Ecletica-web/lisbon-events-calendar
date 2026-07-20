@@ -1,16 +1,20 @@
 /**
- * Google Sheets helpers for the Next.js admin (Watchlist + Processed Events).
+ * Google Sheets helpers for the Next.js admin (Fontes IG + Processed Events).
  * Uses the same service-account env vars as the pipeline.
  * googleapis is loaded dynamically so Vercel/webpack does not bundle it at build time.
  */
 
 import * as fs from 'fs'
 import type { sheets_v4 } from 'googleapis'
+import {
+  FONTES_IG_HEADER,
+  rowToWatchlistEntry,
+  watchlistEntriesToFontesRows,
+} from '@/lib/fontesIgWatchlist'
 
-const TAB_WATCHLIST = 'Watchlist'
+const TAB_WATCHLIST = 'Fontes IG'
+const TAB_WATCHLIST_LEGACY = 'Watchlist'
 const TAB_PROCESSED = 'Processed Events'
-
-const WATCHLIST_HEADER = ['handle', 'type', 'active', 'notes']
 
 const PROCESSED_HEADER = [
   'event_id', 'source_name', 'source_event_id', 'sources', 'source_count', 'source_url',
@@ -61,6 +65,12 @@ export function getSheetsEditUrl(): string | null {
   return id ? `https://docs.google.com/spreadsheets/d/${id}/edit` : null
 }
 
+async function tabExists(tabName: string): Promise<boolean> {
+  const api = await getSheets()
+  const meta = await api.spreadsheets.get({ spreadsheetId: spreadsheetId() })
+  return (meta.data.sheets ?? []).some((s) => s.properties?.title === tabName)
+}
+
 async function readTab(tabName: string): Promise<{ header: string[]; rows: Record<string, string>[] }> {
   const api = await getSheets()
   const res = await api.spreadsheets.values.get({
@@ -85,43 +95,66 @@ export interface WatchlistRow {
   type: string
   active: boolean
   notes: string
+  name?: string
+  venueType?: string
+  eventTypes?: string
   rowIndex: number
 }
 
 export async function readWatchlistFromSheets(): Promise<WatchlistRow[]> {
-  const { rows } = await readTab(TAB_WATCHLIST)
+  let rows: Record<string, string>[] = []
+  try {
+    ;({ rows } = await readTab(TAB_WATCHLIST))
+  } catch {
+    rows = []
+  }
+  if (rows.length === 0) {
+    try {
+      ;({ rows } = await readTab(TAB_WATCHLIST_LEGACY))
+    } catch {
+      rows = []
+    }
+  }
   return rows
-    .map((r, i) => ({
-      handle: (r.handle ?? '').trim().replace(/^@/, '').toLowerCase(),
-      type: (r.type ?? 'venue').trim().toLowerCase() || 'venue',
-      active: !['false', '0', 'no'].includes((r.active ?? 'true').trim().toLowerCase()),
-      notes: r.notes ?? '',
-      rowIndex: i + 2,
-    }))
-    .filter((e) => e.handle.length > 0)
+    .map((r, i) => {
+      const e = rowToWatchlistEntry(r)
+      if (!e) return null
+      return {
+        handle: e.handle,
+        type: e.type,
+        active: e.active,
+        notes: e.notes,
+        name: e.name,
+        venueType: e.venueType,
+        eventTypes: e.eventTypes,
+        rowIndex: i + 2,
+      }
+    })
+    .filter((e): e is WatchlistRow => e != null)
 }
 
-/** Replace entire Watchlist tab contents (header + rows). */
+/** Replace Fontes IG tab contents (Fontes IG layout + Active column). */
 export async function writeWatchlistToSheets(
-  entries: Array<{ handle: string; type: string; active: boolean; notes?: string }>
+  entries: Array<{
+    handle: string
+    type: string
+    active: boolean
+    notes?: string
+    name?: string
+    venueType?: string
+    eventTypes?: string
+  }>
 ): Promise<void> {
   const api = await getSheets()
-  const values = [
-    WATCHLIST_HEADER,
-    ...entries.map((e) => [
-      e.handle.replace(/^@/, '').toLowerCase(),
-      e.type === 'promoter' ? 'promoter' : 'venue',
-      e.active ? 'true' : 'false',
-      e.notes ?? '',
-    ]),
-  ]
+  const tab = (await tabExists(TAB_WATCHLIST)) ? TAB_WATCHLIST : TAB_WATCHLIST_LEGACY
+  const values = [FONTES_IG_HEADER, ...watchlistEntriesToFontesRows(entries)]
   await api.spreadsheets.values.clear({
     spreadsheetId: spreadsheetId(),
-    range: `'${TAB_WATCHLIST}'`,
+    range: `'${tab}'`,
   })
   await api.spreadsheets.values.update({
     spreadsheetId: spreadsheetId(),
-    range: `'${TAB_WATCHLIST}'!A1`,
+    range: `'${tab}'!A1`,
     valueInputOption: 'RAW',
     requestBody: { values },
   })

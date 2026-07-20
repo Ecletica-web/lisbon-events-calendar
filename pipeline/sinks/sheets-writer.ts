@@ -18,11 +18,15 @@ import type {
   VerificationLogRow,
 } from '../types'
 import { appendRows, readTab, isSheetsConfigured } from './sheets-client'
+import { rowToWatchlistEntry } from './fontes-ig'
 
 export const TAB_EVENTS_RAW = 'Events_Raw'
 export const TAB_NEEDS_REVIEW = 'Needs_Review'
 export const TAB_PROCESSED = 'Processed Events'
-export const TAB_WATCHLIST = 'Watchlist'
+/** Primary IG sources tab in the LEC spreadsheet */
+export const TAB_WATCHLIST = 'Fontes IG'
+/** Legacy fallback name */
+export const TAB_WATCHLIST_LEGACY = 'Watchlist'
 export const TAB_RUN_LOG = 'Run_Log'
 export const TAB_VERIFICATION = 'Verification_Log'
 
@@ -110,18 +114,20 @@ export async function readTabSafe(tabName: string): Promise<Record<string, strin
   }
 }
 
-// ---- Watchlist ----
+// ---- Watchlist (Fontes IG, with Watchlist fallback) ----
 
 export async function readWatchlist(): Promise<WatchlistEntry[]> {
-  const rows = await readTabSafe(TAB_WATCHLIST)
+  let rows = await readTabSafe(TAB_WATCHLIST)
+  if (rows.length === 0) rows = await readTabSafe(TAB_WATCHLIST_LEGACY)
   return rows
-    .map((r) => ({
-      handle: (r.handle ?? '').trim().replace(/^@/, '').toLowerCase(),
-      type: (r.type ?? 'venue').trim().toLowerCase() === 'promoter' ? 'promoter' as const : 'venue' as const,
-      active: !['false', '0', 'no'].includes((r.active ?? 'true').trim().toLowerCase()),
-      notes: r.notes,
+    .map((r) => rowToWatchlistEntry(r))
+    .filter((e): e is NonNullable<typeof e> => e != null)
+    .map((e) => ({
+      handle: e.handle,
+      type: e.type,
+      active: e.active,
+      notes: e.notes,
     }))
-    .filter((e) => e.handle.length > 0)
 }
 
 // ---- Events_Raw ----

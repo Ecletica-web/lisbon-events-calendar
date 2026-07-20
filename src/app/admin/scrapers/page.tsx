@@ -81,7 +81,7 @@ export default function AdminScrapersPage() {
       const j = await res.json()
       if (!res.ok) throw new Error(j.error || 'Save failed')
       setWatchlist(j.rows || [])
-      setMessage('Watchlist saved to Google Sheets')
+      setMessage('Fontes IG saved to Google Sheets')
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Error')
     } finally {
@@ -220,7 +220,7 @@ export default function AdminScrapersPage() {
 
       <section className="rounded-lg border border-slate-700 bg-slate-800/40 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h2 className="text-lg font-medium text-white">Watchlist (Google Sheets)</h2>
+          <h2 className="text-lg font-medium text-white">Fontes IG (Google Sheets)</h2>
           <div className="flex gap-2">
             {sheetsUrl && (
               <a

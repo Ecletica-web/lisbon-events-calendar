@@ -73,7 +73,7 @@ export default function AdminHubPage() {
       </div>
       <div className="text-sm text-slate-400 space-y-1">
         <p>
-          <strong className="text-slate-200">Watchlist + Processed Events</strong> live in Google
+          <strong className="text-slate-200">Fontes IG + Processed Events</strong> live in Google
           Sheets (edit there or via Scrapers / Review approve).
         </p>
         <p>
