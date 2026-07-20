@@ -53,7 +53,9 @@ function normalizeStatus(raw?: string): EventStatus {
   const mapping: Record<string, EventStatus> = {
     scheduled: 'scheduled',
     active: 'scheduled',
-    needs_review: 'scheduled',
+    // Unreviewed pipeline rows must never reach the public listing; the pipeline
+    // only writes status=scheduled to Processed after validation passes.
+    needs_review: 'draft',
     cancelled: 'cancelled',
     canceled: 'cancelled',
     postponed: 'postponed',

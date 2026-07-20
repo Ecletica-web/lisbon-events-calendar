@@ -1,50 +1,36 @@
-import { NextResponse } from 'next/server'
-import { readFileSync, existsSync } from 'fs'
-import { join } from 'path'
-import {
-  fetchReviewCsvs,
-  parseRawCsvText,
-  parseNeedsReviewCsvText,
-  parseProcessedCsvText,
-} from '@/lib/adminEventReview'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/adminAuth'
+import { listReviewQueue } from '@/lib/adminPipeline'
 
 export const dynamic = 'force-dynamic'
 
-const FALLBACK_FILES = {
-  raw: 'Testing - Events_Raw.csv',
-  needsReview: 'Testing - Needs_Review.csv',
-  processed: 'Testing - Processed Events.csv',
-} as const
-
-function tryReadFallback(cwd: string, filename: string): string | null {
-  const path = join(cwd, filename)
-  if (!existsSync(path)) return null
+/** Legacy CSV endpoint — prefer /api/admin/pipeline/review. Still gated by admin auth. */
+export async function GET(request: NextRequest) {
+  const auth = await requireAdmin(request)
+  if (!auth.ok) return auth.response
   try {
-    return readFileSync(path, 'utf-8')
-  } catch {
-    return null
-  }
-}
-
-export async function GET() {
-  try {
-    let result = await fetchReviewCsvs()
-    const cwd = process.cwd()
-
-    if (result.raw.length === 0) {
-      const text = tryReadFallback(cwd, FALLBACK_FILES.raw)
-      if (text) result = { ...result, raw: parseRawCsvText(text) }
-    }
-    if (result.needsReview.length === 0) {
-      const text = tryReadFallback(cwd, FALLBACK_FILES.needsReview)
-      if (text) result = { ...result, needsReview: parseNeedsReviewCsvText(text) }
-    }
-    if (result.processed.length === 0) {
-      const text = tryReadFallback(cwd, FALLBACK_FILES.processed)
-      if (text) result = { ...result, processed: parseProcessedCsvText(text) }
-    }
-
-    return NextResponse.json(result)
+    const rows = await listReviewQueue('all')
+    const needsReview = rows.map((r) => ({
+      id: r.review_id,
+      imageUrl: r.stored_image_url || r.thumbnail_url || undefined,
+      title: r.description_short || 'Needs review',
+      venueName: r.venue_name_raw || undefined,
+      start: r.start_datetime || undefined,
+      descriptionLong: r.description_long || r.caption || undefined,
+      validationStatus: r.validation_status || undefined,
+      validationReasons: r.validation_reasons || undefined,
+      verificationVerdict: r.verification_verdict || undefined,
+      verificationNotes: r.verification_notes || undefined,
+      verificationSources: r.verification_sources || undefined,
+      suggestedCorrections: r.suggested_corrections || undefined,
+      tags: [] as string[],
+      rawRow: r,
+    }))
+    return NextResponse.json({
+      raw: [],
+      needsReview,
+      processed: [],
+    })
   } catch (error) {
     console.error('Event review fetch error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

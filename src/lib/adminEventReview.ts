@@ -17,6 +17,11 @@ export interface ReviewEventItem {
   descriptionLong?: string
   validationStatus?: string
   validationReasons?: string
+  /** Tier 5 online verification context for Tier 6 human review */
+  verificationVerdict?: string
+  verificationNotes?: string
+  verificationSources?: string
+  suggestedCorrections?: string
   category?: string
   tags: string[]
   rawRow: Record<string, string>
@@ -81,6 +86,10 @@ function mapNeedsReviewRow(row: Record<string, string>): ReviewEventItem {
     descriptionLong: getStr(row, 'caption'),
     validationStatus: getStr(row, 'validation_status'),
     validationReasons: getStr(row, 'validation_reasons'),
+    verificationVerdict: getStr(row, 'verification_verdict') || undefined,
+    verificationNotes: getStr(row, 'verification_notes') || undefined,
+    verificationSources: getStr(row, 'verification_sources') || undefined,
+    suggestedCorrections: getStr(row, 'suggested_corrections') || undefined,
     tags: [],
     rawRow: row,
   }

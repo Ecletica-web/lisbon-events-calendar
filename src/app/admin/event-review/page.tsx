@@ -1,554 +1,267 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import Papa from 'papaparse'
-import type { ReviewEventItem } from '@/lib/adminEventReview'
-import { getCategoryColor } from '@/lib/categoryColors'
+import { useCallback, useEffect, useState } from 'react'
+import { useAdminAuthHeaders } from '@/lib/useAdminAuth'
 
-type TabId = 'raw' | 'needsReview' | 'processed'
-
-const TAB_LABELS: Record<TabId, string> = {
-  raw: 'Events Raw',
-  needsReview: 'Needs Review',
-  processed: 'Processed Events',
+interface ReviewRow {
+  review_id: string
+  description_short: string | null
+  description_long: string | null
+  start_datetime: string | null
+  venue_name_raw: string | null
+  validation_status: string | null
+  validation_reasons: string | null
+  verification_verdict: string | null
+  verification_notes: string | null
+  verification_sources: string | null
+  suggested_corrections: string | null
+  stored_image_url: string | null
+  thumbnail_url: string | null
+  owner_username: string | null
+  source_url: string | null
+  caption: string | null
+  review_status: string
+  confidence_score: string | null
 }
 
-const STATIC_CSV_PATHS: Record<TabId, string> = {
-  raw: '/event-review/Events_Raw.csv',
-  needsReview: '/event-review/Needs_Review.csv',
-  processed: '/event-review/Processed_Events.csv',
-}
+export default function AdminEventReviewPage() {
+  const { getAuthHeaders, isAdmin } = useAdminAuthHeaders()
+  const [rows, setRows] = useState<ReviewRow[]>([])
+  const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending')
+  const [edits, setEdits] = useState<Record<string, Record<string, string>>>({})
+  const [message, setMessage] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
 
-function parseCsvTextToItems(text: string, tab: TabId): ReviewEventItem[] {
-  const rows = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true }).data ?? []
-  const map =
-    tab === 'raw'
-      ? (r: Record<string, string>) =>
-          ({
-            id: (r.id || String(Math.random())).trim(),
-            imageUrl: (r.stored_image_url || r.thumbnail_url || '').trim() || undefined,
-            title: (r.caption_event_title || 'Raw post').trim(),
-            venueName: (r.location_name || '').trim() || undefined,
-            start: (r.caption_event_start_datetime || '').trim() || undefined,
-            descriptionLong: (r.caption || '').trim() || undefined,
-            tags: [],
-            rawRow: r,
-          }) as ReviewEventItem
-      : tab === 'needsReview'
-        ? (r: Record<string, string>) =>
-            ({
-              id: (r.review_id || String(Math.random())).trim(),
-              imageUrl: (r.stored_image_url || r.thumbnail_url || '').trim() || undefined,
-              title: (r.description_short || 'Needs review').trim(),
-              venueName: (r.venue_name_raw || '').trim() || undefined,
-              start: (r.start_datetime || '').trim() || undefined,
-              descriptionLong: (r.caption || '').trim() || undefined,
-              validationStatus: (r.validation_status || '').trim() || undefined,
-              validationReasons: (r.validation_reasons || '').trim() || undefined,
-              tags: [],
-              rawRow: r,
-            }) as ReviewEventItem
-        : (r: Record<string, string>) => {
-            const tagsStr = (r.tags || '').trim()
-            return {
-              id: (r.event_id || String(Math.random())).trim(),
-              imageUrl: (r.primary_image_url || '').trim() || undefined,
-              title: (r.title || 'Processed event').trim(),
-              venueName: (r.venue_name || r.venue_name_raw || '').trim() || undefined,
-              start: (r.start_datetime || '').trim() || undefined,
-              descriptionLong: (r.description_long || r.description_short || '').trim() || undefined,
-              category: (r.category || '').trim() || undefined,
-              tags: tagsStr ? tagsStr.split(',').map((t) => t.trim()).filter(Boolean) : [],
-              rawRow: r,
-            } as ReviewEventItem
-          }
-  return rows.map(map)
-}
-
-interface ReviewState {
-  quality: number
-  notes: string
-}
-
-function ReviewEventCard({
-  item,
-  review,
-  onReviewChange,
-  onOpenDetails,
-}: {
-  item: ReviewEventItem
-  review: ReviewState | undefined
-  onReviewChange: (id: string, quality: number, notes: string) => void
-  onOpenDetails: () => void
-}) {
-  const quality = review?.quality ?? 0
-  const notes = review?.notes ?? ''
-  const startDate = item.start ? new Date(item.start) : null
-  const categoryColor = getCategoryColor(item.category)
-  const descriptionText = item.descriptionLong?.trim()
-
-  return (
-    <article
-      role="button"
-      tabIndex={0}
-      onClick={onOpenDetails}
-      onKeyDown={(e) => e.key === 'Enter' && onOpenDetails()}
-      className="group rounded-2xl bg-slate-800 border border-slate-700 overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-indigo-500/5 hover:border-slate-600 transition-all duration-300 cursor-pointer"
-    >
-      <div className="aspect-[4/3] relative bg-slate-800 overflow-hidden">
-        <img
-          src={item.imageUrl || '/lisboa.png'}
-          alt={item.title}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-        {item.validationStatus && (
-          <div className="absolute top-3 right-3">
-            <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-600/90 text-white backdrop-blur-sm">
-              {item.validationStatus}
-            </span>
-          </div>
-        )}
-        <div className="absolute bottom-3 left-3 right-3">
-          <h2 className="font-bold text-white text-lg sm:text-xl line-clamp-2 drop-shadow-lg">{item.title}</h2>
-          <p className="text-slate-200/90 text-sm sm:text-base mt-0.5 truncate">{item.venueName || 'TBA'}</p>
-        </div>
-      </div>
-      <div className="p-4 sm:p-5 min-w-0">
-        {(item.rawRow?.source_url || item.rawRow?.permalink) && (
-          <a
-            href={(item.rawRow.source_url || item.rawRow.permalink || '').trim()}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300 text-sm mb-3"
-          >
-            <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-1.689 0-3.162-1.473-3.162-3.162 0-1.69 1.473-3.163 3.162-3.163 1.69 0 3.162 1.473 3.162 3.163 0 1.69-1.472 3.162-3.162 3.162zm6.405-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
-            </svg>
-            View post
-          </a>
-        )}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-base sm:text-sm mb-3">
-          {startDate && (
-            <time dateTime={item.start} className="text-slate-400 font-medium tabular-nums">
-              {startDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-            </time>
-          )}
-          {(item.tags?.length ?? 0) > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {item.tags.slice(0, 4).map((tag) => (
-                <span
-                  key={tag}
-                  className="px-2.5 py-1 rounded-lg text-xs font-medium border"
-                  style={{ borderColor: categoryColor, color: categoryColor }}
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-        {descriptionText && (
-          <p className="text-slate-300 text-base sm:text-sm leading-relaxed line-clamp-4 mb-4">
-            {descriptionText}
-          </p>
-        )}
-        <div className="flex items-center gap-2 flex-wrap mb-3" onClick={(e) => e.stopPropagation()}>
-          <span className="text-slate-400 text-sm">Quality (1–10):</span>
-          <select
-            value={quality}
-            onChange={(e) => onReviewChange(item.id, Number(e.target.value), notes)}
-            className="rounded-lg px-2 py-1 bg-slate-700 border border-slate-600 text-slate-200 text-sm"
-          >
-            <option value={0}>—</option>
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
-        </div>
-        <div onClick={(e) => e.stopPropagation()}>
-          <label className="block text-slate-400 text-xs mb-1">Notes (optional)</label>
-          <textarea
-            value={notes}
-            onChange={(e) => onReviewChange(item.id, quality, e.target.value)}
-            placeholder="e.g. wrong venue, missing date..."
-            rows={2}
-            className="w-full rounded-lg px-3 py-2 bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-500 text-sm resize-none"
-          />
-        </div>
-      </div>
-    </article>
-  )
-}
-
-function eventFieldsList(item: ReviewEventItem): { label: string; value: string }[] {
-  const r = item.rawRow ?? {}
-  const v = (key: string) => (r[key] ?? '').trim()
-  const rawDate = v('date')
-  const rawTime = v('time')
-  const startIso = item.start || v('start_datetime') || v('caption_event_start_datetime')
-  const endIso = v('end_datetime') || v('caption_event_end_datetime')
-  const venue = item.venueName || v('venue_name') || v('venue_name_raw') || v('location_name') || v('venue')
-  const address = v('venue_address') || v('location_address')
-  const category = item.category || v('category') || v('caption_event_category')
-  const priceMin = v('price_min')
-  const priceMax = v('price_max')
-  const isFree = v('is_free')?.toLowerCase() === 'true' || v('caption_event_is_free')?.toLowerCase() === 'true'
-  const ticketUrl = v('ticket_url') || v('caption_event_ticket_url')
-
-  let startVal = '—'
-  if (startIso) {
-    try {
-      startVal = new Date(startIso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
-    } catch {
-      startVal = startIso
+  const load = useCallback(async () => {
+    const headers = await getAuthHeaders()
+    const res = await fetch(`/api/admin/pipeline/review?status=${filter}`, { headers })
+    if (!res.ok) {
+      setMessage((await res.json().catch(() => ({}))).error || 'Load failed')
+      return
     }
-  } else if (rawDate || rawTime) {
-    startVal = [rawDate, rawTime].filter(Boolean).join(' ') || '—'
-  }
-
-  let endVal = '—'
-  if (endIso) {
-    try {
-      endVal = new Date(endIso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
-    } catch {
-      endVal = endIso
-    }
-  }
-
-  let priceVal = '—'
-  if (isFree) priceVal = 'Free'
-  else if (priceMin || priceMax) priceVal = [priceMin, priceMax].filter(Boolean).join(' – ') + (v('currency') ? ` ${v('currency')}` : '')
-
-  return [
-    { label: 'Start', value: startVal },
-    { label: 'End', value: endVal },
-    { label: 'Venue', value: venue || '—' },
-    { label: 'Address', value: address || '—' },
-    { label: 'Category', value: category || '—' },
-    { label: 'Tags', value: item.tags?.length ? item.tags.join(', ') : '—' },
-    { label: 'Price', value: priceVal },
-    { label: 'Ticket URL', value: ticketUrl || '—' },
-  ]
-}
-
-function ReviewDetailModal({
-  item,
-  review,
-  onReviewChange,
-  onClose,
-}: {
-  item: ReviewEventItem
-  review: ReviewState | undefined
-  onReviewChange: (id: string, quality: number, notes: string) => void
-  onClose: () => void
-}) {
-  const quality = review?.quality ?? 0
-  const notes = review?.notes ?? ''
-  const categoryColor = getCategoryColor(item.category)
-  const fields = eventFieldsList(item)
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Event details"
-    >
-      <div
-        className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-4 border-b border-slate-700">
-          <h3 className="text-lg font-semibold text-white">Event details</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700"
-            aria-label="Close"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="overflow-y-auto flex-1 p-4 space-y-4">
-          {(item.rawRow?.source_url || item.rawRow?.permalink) && (
-            <a
-              href={(item.rawRow.source_url || item.rawRow.permalink || '').trim()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-700/80 border border-slate-600 text-indigo-400 hover:text-indigo-300 hover:bg-slate-700 text-sm font-medium"
-            >
-              <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-1.689 0-3.162-1.473-3.162-3.162 0-1.69 1.473-3.163 3.162-3.163 1.69 0 3.162 1.473 3.162 3.163 0 1.69-1.472 3.162-3.162 3.162zm6.405-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
-              </svg>
-              Open Instagram post
-            </a>
-          )}
-          <div className="aspect-[4/3] rounded-xl overflow-hidden bg-slate-900">
-            <img
-              src={item.imageUrl || '/lisboa.png'}
-              alt={item.title}
-              className="w-full h-full object-cover"
-              onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
-            />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-white mb-1">{item.title}</h2>
-          </div>
-          {fields.length > 0 && (
-            <div className="rounded-xl bg-slate-800/80 border border-slate-700 p-4">
-              <h4 className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-3">Event fields</h4>
-              <dl className="grid gap-2 sm:grid-cols-[auto_1fr]">
-                {fields.map(({ label, value }) => (
-                  <span key={label} className="contents">
-                    <dt className="text-slate-500 text-sm pr-4">{label}</dt>
-                    <dd className={`text-sm break-words ${value === '—' ? 'text-slate-500' : 'text-slate-200'}`}>
-                      {label === 'Ticket URL' && value.startsWith('http') ? (
-                        <a href={value} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline truncate block max-w-full" title={value}>
-                          {value}
-                        </a>
-                      ) : (
-                        value
-                      )}
-                    </dd>
-                  </span>
-                ))}
-              </dl>
-            </div>
-          )}
-          {item.validationStatus && (
-            <div className="flex flex-wrap gap-2">
-              <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-600/90 text-white">{item.validationStatus}</span>
-              {item.validationReasons && <span className="text-slate-400 text-sm">{item.validationReasons}</span>}
-            </div>
-          )}
-          {(item.tags?.length ?? 0) > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {item.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="px-2.5 py-1 rounded-lg text-xs font-medium border"
-                  style={{ borderColor: categoryColor, color: categoryColor }}
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-          {item.descriptionLong?.trim() && (
-            <div>
-              <h4 className="text-slate-400 text-sm font-medium mb-1">Description / caption</h4>
-              <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{item.descriptionLong.trim()}</p>
-            </div>
-          )}
-          <div className="pt-4 border-t border-slate-700 space-y-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-slate-400 text-sm">Quality (1–10):</span>
-              <select
-                value={quality}
-                onChange={(e) => onReviewChange(item.id, Number(e.target.value), notes)}
-                className="rounded-lg px-2 py-1 bg-slate-700 border border-slate-600 text-slate-200 text-sm"
-              >
-                <option value={0}>—</option>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-slate-400 text-xs mb-1">Notes (optional)</label>
-              <textarea
-                value={notes}
-                onChange={(e) => onReviewChange(item.id, quality, e.target.value)}
-                placeholder="e.g. wrong venue, missing date..."
-                rows={3}
-                className="w-full rounded-lg px-3 py-2 bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-500 text-sm resize-none"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default function EventReviewPage() {
-  const [activeTab, setActiveTab] = useState<TabId>('raw')
-  const [raw, setRaw] = useState<ReviewEventItem[]>([])
-  const [needsReview, setNeedsReview] = useState<ReviewEventItem[]>([])
-  const [processed, setProcessed] = useState<ReviewEventItem[]>([])
-  const [reviewsById, setReviewsById] = useState<Record<string, ReviewState>>({})
-  const [loading, setLoading] = useState(true)
-  const [uploadingTab, setUploadingTab] = useState<TabId | null>(null)
-  const [selectedItem, setSelectedItem] = useState<ReviewEventItem | null>(null)
-
-  const loadFromApi = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/admin/event-review')
-      if (!res.ok) throw new Error('Failed to load')
-      const data = await res.json()
-      let rawItems: ReviewEventItem[] = data.raw ?? []
-      let needsReviewItems: ReviewEventItem[] = data.needsReview ?? []
-      let processedItems: ReviewEventItem[] = data.processed ?? []
-
-      if (rawItems.length === 0 || needsReviewItems.length === 0 || processedItems.length === 0) {
-        const [rawText, nrText, procText] = await Promise.all([
-          rawItems.length === 0 ? fetch(STATIC_CSV_PATHS.raw).then((r) => (r.ok ? r.text() : '')) : '',
-          needsReviewItems.length === 0 ? fetch(STATIC_CSV_PATHS.needsReview).then((r) => (r.ok ? r.text() : '')) : '',
-          processedItems.length === 0 ? fetch(STATIC_CSV_PATHS.processed).then((r) => (r.ok ? r.text() : '')) : '',
-        ])
-        if (rawItems.length === 0 && rawText) rawItems = parseCsvTextToItems(rawText, 'raw')
-        if (needsReviewItems.length === 0 && nrText) needsReviewItems = parseCsvTextToItems(nrText, 'needsReview')
-        if (processedItems.length === 0 && procText) processedItems = parseCsvTextToItems(procText, 'processed')
-      }
-
-      setRaw(rawItems)
-      setNeedsReview(needsReviewItems)
-      setProcessed(processedItems)
-    } catch {
-      setRaw([])
-      setNeedsReview([])
-      setProcessed([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+    setRows((await res.json()).rows || [])
+    setMessage(null)
+  }, [getAuthHeaders, filter])
 
   useEffect(() => {
-    loadFromApi()
-  }, [loadFromApi])
+    if (isAdmin) void load()
+  }, [isAdmin, load])
 
-  const handleReviewChange = useCallback((id: string, quality: number, notes: string) => {
-    setReviewsById((prev) => ({
-      ...prev,
-      [id]: { quality, notes },
-    }))
-  }, [])
+  function editFor(id: string) {
+    return edits[id] || {}
+  }
 
-  const handleFileUpload = useCallback((tab: TabId, file: File) => {
-    const reader = new FileReader()
-    setUploadingTab(tab)
-    reader.onload = () => {
-      const text = String(reader.result ?? '')
-      const items = parseCsvTextToItems(text, tab)
-      if (tab === 'raw') setRaw(items)
-      else if (tab === 'needsReview') setNeedsReview(items)
-      else setProcessed(items)
-      setUploadingTab(null)
+  function setEdit(id: string, field: string, value: string) {
+    setEdits((e) => ({ ...e, [id]: { ...e[id], [field]: value } }))
+  }
+
+  async function resolve(reviewId: string, action: 'approved' | 'rejected') {
+    setBusy(reviewId)
+    setMessage(null)
+    try {
+      const headers = await getAuthHeaders()
+      const fieldEdits = editFor(reviewId)
+      const res = await fetch('/api/admin/pipeline/review', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reviewId,
+          action,
+          fieldEdits: Object.keys(fieldEdits).length ? fieldEdits : undefined,
+        }),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error || 'Failed')
+
+      // Optional quality feedback
+      await fetch('/api/admin/event-review/feedback', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          review_id: reviewId,
+          dataset: 'needsReview',
+          quality_rating: action === 'approved' ? 8 : 3,
+          notes: action === 'approved' ? 'Approved from admin' : 'Rejected from admin',
+          field_corrections: fieldEdits,
+        }),
+      }).catch(() => null)
+
+      setMessage(
+        action === 'approved'
+          ? j.processedAppended
+            ? 'Approved and appended to Processed Events sheet'
+            : 'Approved'
+          : 'Rejected'
+      )
+      await load()
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Error')
+    } finally {
+      setBusy(null)
     }
-    reader.readAsText(file, 'UTF-8')
-  }, [])
+  }
 
-  const exportCsv = useCallback((tab: TabId) => {
-    const list = tab === 'raw' ? raw : tab === 'needsReview' ? needsReview : processed
-    if (list.length === 0) return
-    const now = new Date().toISOString()
-    const rows = list.map((item) => {
-      const r = { ...item.rawRow }
-      const rev = reviewsById[item.id]
-      r.quality_rating = rev ? String(rev.quality) : ''
-      r.notes = rev?.notes ?? ''
-      r.reviewed_at = rev ? now : ''
-      return r
-    })
-    const csv = Papa.unparse(rows)
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `event-review-${tab}-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }, [raw, needsReview, processed, reviewsById])
-
-  const items = activeTab === 'raw' ? raw : activeTab === 'needsReview' ? needsReview : processed
+  function applySuggestions(row: ReviewRow) {
+    if (!row.suggested_corrections) return
+    try {
+      const s = JSON.parse(row.suggested_corrections) as Record<string, string>
+      const next: Record<string, string> = {}
+      if (s.title) next.description_short = s.title
+      if (s.start_datetime) next.start_datetime = s.start_datetime
+      if (s.venue_name || s.venue) next.venue_name_raw = s.venue_name || s.venue
+      setEdits((e) => ({ ...e, [row.review_id]: { ...e[row.review_id], ...next } }))
+    } catch {
+      /* ignore */
+    }
+  }
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-white mb-2">Event review</h2>
-      <p className="text-slate-400 text-sm mb-6">
-        Rate the quality of parsed events (1–10) and add notes. Export CSV with quality_rating and notes when done.
-      </p>
-
-      <div className="flex flex-wrap gap-2 mb-6">
-        {(['raw', 'needsReview', 'processed'] as TabId[]).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg font-medium text-sm ${activeTab === tab ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
-          >
-            {TAB_LABELS[tab]}
-          </button>
-        ))}
-      </div>
-
-      <div className="mb-4 flex flex-wrap items-center gap-4">
-        <span className="text-slate-300 text-sm">{items.length} row(s)</span>
-        <label className="cursor-pointer">
-          <span className="px-3 py-1.5 rounded-lg bg-slate-700 text-slate-200 text-sm hover:bg-slate-600">
-            {uploadingTab === activeTab ? 'Loading…' : 'Upload CSV'}
-          </span>
-          <input
-            type="file"
-            accept=".csv"
-            className="hidden"
-            disabled={uploadingTab !== null}
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (f) handleFileUpload(activeTab, f)
-              e.target.value = ''
-            }}
-          />
-        </label>
-        <button
-          type="button"
-          onClick={() => exportCsv(activeTab)}
-          disabled={items.length === 0}
-          className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white text-sm hover:bg-emerald-600 disabled:opacity-50"
-        >
-          Download reviewed CSV
-        </button>
-        <button type="button" onClick={loadFromApi} className="text-slate-400 hover:text-white text-sm">
-          Reload from URLs
-        </button>
-      </div>
-
-      {loading ? (
-        <p className="text-slate-500 py-8">Loading…</p>
-      ) : items.length === 0 ? (
-        <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-8 text-center text-slate-400">
-          <p>No data for this tab.</p>
-          <p className="text-sm mt-1">Data loads from env URLs, or from project files (Testing - Events_Raw.csv, etc.) in the repo root, or upload a CSV above.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {items.map((item) => (
-            <ReviewEventCard
-              key={item.id}
-              item={item}
-              review={reviewsById[item.id]}
-              onReviewChange={handleReviewChange}
-              onOpenDetails={() => setSelectedItem(item)}
-            />
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <div className="flex gap-2">
+          {(['pending', 'approved', 'rejected', 'all'] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded text-sm ${
+                filter === f ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'
+              }`}
+            >
+              {f}
+            </button>
           ))}
         </div>
+        <button type="button" onClick={() => void load()} className="text-sm text-indigo-400">
+          Refresh
+        </button>
+      </div>
+
+      {message && (
+        <p className="text-sm text-indigo-300 bg-indigo-950/40 border border-indigo-800 rounded px-3 py-2">
+          {message}
+        </p>
       )}
 
-      {selectedItem && (
-        <ReviewDetailModal
-          item={selectedItem}
-          review={reviewsById[selectedItem.id]}
-          onReviewChange={handleReviewChange}
-          onClose={() => setSelectedItem(null)}
-        />
-      )}
+      {rows.length === 0 && <p className="text-slate-500 text-sm">No items.</p>}
+
+      <div className="space-y-4">
+        {rows.map((row) => {
+          const e = editFor(row.review_id)
+          return (
+            <article
+              key={row.review_id}
+              className="rounded-lg border border-slate-700 bg-slate-800/40 p-4 grid gap-4 md:grid-cols-[140px_1fr]"
+            >
+              <div>
+                {(row.stored_image_url || row.thumbnail_url) && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={row.stored_image_url || row.thumbnail_url || ''}
+                    alt=""
+                    className="w-full rounded object-cover aspect-square"
+                  />
+                )}
+                <p className="text-xs text-slate-500 mt-2">@{row.owner_username}</p>
+                {row.source_url && (
+                  <a
+                    href={row.source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-indigo-400"
+                  >
+                    Source
+                  </a>
+                )}
+              </div>
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="px-2 py-0.5 rounded bg-slate-700 text-slate-300">
+                    {row.review_status}
+                  </span>
+                  {row.validation_status && (
+                    <span className="px-2 py-0.5 rounded bg-amber-900/50 text-amber-200">
+                      {row.validation_status}: {row.validation_reasons}
+                    </span>
+                  )}
+                  {row.verification_verdict && (
+                    <span className="px-2 py-0.5 rounded bg-violet-900/50 text-violet-200">
+                      Tier5: {row.verification_verdict}
+                    </span>
+                  )}
+                </div>
+
+                {row.verification_notes && (
+                  <p className="text-xs text-slate-400">{row.verification_notes}</p>
+                )}
+                {row.suggested_corrections && (
+                  <div className="text-xs">
+                    <button
+                      type="button"
+                      className="text-indigo-400 underline"
+                      onClick={() => applySuggestions(row)}
+                    >
+                      Apply Tier 5 suggestions
+                    </button>
+                    <pre className="mt-1 text-slate-500 overflow-auto max-h-20">
+                      {row.suggested_corrections}
+                    </pre>
+                  </div>
+                )}
+
+                <label className="block text-xs text-slate-400">
+                  Title
+                  <input
+                    className="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-sm text-white"
+                    value={e.description_short ?? row.description_short ?? ''}
+                    onChange={(ev) => setEdit(row.review_id, 'description_short', ev.target.value)}
+                    disabled={row.review_status !== 'pending'}
+                  />
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Start datetime
+                  <input
+                    className="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-sm text-white"
+                    value={e.start_datetime ?? row.start_datetime ?? ''}
+                    onChange={(ev) => setEdit(row.review_id, 'start_datetime', ev.target.value)}
+                    disabled={row.review_status !== 'pending'}
+                  />
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Venue
+                  <input
+                    className="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-sm text-white"
+                    value={e.venue_name_raw ?? row.venue_name_raw ?? ''}
+                    onChange={(ev) => setEdit(row.review_id, 'venue_name_raw', ev.target.value)}
+                    disabled={row.review_status !== 'pending'}
+                  />
+                </label>
+
+                {row.review_status === 'pending' && (
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      disabled={busy === row.review_id}
+                      onClick={() => void resolve(row.review_id, 'approved')}
+                      className="px-3 py-1.5 rounded bg-emerald-600 text-white text-sm disabled:opacity-50"
+                    >
+                      Approve → Processed
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy === row.review_id}
+                      onClick={() => void resolve(row.review_id, 'rejected')}
+                      className="px-3 py-1.5 rounded bg-red-700 text-white text-sm disabled:opacity-50"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+            </article>
+          )
+        })}
+      </div>
     </div>
   )
 }

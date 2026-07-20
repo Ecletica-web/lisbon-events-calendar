@@ -1,0 +1,32 @@
+{
+  "name": "lisbon-events-pipeline",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CAF-style scraping + tiered AI extraction pipeline for Lisbon Events Calendar. Writes to Google Sheets; the Next.js app consumes the published CSV.",
+  "scripts": {
+    "scrape": "tsx cli/run.ts scrape",
+    "extract": "tsx cli/run.ts extract",
+    "verify": "tsx cli/run.ts verify",
+    "full": "tsx cli/run.ts full",
+    "worker": "tsx cli/worker.ts",
+    "backfill": "tsx cli/backfill-supabase.ts",
+    "golden": "tsx cli/golden-run.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.7",
+    "apify-client": "^2.23.4",
+    "dotenv": "^17.4.2",
+    "google-auth-library": "^10.9.0",
+    "googleapis": "^173.0.0",
+    "openai": "^6.48.0",
+    "papaparse": "^5.5.4",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/papaparse": "^5.5.2",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
+  }
+}

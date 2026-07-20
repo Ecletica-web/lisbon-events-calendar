@@ -6,18 +6,20 @@ Single entrypoint for understanding this codebase. Keep this file short; update 
 
 - **Next.js 14** (App Router), TypeScript, Tailwind CSS
 - **FullCalendar** for calendar views
-- **Supabase** for auth, user profiles, social (follows, likes, going, saved views, personas)
+- **Supabase** for auth, user profiles, social, and **pipeline store** (raw posts, AI tiers, review queue, runs)
 - **NextAuth** (used alongside Supabase for some flows)
-- Events/venues/promoters data from **Google Sheets CSV** via env `NEXT_PUBLIC_EVENTS_CSV_URL`
+- **Google Sheets**: Watchlist + Processed Events (human-editable); public calendar reads published Processed CSV via `NEXT_PUBLIC_EVENTS_CSV_URL`
 
 ## Layers
 
 | Layer | Path | Purpose |
 |-------|------|---------|
+| Pipeline | `pipeline/` (own package.json, run with tsx) | Scraping (Apify) + tiered AI → Supabase bulk store + Sheets Processed. Worker: `npm run worker`. See docs/PIPELINE.md |
+| Admin | `src/app/admin/*`, `src/lib/admin*.ts` | CAF-style ops: Scrapers, Events Raw, Review, Processed (`ADMIN_EMAILS`) |
 | Data | `src/data/loaders/*`, `src/data/schema/*`, `src/data/venueIndex.ts`, `src/data/canonicalVenues.ts` | Load and normalize CSV data; column mapping; venue/tag canonical lists |
 | Adapter | `src/lib/eventsAdapter.ts` | Single facade: `fetchEvents`, `fetchVenues`, `fetchPromoters`, `filterEvents`; types `NormalizedEvent`, `VenueForDisplay` for UI |
 | API | `src/app/api/*` | Thin route handlers; call `lib/` or `data/` only |
-| Auth | `src/lib/auth*`, `src/lib/auth-config.ts`, `src/lib/supabase/*` | NextAuth + Supabase auth and session |
+| Auth | `src/lib/auth*`, `src/lib/auth-config.ts`, `src/lib/supabase/*`, `src/lib/adminAuth.ts` | NextAuth + Supabase + admin allowlist |
 
 ## Where to find X
 
@@ -30,10 +32,14 @@ Single entrypoint for understanding this codebase. Keep this file short; update 
 | Venues / promoters pages | `app/venues/`, `app/promoters/`; data from `eventsAdapter` (fetchVenues, fetchPromoters) |
 | Saved views, personas | `lib/savedViews.ts`, `lib/savedViewsSync.ts`; personas API under `app/api/personas/` |
 | For You / recommendations | `app/api/foryou/route.ts`, `lib/recommendationEngine.ts` |
+| Event scraping / AI extraction | `pipeline/` (CLI: scrape, extract, worker, backfill); orchestration in `pipeline/process-post.ts` |
+| Admin ops (scrapers / raw / review) | `/admin`, `lib/adminPipeline.ts`, `lib/googleSheets.ts` |
+| Event review feedback | `lib/adminEventReviewFeedback.ts`, `app/api/admin/event-review/feedback/`, Supabase `event_review_feedback` |
 
 ## Docs
 
 - **Setup and env checklist:** `docs/SETUP.md`
 - **Friends vs follow distinction:** `docs/FRIENDS_VS_FOLLOWS.md`
 - **CSV/schema contract:** `docs/SCHEMA.md`
+- **Scraping + extraction pipeline runbook:** `docs/PIPELINE.md`
 - **Features and phases:** `docs/MASTER_TASK_LIST_ARCHITECTURE.md`

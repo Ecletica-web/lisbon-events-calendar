@@ -21,15 +21,24 @@ Copy `.env.example` to `.env.local` and fill in values. Full list:
 | `NEXT_PUBLIC_VENUE_TAGS_CSV_URL` | One column `tag` per row; only these tags are kept for venues. |
 | `NEXT_PUBLIC_PROMOTERS_CSV_URL` | CSV for promoters. |
 
-### Admin event review (optional)
-
-Used only by `/admin/event-review` to load pipeline CSVs for rating parsed events. If unset, the page still works with file upload.
+### Admin (`/admin` backend)
 
 | Variable | Description |
 |----------|-------------|
-| `EVENT_REVIEW_RAW_CSV_URL` | CSV of raw scraped posts (Events_Raw). |
-| `EVENT_REVIEW_NEEDS_REVIEW_CSV_URL` | CSV of items needing review (Needs_Review). |
-| `EVENT_REVIEW_PROCESSED_CSV_URL` | CSV of processed events. |
+| `ADMIN_EMAILS` | Comma-separated emails allowed to use `/admin` and `/api/admin/*` (except persist-image). |
+| `GOOGLE_SHEETS_ID` | Same sheet as the pipeline (Watchlist + Processed Events). |
+| `GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON` | Service account JSON (inline or path) with edit access to that sheet. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Required for admin pipeline APIs (posts, review queue, runs). |
+
+### Admin event review (legacy CSV URLs — optional)
+
+Review now loads from Supabase `pipeline_review_queue`. These CSV URLs are unused by the new UI:
+
+| Variable | Description |
+|----------|-------------|
+| `EVENT_REVIEW_RAW_CSV_URL` | Legacy. |
+| `EVENT_REVIEW_NEEDS_REVIEW_CSV_URL` | Legacy. |
+| `EVENT_REVIEW_PROCESSED_CSV_URL` | Legacy. |
 
 ### Feature flags (optional)
 
@@ -68,7 +77,7 @@ See [OAUTH_SETUP.md](../OAUTH_SETUP.md) for OAuth provider setup.
 
 ## 2. Database migrations (Supabase)
 
-If you use Supabase, run **all** migrations in `supabase/migrations/` **in numeric order** (001 → 013) in the Supabase SQL Editor.
+If you use Supabase, run **all** migrations in `supabase/migrations/` **in numeric order** (001 → 019) in the Supabase SQL Editor.
 
 | Migration | Purpose |
 |-----------|---------|
@@ -86,6 +95,9 @@ If you use Supabase, run **all** migrations in `supabase/migrations/` **in numer
 | 012_user_interactions_activity | User interactions / activity |
 | 013_friend_requests_delete_policy | RLS policy for friend request delete |
 | 014_drop_user_follows | Drops user-to-user follows table (friends only; see docs/FRIENDS_VS_FOLLOWS.md) |
+| 015–017 | event_shares, chats, event-images bucket |
+| 018_event_review_feedback | Admin review quality ratings |
+| 019_pipeline_store | pipeline_posts, extractions, review_queue, verifications, runs, config |
 
 Details: [SUPABASE_SETUP.md](../SUPABASE_SETUP.md). See [docs/FRIENDS_VS_FOLLOWS.md](FRIENDS_VS_FOLLOWS.md) for friends vs follow distinction.
 

@@ -14,7 +14,7 @@ This document describes the **Event CSV** and **Venue CSV** schemas. Treat these
 | `end_datetime` | ISO string | No | End date/time | `2025-02-16T02:00:00` |
 | `timezone` | string | No | IANA timezone. Default: `Europe/Lisbon` | `Europe/Lisbon` |
 | `is_all_day` | bool/string | No | `true`/`false` or `"true"`/`"1"` | `false` |
-| `status` | string | No | `scheduled`, `cancelled`, `postponed`, `sold_out`, `draft`, `archived`. Legacy: `active`, `needs_review` → scheduled | `scheduled` |
+| `status` | string | No | `scheduled`, `cancelled`, `postponed`, `sold_out`, `draft`, `archived`. Legacy: `active` → scheduled; `needs_review` → **draft** (never public — unreviewed rows are gated upstream by the pipeline) | `scheduled` |
 | `venue_id` | string | No | Stable venue ID (matches Venue CSV) | `lux-fragil` |
 | `venue_name` | string | No | Display name (fallback if venue_id missing) | `Lux Frágil` |
 | `venue_address` | string | No | Full address | `Av. Infante D. Henrique` |
@@ -53,6 +53,18 @@ This document describes the **Event CSV** and **Venue CSV** schemas. Treat these
 | `recurrence_rule` | string | No | Recurrence (iCal) | - |
 
 **Legacy column mapping:** `id` → `event_id`, `image_url` → `primary_image_url`
+
+### Pipeline traceability columns (Processed Events sheet)
+
+Written by the ingestion pipeline (`pipeline/`), ignored by the app loader. See `docs/PIPELINE.md`.
+
+| Column | Meaning |
+|--------|---------|
+| `post_pattern` | Classifier output: `single_event`, `multi_event`, `monthly_program`, `announcement` |
+| `extraction_source` | Which tier produced the row: `caption`, `vision`, or `merged` |
+| `on_slide_text_evidence` | Verbatim date/time text read on a carousel slide (debugging datetime conversion) |
+| `_raw_model_text` | Unparsed model output for prompt iteration |
+| `fingerprint` | Dedupe fingerprint (title \| date \| 30-min bucket \| venue_id) |
 
 ---
 
