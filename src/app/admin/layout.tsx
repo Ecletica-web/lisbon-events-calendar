@@ -14,7 +14,7 @@ const NAV = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { ready, isAdmin, email } = useAdminAuthHeaders()
+  const { ready, isAdmin, email, error } = useAdminAuthHeaders()
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -28,7 +28,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
           {ready && (
             <span className="text-xs text-slate-400">
-              {isAdmin ? email : 'Not signed in as admin'}
+              {isAdmin ? email : email ? `Signed in as ${email}` : 'Not signed in'}
             </span>
           )}
         </div>
@@ -59,12 +59,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         ) : !isAdmin ? (
           <div className="rounded-lg border border-amber-700/50 bg-amber-950/40 p-6 text-amber-100">
             <p className="font-medium mb-2">Admin access required</p>
-            <p className="text-sm text-amber-200/80 mb-4">
-              Sign in with an email listed in <code className="text-amber-100">ADMIN_EMAILS</code>,
-              then reload this page.
+            <p className="text-sm text-amber-200/80 mb-2">
+              {email
+                ? 'You are signed in, but this account is not allowed for /admin.'
+                : 'You are not signed in. Log in with the admin email, then open /admin again.'}
             </p>
+            {error && <p className="text-sm text-amber-300/90 mb-4">{error}</p>}
+            {!error && (
+              <p className="text-sm text-amber-200/80 mb-4">
+                Allowed emails come from <code className="text-amber-100">ADMIN_EMAILS</code> in
+                Vercel (e.g. <code className="text-amber-100">ecleticaweblda@gmail.com</code>).
+              </p>
+            )}
             <Link
-              href="/login"
+              href={`/login?next=${encodeURIComponent(pathname || '/admin')}`}
               className="inline-block px-4 py-2 rounded bg-indigo-600 text-white text-sm hover:bg-indigo-500"
             >
               Go to login
