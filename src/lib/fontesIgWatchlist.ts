@@ -24,6 +24,13 @@ function pick(row: Record<string, string>, ...keys: string[]): string {
   return ''
 }
 
+/** 0-based column index (A=0, B=1, C=2, …) — relies on insertion order from sheet header. */
+function col(row: Record<string, string>, index: number): string {
+  const keys = Object.keys(row)
+  if (index < 0 || index >= keys.length) return ''
+  return String(row[keys[index]] ?? '').trim()
+}
+
 function normalizeHandle(raw: string): string {
   let h = raw.trim()
   if (!h) return ''
@@ -44,16 +51,18 @@ function inferType(venueTypeRaw: string, typeRaw: string): 'venue' | 'promoter' 
 }
 
 export function rowToWatchlistEntry(row: Record<string, string>): NormalizedWatchlistEntry | null {
+  // Fontes IG: column C = Handle / Website (prefer positional, then named headers)
   const handle = normalizeHandle(
-    pick(row, 'Handle / Website', 'handle', 'Handle', 'instagram', 'instagram_handle')
+    col(row, 2) ||
+      pick(row, 'Handle / Website', 'handle', 'Handle', 'instagram', 'instagram_handle')
   )
   if (!handle) return null
 
-  const name = pick(row, 'Name', 'name')
-  const venueType = pick(row, 'Venue Type', 'venue_type', 'type')
-  const eventTypes = pick(row, 'Event Types', 'event_types', 'notes')
+  const name = pick(row, 'Name', 'name') || col(row, 1)
+  const venueType = pick(row, 'Venue Type', 'venue_type', 'type') || col(row, 3)
+  const eventTypes = pick(row, 'Event Types', 'event_types', 'notes') || col(row, 4)
   const type = inferType(venueType, pick(row, 'type'))
-  const activeRaw = pick(row, 'Active', 'active', 'enabled')
+  const activeRaw = pick(row, 'Active', 'active', 'enabled') || col(row, 5)
   const active =
     activeRaw === ''
       ? true
