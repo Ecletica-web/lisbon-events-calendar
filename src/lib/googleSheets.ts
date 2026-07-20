@@ -115,22 +115,22 @@ export async function readWatchlistFromSheets(): Promise<WatchlistRow[]> {
       rows = []
     }
   }
-  return rows
-    .map((r, i) => {
-      const e = rowToWatchlistEntry(r)
-      if (!e) return null
-      return {
-        handle: e.handle,
-        type: e.type,
-        active: e.active,
-        notes: e.notes,
-        name: e.name,
-        venueType: e.venueType,
-        eventTypes: e.eventTypes,
-        rowIndex: i + 2,
-      }
+  const out: WatchlistRow[] = []
+  rows.forEach((r, i) => {
+    const e = rowToWatchlistEntry(r)
+    if (!e) return
+    out.push({
+      handle: e.handle,
+      type: e.type,
+      active: e.active,
+      notes: e.notes,
+      name: e.name,
+      venueType: e.venueType,
+      eventTypes: e.eventTypes,
+      rowIndex: i + 2,
     })
-    .filter((e): e is WatchlistRow => e != null)
+  })
+  return out
 }
 
 /** Replace Fontes IG tab contents (Fontes IG layout + Active column). */
