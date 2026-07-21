@@ -12,12 +12,20 @@ import {
   claimNextQueuedRun,
   isAbortRequested,
   isSupabaseStoreConfigured,
+  PipelineAbortedError,
   touchWorkerHeartbeat,
   updatePipelineRun,
 } from '../sinks/supabase-store'
 import { parseFlags, runCommand, type CliFlags } from './run'
 
 const POLL_MS = 10_000
+
+function isAbortError(err: unknown): boolean {
+  return (
+    err instanceof PipelineAbortedError ||
+    (err instanceof Error && err.name === 'PipelineAbortedError')
+  )
+}
 
 async function executeRun(run: {
   id: string
@@ -52,6 +60,7 @@ async function executeRun(run: {
   await appendRunLogLine(run.id, `Worker claimed run mode=${run.mode}`)
 
   if (await isAbortRequested(run.id)) {
+    await appendRunLogLine(run.id, '=== ABORTED === before start')
     await updatePipelineRun(run.id, {
       status: 'aborted',
       finished_at: new Date().toISOString(),
@@ -62,6 +71,7 @@ async function executeRun(run: {
   try {
     const stats = await runCommand(flags)
     if (await isAbortRequested(run.id)) {
+      await appendRunLogLine(run.id, '=== ABORTED === after command')
       await updatePipelineRun(run.id, {
         status: 'aborted',
         stats,
@@ -76,6 +86,14 @@ async function executeRun(run: {
     })
     await appendRunLogLine(run.id, 'Worker finished successfully')
   } catch (err) {
+    if (isAbortError(err)) {
+      await appendRunLogLine(run.id, `=== ABORTED === ${err instanceof Error ? err.message : err}`)
+      await updatePipelineRun(run.id, {
+        status: 'aborted',
+        finished_at: new Date().toISOString(),
+      })
+      return
+    }
     const message = err instanceof Error ? err.message : String(err)
     await appendRunLogLine(run.id, `Worker error: ${message}`)
     await updatePipelineRun(run.id, {

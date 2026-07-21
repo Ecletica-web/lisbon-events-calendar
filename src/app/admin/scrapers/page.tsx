@@ -42,6 +42,7 @@ export default function AdminScrapersPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [aborting, setAborting] = useState(false)
 
   const load = useCallback(async () => {
     const headers = await getAuthHeaders()
@@ -89,7 +90,10 @@ export default function AdminScrapersPage() {
 
   const selectedRun = runs.find((r) => r.id === selectedRunId) ?? runs[0] ?? null
   const live =
-    !!selectedRun && (selectedRun.status === 'queued' || selectedRun.status === 'running')
+    !!selectedRun &&
+    (selectedRun.status === 'queued' ||
+      selectedRun.status === 'running' ||
+      selectedRun.status === 'abort_requested')
 
   useEffect(() => {
     if (!isAdmin || !live) return
@@ -168,13 +172,23 @@ export default function AdminScrapersPage() {
   }
 
   async function abortRun(runId: string) {
-    const headers = await getAuthHeaders()
-    await fetch('/api/admin/pipeline/runs', {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'abort', runId }),
-    })
-    await load()
+    setAborting(true)
+    setMessage('Stop requested — extract will halt after the current post finishes.')
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/pipeline/runs', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'abort', runId }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Abort failed')
+      await load()
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Abort failed')
+    } finally {
+      setAborting(false)
+    }
   }
 
   return (
@@ -274,7 +288,12 @@ export default function AdminScrapersPage() {
         </div>
       </section>
 
-      <PipelineRunLogPanel run={selectedRun} onRefresh={() => void load()} />
+      <PipelineRunLogPanel
+        run={selectedRun}
+        onRefresh={() => void load()}
+        onAbort={(id) => void abortRun(id)}
+        aborting={aborting}
+      />
 
       <section className="rounded-lg border border-slate-700 bg-slate-800/40 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -451,13 +470,16 @@ export default function AdminScrapersPage() {
                   )}
                 </div>
                 <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                  {(run.status === 'queued' || run.status === 'running') && (
+                  {(run.status === 'queued' ||
+                    run.status === 'running' ||
+                    run.status === 'abort_requested') && (
                     <button
                       type="button"
-                      className="text-xs text-red-400"
+                      className="text-xs text-red-400 disabled:opacity-50"
+                      disabled={run.status === 'abort_requested' || aborting}
                       onClick={() => void abortRun(run.id)}
                     >
-                      Abort
+                      {run.status === 'abort_requested' ? 'Stopping…' : 'Stop'}
                     </button>
                   )}
                   {run.apify_run_id && (

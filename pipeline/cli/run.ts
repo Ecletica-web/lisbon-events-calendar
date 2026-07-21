@@ -39,8 +39,11 @@ import {
   appendReviewQueue,
   appendRunLogLine,
   appendVerifications,
+  assertNotAborted,
   createPipelineRun,
+  isAbortRequested,
   isSupabaseStoreConfigured,
+  PipelineAbortedError,
   readExistingPipelineSourceIds,
   readLastSuccessfulScrapeAt,
   readPendingPipelinePosts,
@@ -274,8 +277,17 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
   const allProcessed: ProcessedEventRow[] = []
   const allNeedsReview: NeedsReviewRow[] = []
   let discarded = 0
+  let aborted = false
 
   for (const row of pending) {
+    if (flags.runId && (await isAbortRequested(flags.runId))) {
+      aborted = true
+      await logRun(
+        flags,
+        `[extract] abort requested — stopping (${allProcessed.length + allNeedsReview.length + discarded} post(s) already handled)`
+      )
+      break
+    }
     try {
       const result = await processPost(row, {
         forceVision: flags.forceVision,
@@ -378,6 +390,10 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
     await logRun(flags, '[extract] local CSV under pipeline/out/ (Processed Events sheet not auto-updated)')
   }
 
+  if (aborted && flags.runId) {
+    throw new PipelineAbortedError(flags.runId)
+  }
+
   // Tier 5 online verify on this run's auto-pass rows (unless --skip-verify).
   // Unclean verifies → Tier 6 /admin/event-review; clean ones stay published without review.
   let verifyStats: Record<string, unknown> = {}
@@ -389,6 +405,7 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
       '=== STAGE: verify (skipped: no high-confidence auto-pass events) ==='
     )
   } else {
+    await assertNotAborted(flags.runId)
     await logRun(flags, '=== STAGE: verify (start) ===')
     verifyStats = await commandVerify({ ...flags, limit: undefined }, keptRows)
     await logRun(flags, '=== STAGE: verify (done) ===')
@@ -400,6 +417,7 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
     discarded,
     dropped_dupes: droppedAsDuplicate,
     dropped_existing: droppedAsExisting,
+    aborted: aborted || undefined,
     ...verifyStats,
   }
 }
@@ -424,8 +442,14 @@ export async function commandVerify(
   const humanQueue: NeedsReviewRow[] = []
   let verified = 0
   let queuedForHuman = 0
+  let aborted = false
 
   for (const event of pending) {
+    if (flags.runId && (await isAbortRequested(flags.runId))) {
+      aborted = true
+      await logRun(flags, `[verify] abort requested — stopping after ${logRows.length} event(s)`)
+      break
+    }
     try {
       const result = await verifyProcessedEvent(event)
       logRows.push(toVerificationLogRow(event, result))
@@ -495,6 +519,9 @@ export async function commandVerify(
     flags,
     `[verify] done: clean_verified=${verified} queued_for_human=${queuedForHuman} logged=${logRows.length}`
   )
+  if (aborted && flags.runId) {
+    throw new PipelineAbortedError(flags.runId)
+  }
   return { verified, queued_for_human: queuedForHuman, logged: logRows.length }
 }
 
@@ -547,6 +574,7 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
         await logRun(flags, '=== STAGE: scrape (start) ===')
         Object.assign(combined, await commandScrape(flags))
         await logRun(flags, '=== STAGE: scrape (done) ===')
+        await assertNotAborted(flags.runId)
         await logRun(flags, '=== STAGE: extract (start) ===')
         Object.assign(combined, await commandExtract(flags))
         await logRun(flags, '=== STAGE: extract (done) ===')
@@ -564,6 +592,17 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
     }
     return combined
   } catch (err) {
+    if (err instanceof PipelineAbortedError) {
+      await logRun(flags, `=== ABORTED === ${err.message}`)
+      if (createdRunId) {
+        await updatePipelineRun(createdRunId, {
+          status: 'aborted',
+          stats: combined,
+          finished_at: new Date().toISOString(),
+        })
+      }
+      throw err
+    }
     if (createdRunId) {
       await updatePipelineRun(createdRunId, {
         status: 'error',

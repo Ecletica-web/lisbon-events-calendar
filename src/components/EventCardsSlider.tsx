@@ -10,6 +10,7 @@ import { haversineDistanceKm, formatDistance } from '@/lib/geo'
 import FollowButton from '@/components/FollowButton'
 import EventLikeCount from '@/components/EventLikeCount'
 import FriendAvatars from '@/components/FriendAvatars'
+import { EventImageThumb } from '@/components/EventImageGallery'
 import { useUserActions } from '@/contexts/UserActionsContext'
 import { getEventReasons } from '@/lib/eventReasons'
 
@@ -448,9 +449,12 @@ function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: {
       className={`bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-xl p-4 cursor-pointer transition-all hover:shadow-xl hover:scale-[1.02] touch-manipulation active:scale-[0.99] ${mode === 'slider' ? 'min-w-[260px] sm:min-w-[280px] md:min-w-[320px]' : ''}`}
     >
       <div className="flex gap-3">
-        <div className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20">
-          <img src={props.imageUrl || '/lisboa.png'} alt={event.title} className="w-full h-full object-cover rounded-lg border border-slate-700/50" onError={(e) => { e.currentTarget.src = '/lisboa.png' }} />
-        </div>
+        <EventImageThumb
+          imageUrl={props.imageUrl}
+          imageUrls={props.imageUrls}
+          alt={event.title}
+          className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20 rounded-lg border border-slate-700/50"
+        />
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1.5">
             <h3 className="text-lg font-bold text-white line-clamp-2">{event.title}</h3>

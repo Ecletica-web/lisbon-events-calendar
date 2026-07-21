@@ -6,7 +6,7 @@ tiered AI → validation. **Storage is split:**
 | Store | What lives there |
 |-------|------------------|
 | **Google Sheets** | Fontes IG, Venues, Promoters, **Processed Events** — human-edited / inspected. Pipeline **reads** via public CSV; **writes high-confidence auto-pass events** when `PIPELINE_SHEETS_WRITE=1` + service account (default on). |
-| **Supabase** | Raw posts, every AI tier artifact, review queue, verifications, run queue/log, scraper config, image buckets |
+| **Supabase** | Raw posts, every AI tier artifact, review queue, verifications, run queue/log, scraper config, image buckets, **`venue_profile_images`** (IG pics for `/venues` when Sheets write fails) |
 
 The Next.js app consumes the published Processed CSV and hosts `/admin`. Long jobs are
 **queued** in Supabase and executed by a local **`npm run worker`** (not on Vercel).
@@ -33,6 +33,16 @@ Watchlist (Sheets CSV) ─→ Apify ─→ pipeline_posts (Supabase)
 
 A **`full`** run (default in `/admin/scrapers`) does scrape → extract → Tier 5. Only low-confidence
 extraction issues and unclean Tier 5 verifies need human review.
+
+### Venue profile pictures
+
+Scrape/full with “Sync venue profile pics” (default on):
+
+1. Apify profile details → archive into Supabase `venue-images`
+2. Upsert `venue_profile_images` + public `venue-images/_index.json` (so `/venues` works even if Sheets fails)
+3. Best-effort write `Venues.primary_image_url` in Google Sheets (needs Sheets API enabled)
+
+`/venues` loads the Venues CSV, then fills empty/placeholder images from Supabase by `instagram_handle`.
 
 Admin can also enqueue runs via `/admin/scrapers` → `pipeline_runs` (status=`queued`)
 → worker polls and runs scrape/extract/verify/full.

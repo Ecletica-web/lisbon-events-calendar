@@ -6,6 +6,7 @@ import { haversineDistanceKm, formatDistance } from '@/lib/geo'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import type { ViewState } from '@/lib/viewState'
 import FollowButton from '@/components/FollowButton'
+import { EventImageThumb } from '@/components/EventImageGallery'
 
 interface EventListViewProps {
   events: NormalizedEvent[]
@@ -281,16 +282,12 @@ export default function EventListView({
                   className="px-4 py-4 min-h-[44px] hover:bg-slate-700/30 transition-colors cursor-pointer touch-manipulation"
                 >
                   <div className="flex items-start gap-3 md:gap-4">
-                    <div className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20 rounded-lg overflow-hidden bg-slate-700/50">
-                      <img
-                        src={event.extendedProps.imageUrl || '/lisboa.png'}
-                        alt={event.title}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = '/lisboa.png'
-                        }}
-                      />
-                    </div>
+                    <EventImageThumb
+                      imageUrl={event.extendedProps.imageUrl}
+                      imageUrls={event.extendedProps.imageUrls}
+                      alt={event.title}
+                      className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20 rounded-lg bg-slate-700/50"
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-0.5">
                         <h3 className="text-base font-semibold text-white leading-tight">

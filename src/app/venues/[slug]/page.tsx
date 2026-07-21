@@ -9,6 +9,7 @@ import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import { getCategoryColor } from '@/lib/categoryColors'
 import FollowVenueButton from '@/components/FollowVenueButton'
 import EventModal from '@/app/calendar/components/EventModal'
+import { EventImageThumb } from '@/components/EventImageGallery'
 
 export default function VenueDetailPage() {
   const params = useParams()
@@ -181,11 +182,11 @@ export default function VenueDetailPage() {
                   className="rounded-lg bg-slate-800/60 border border-slate-700/50 overflow-hidden cursor-pointer hover:border-slate-600 transition-colors"
                 >
                   <div className="p-4 flex flex-col sm:flex-row gap-4">
-                    <img
-                      src={event.extendedProps.imageUrl || '/lisboa.png'}
-                      alt=""
-                      className="w-full sm:w-24 h-40 sm:h-24 object-cover rounded flex-shrink-0"
-                      onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
+                    <EventImageThumb
+                      imageUrl={event.extendedProps.imageUrl}
+                      imageUrls={event.extendedProps.imageUrls}
+                      alt={event.title}
+                      className="w-full sm:w-24 h-40 sm:h-24 rounded flex-shrink-0"
                     />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-lg">{event.title}</h3>

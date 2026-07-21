@@ -479,6 +479,21 @@ export async function isAbortRequested(runId: string): Promise<boolean> {
   return data?.status === 'abort_requested'
 }
 
+export class PipelineAbortedError extends Error {
+  readonly runId: string
+  constructor(runId: string) {
+    super(`Pipeline run aborted (${runId.slice(0, 8)})`)
+    this.name = 'PipelineAbortedError'
+    this.runId = runId
+  }
+}
+
+/** Throw if the admin requested abort (checked between posts / stages). */
+export async function assertNotAborted(runId: string | undefined): Promise<void> {
+  if (!runId) return
+  if (await isAbortRequested(runId)) throw new PipelineAbortedError(runId)
+}
+
 export async function touchWorkerHeartbeat(): Promise<void> {
   if (!isSupabaseStoreConfigured()) return
   const sb = getSupabaseStore()
@@ -503,4 +518,117 @@ export async function readLastSuccessfulScrapeAt(): Promise<string | null> {
     .limit(1)
     .maybeSingle()
   return data?.started_at ?? null
+}
+
+function normalizeIgHandle(raw: string): string {
+  return raw.replace(/^@/, '').toLowerCase().trim().split(/[/?#]/)[0]
+}
+
+/** Persist archived IG profile pics so /venues can show them even when Sheets write fails. */
+export async function upsertVenueProfileImages(
+  updates: Array<{ handle: string; primaryImageUrl: string }>,
+  dryRun = false
+): Promise<number> {
+  if (updates.length === 0) return 0
+  if (dryRun || !isSupabaseStoreConfigured()) return updates.length
+
+  const sb = getSupabaseStore()
+  const now = new Date().toISOString()
+  const payload = updates
+    .map((u) => ({
+      instagram_handle: normalizeIgHandle(u.handle),
+      primary_image_url: u.primaryImageUrl.trim(),
+      updated_at: now,
+    }))
+    .filter((u) => u.instagram_handle && u.primary_image_url)
+
+  if (payload.length === 0) return 0
+
+  // Always write public _index.json (works without migration 021)
+  await writeVenueProfileImagesIndex(payload.map((p) => ({
+    handle: p.instagram_handle,
+    primaryImageUrl: p.primary_image_url,
+  })))
+
+  const { data, error } = await sb
+    .from('venue_profile_images')
+    .upsert(payload, { onConflict: 'instagram_handle' })
+    .select('instagram_handle')
+
+  if (error) {
+    if (/does not exist|schema cache|Could not find the table/i.test(error.message)) {
+      // Index JSON is enough until migration 021 is applied
+      return payload.length
+    }
+    throw new Error(`venue_profile_images upsert failed: ${error.message}`)
+  }
+  return data?.length ?? 0
+}
+
+/** Merge handle→URL into public venue-images/_index.json for the Next.js app. */
+export async function writeVenueProfileImagesIndex(
+  updates: Array<{ handle: string; primaryImageUrl: string }>
+): Promise<void> {
+  if (!isSupabaseStoreConfigured() || updates.length === 0) return
+  const sb = getSupabaseStore()
+
+  let existing: Record<string, string> = {}
+  const { data: blob } = await sb.storage.from('venue-images').download('_index.json')
+  if (blob) {
+    try {
+      existing = JSON.parse(await blob.text()) as Record<string, string>
+    } catch {
+      existing = {}
+    }
+  }
+
+  for (const u of updates) {
+    const h = normalizeIgHandle(u.handle)
+    const url = u.primaryImageUrl.trim()
+    if (h && url) existing[h] = url
+  }
+
+  const body = Buffer.from(JSON.stringify(existing, null, 2), 'utf8')
+  // Bucket may still be image-only until migration 021; widen mime types first.
+  await sb.storage.updateBucket('venue-images', {
+    public: true,
+    allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/json'],
+    fileSizeLimit: 5242880,
+  })
+  const { error } = await sb.storage.from('venue-images').upload('_index.json', body, {
+    contentType: 'application/json',
+    upsert: true,
+  })
+  if (error) throw new Error(`venue-images _index.json upload failed: ${error.message}`)
+}
+
+/**
+ * Seed venue image URLs from files already in the venue-images bucket
+ * (e.g. archived before Sheets failed). Paths look like venue_{handle}.jpg.
+ */
+export async function backfillVenueProfileImagesFromStorage(): Promise<number> {
+  if (!isSupabaseStoreConfigured()) return 0
+  const sb = getSupabaseStore()
+  const { data: files, error } = await sb.storage.from('venue-images').list('', { limit: 1000 })
+  if (error) throw new Error(`venue-images list failed: ${error.message}`)
+  if (!files?.length) return 0
+
+  const cfg = getConfig()
+  const base = (cfg.SUPABASE_URL || '').replace(/\/$/, '')
+  const updates: Array<{ handle: string; primaryImageUrl: string }> = []
+
+  for (const f of files) {
+    const name = f.name || ''
+    if (name === '_index.json') continue
+    const m = name.match(/^venue_(.+)\.(jpe?g|png|gif|webp)$/i)
+    if (!m) continue
+    const handle = normalizeIgHandle(m[1])
+    if (!handle) continue
+    updates.push({
+      handle,
+      primaryImageUrl: `${base}/storage/v1/object/public/venue-images/${name}`,
+    })
+  }
+
+  return upsertVenueProfileImages(updates, false)
 }

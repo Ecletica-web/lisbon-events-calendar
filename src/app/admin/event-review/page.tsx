@@ -1,21 +1,87 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { AdminSheetTable } from '@/components/admin/AdminSheetTable'
+import {
+  ReviewEventEditCard,
+  type ReviewCardRow,
+  type ReviewEditableFields,
+} from '@/components/admin/ReviewEventEditCard'
 import { useAdminAuthHeaders } from '@/lib/useAdminAuth'
-import { NEEDS_REVIEW_COLUMNS } from '@/lib/pipelineSheetColumns'
+
+const EDIT_FIELDS: (keyof ReviewEditableFields)[] = [
+  'description_short',
+  'start_datetime',
+  'venue_name_raw',
+  'description_long',
+]
+
+type CardState = {
+  edits: Partial<ReviewEditableFields>
+  quality: number
+  notes: string
+}
+
+function emptyState(): CardState {
+  return { edits: {}, quality: 7, notes: '' }
+}
+
+/** Build field_corrections for ML: corrected values + `__from` originals when changed. */
+function buildFieldCorrections(
+  row: ReviewCardRow,
+  edits: Partial<ReviewEditableFields>
+): Record<string, string> {
+  const corrections: Record<string, string> = {}
+  for (const field of EDIT_FIELDS) {
+    const from = row[field] ?? ''
+    const to = edits[field] ?? from
+    if (String(to) !== String(from)) {
+      corrections[field] = String(to)
+      corrections[`${field}__from`] = String(from)
+    }
+  }
+  return corrections
+}
+
+function effectiveEdits(
+  row: ReviewCardRow,
+  edits: Partial<ReviewEditableFields>
+): Record<string, string> | undefined {
+  const out: Record<string, string> = {}
+  for (const field of EDIT_FIELDS) {
+    if (edits[field] != null && edits[field] !== (row[field] ?? '')) {
+      out[field] = edits[field]!
+    }
+  }
+  return Object.keys(out).length ? out : undefined
+}
+
+function parseSuggestions(raw: string | undefined): Partial<ReviewEditableFields> {
+  if (!raw) return {}
+  try {
+    const s = JSON.parse(raw) as Record<string, string>
+    const next: Partial<ReviewEditableFields> = {}
+    if (s.title) next.description_short = s.title
+    if (s.description_short) next.description_short = s.description_short
+    if (s.start_datetime) next.start_datetime = s.start_datetime
+    if (s.venue_name_raw) next.venue_name_raw = s.venue_name_raw
+    else if (s.venue_name) next.venue_name_raw = s.venue_name
+    else if (s.venue) next.venue_name_raw = s.venue
+    if (s.description_long) next.description_long = s.description_long
+    return next
+  } catch {
+    return {}
+  }
+}
 
 export default function AdminEventReviewPage() {
   const { getAuthHeaders, isAdmin } = useAdminAuthHeaders()
-  const [columns] = useState<string[]>([...NEEDS_REVIEW_COLUMNS])
-  const [rows, setRows] = useState<Record<string, string>[]>([])
+  const [rows, setRows] = useState<ReviewCardRow[]>([])
   const [source, setSource] = useState<'supabase' | 'sheets'>('supabase')
   const [sheetsWriteMode, setSheetsWriteMode] = useState<'auto' | 'manual'>('manual')
   const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending')
+  const [cardState, setCardState] = useState<Record<string, CardState>>({})
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
-  const [selected, setSelected] = useState<Record<string, string> | null>(null)
-  const [edits, setEdits] = useState<Record<string, string>>({})
   const [lastProcessedRow, setLastProcessedRow] = useState<Record<string, string> | null>(null)
 
   const load = useCallback(async () => {
@@ -26,14 +92,14 @@ export default function AdminEventReviewPage() {
       setMessage(j.error || 'Load failed')
       return
     }
-    setRows(j.rows || [])
+    setRows((j.rows || []) as ReviewCardRow[])
     setSource(j.source === 'sheets' ? 'sheets' : 'supabase')
     setSheetsWriteMode(j.sheetsWriteMode === 'auto' ? 'auto' : 'manual')
     setMessage(
       j.source === 'sheets'
-        ? 'Showing Needs_Review sheet (Supabase review queue empty).'
+        ? 'Showing Needs_Review sheet (Supabase review queue empty). Approve/reject requires Supabase items.'
         : j.sheetsWriteMode === 'manual'
-          ? 'Sheets auto-write is off — Approve marks the item done; paste into Processed Events yourself (or use suggested_corrections).'
+          ? 'Sheets auto-write is off — Approve marks the item done; paste into Processed Events yourself.'
           : null
     )
   }, [getAuthHeaders, filter])
@@ -42,26 +108,72 @@ export default function AdminEventReviewPage() {
     if (isAdmin) void load()
   }, [isAdmin, load])
 
-  async function resolve(reviewId: string, action: 'approved' | 'rejected') {
+  function stateFor(id: string): CardState {
+    return cardState[id] || emptyState()
+  }
+
+  function patchCard(id: string, patch: Partial<CardState>) {
+    setCardState((prev) => ({
+      ...prev,
+      [id]: { ...emptyState(), ...prev[id], ...patch },
+    }))
+  }
+
+  function setEdit(id: string, field: keyof ReviewEditableFields, value: string) {
+    setCardState((prev) => {
+      const cur = prev[id] || emptyState()
+      return {
+        ...prev,
+        [id]: { ...cur, edits: { ...cur.edits, [field]: value } },
+      }
+    })
+  }
+
+  async function resolve(row: ReviewCardRow, action: 'approved' | 'rejected') {
     if (source === 'sheets') {
       setMessage('Approve/reject only works on Supabase review queue items (run the pipeline worker).')
       return
     }
-    setBusy(reviewId)
+    const id = row.review_id
+    const state = stateFor(id)
+    setBusy(id)
     setMessage(null)
     try {
       const headers = await getAuthHeaders()
+      const fieldEdits = effectiveEdits(row, state.edits)
+      const fieldCorrections = buildFieldCorrections(row, state.edits)
+
+      // Persist corrections for learning before queue fields are overwritten
+      await fetch('/api/admin/event-review/feedback', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          review_id: id,
+          dataset: 'needsReview',
+          source_event_id: row.source_event_id || undefined,
+          quality_rating:
+            action === 'approved' ? state.quality : Math.min(state.quality, 4),
+          notes:
+            state.notes ||
+            (action === 'approved' ? 'Approved from admin' : 'Rejected from admin'),
+          field_corrections: Object.keys(fieldCorrections).length
+            ? fieldCorrections
+            : undefined,
+        }),
+      }).catch(() => null)
+
       const res = await fetch('/api/admin/pipeline/review', {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          reviewId,
+          reviewId: id,
           action,
-          fieldEdits: Object.keys(edits).length ? edits : undefined,
+          fieldEdits,
         }),
       })
       const j = await res.json()
       if (!res.ok) throw new Error(j.error || 'Failed')
+
       setMessage(
         action === 'approved'
           ? j.processedAppended
@@ -73,8 +185,11 @@ export default function AdminEventReviewPage() {
       if (action === 'approved' && j.processedRow) {
         setLastProcessedRow(j.processedRow as Record<string, string>)
       }
-      setSelected(null)
-      setEdits({})
+      setCardState((prev) => {
+        const next = { ...prev }
+        delete next[id]
+        return next
+      })
       await load()
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Error')
@@ -83,10 +198,13 @@ export default function AdminEventReviewPage() {
     }
   }
 
+  const canResolve = source === 'supabase'
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-400">
-        Columns match the <strong className="text-slate-200">Needs_Review</strong> layout.
+        Edit title, datetime, venue, and description on each card. Corrections are saved to{' '}
+        <code className="text-slate-300">event_review_feedback</code> for later learning.
         {source === 'sheets' ? ' Sheet fallback.' : ' Supabase queue.'}{' '}
         {sheetsWriteMode === 'manual'
           ? 'Processed Events sheet is edited manually — Approve does not auto-append.'
@@ -140,83 +258,39 @@ export default function AdminEventReviewPage() {
         </div>
       )}
 
-      <p className="text-xs text-slate-500">
-        {rows.length} row(s) · {columns.length} columns
-      </p>
+      <p className="text-xs text-slate-500">{rows.length} event(s)</p>
 
-      <AdminSheetTable
-        columns={columns}
-        rows={rows}
-        rowKey={(r, i) => r.review_id || String(i)}
-        onRowClick={(r) => {
-          setSelected(r)
-          setEdits({
-            description_short: r.description_short || r.title || '',
-            start_datetime: r.start_datetime || '',
-            venue_name_raw: r.venue_name_raw || r.venue_name || '',
-            description_long: r.description_long || '',
-          })
-        }}
-      />
+      {rows.length === 0 && <p className="text-slate-500 text-sm">No items ready to review.</p>}
 
-      {selected && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/50" onClick={() => setSelected(null)}>
-          <div
-            className="w-full max-w-lg h-full overflow-y-auto bg-slate-900 border-l border-slate-700 p-5 space-y-3"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-start">
-              <h2 className="text-lg text-white font-medium">
-                {selected.review_id || 'Review item'}
-              </h2>
-              <button type="button" className="text-slate-400" onClick={() => setSelected(null)}>
-                Close
-              </button>
-            </div>
-            {(selected.stored_image_url || selected.thumbnail_url) && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={selected.stored_image_url || selected.thumbnail_url}
-                alt=""
-                className="w-full rounded"
-              />
-            )}
-            {(['description_short', 'start_datetime', 'venue_name_raw', 'description_long'] as const).map(
-              (field) => (
-                <label key={field} className="block text-xs text-slate-400">
-                  {field}
-                  <input
-                    className="mt-1 w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm text-white"
-                    value={edits[field] ?? ''}
-                    onChange={(e) => setEdits((prev) => ({ ...prev, [field]: e.target.value }))}
-                    disabled={source === 'sheets'}
-                  />
-                </label>
-              )
-            )}
-            {source === 'supabase' && (
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  disabled={busy === selected.review_id}
-                  onClick={() => void resolve(selected.review_id, 'approved')}
-                  className="px-3 py-1.5 rounded bg-emerald-600 text-white text-sm disabled:opacity-50"
-                >
-                  Approve → Processed
-                </button>
-                <button
-                  type="button"
-                  disabled={busy === selected.review_id}
-                  onClick={() => void resolve(selected.review_id, 'rejected')}
-                  className="px-3 py-1.5 rounded bg-rose-700 text-white text-sm disabled:opacity-50"
-                >
-                  Reject
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <div className="space-y-4">
+        {rows.map((row) => {
+          const state = stateFor(row.review_id)
+          return (
+            <ReviewEventEditCard
+              key={row.review_id}
+              row={row}
+              edits={state.edits}
+              qualityRating={state.quality}
+              notes={state.notes}
+              busy={busy === row.review_id}
+              canResolve={canResolve}
+              onEdit={(field, value) => setEdit(row.review_id, field, value)}
+              onQualityChange={(rating) => patchCard(row.review_id, { quality: rating })}
+              onNotesChange={(n) => patchCard(row.review_id, { notes: n })}
+              onApplySuggestions={() =>
+                patchCard(row.review_id, {
+                  edits: {
+                    ...state.edits,
+                    ...parseSuggestions(row.suggested_corrections),
+                  },
+                })
+              }
+              onApprove={() => void resolve(row, 'approved')}
+              onReject={() => void resolve(row, 'rejected')}
+            />
+          )
+        })}
+      </div>
     </div>
   )
 }

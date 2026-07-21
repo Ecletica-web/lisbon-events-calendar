@@ -7,6 +7,7 @@ import { fetchPromoters, fetchEvents } from '@/lib/eventsAdapter'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import { getCategoryColor } from '@/lib/categoryColors'
 import FollowPromoterButton from '@/components/FollowPromoterButton'
+import { EventImageThumb } from '@/components/EventImageGallery'
 
 const IMAGE_PROXY = 'https://images.weserv.nl/?url='
 function sanitize(url?: string): string | undefined {
@@ -149,11 +150,11 @@ export default function PromoterDetailPage() {
                   className="rounded-lg bg-slate-800/60 border border-slate-700/50 overflow-hidden"
                 >
                   <div className="p-4 flex flex-col sm:flex-row gap-4">
-                    <img
-                      src={event.extendedProps.imageUrl || '/lisboa.png'}
-                      alt=""
-                      className="w-full sm:w-24 h-40 sm:h-24 object-cover rounded flex-shrink-0"
-                      onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
+                    <EventImageThumb
+                      imageUrl={event.extendedProps.imageUrl}
+                      imageUrls={event.extendedProps.imageUrls}
+                      alt={event.title}
+                      className="w-full sm:w-24 h-40 sm:h-24 rounded flex-shrink-0"
                     />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-lg">{event.title}</h3>

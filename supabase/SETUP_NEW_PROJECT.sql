@@ -597,6 +597,37 @@ USING (bucket_id = 'venue-images');
 
 
 -- ============================================================
+-- 021_venue_profile_images.sql
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.venue_profile_images (
+  instagram_handle text PRIMARY KEY,
+  primary_image_url text NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_venue_profile_images_updated
+  ON public.venue_profile_images (updated_at DESC);
+
+ALTER TABLE public.venue_profile_images ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Venue profile images are publicly readable" ON public.venue_profile_images;
+CREATE POLICY "Venue profile images are publicly readable"
+ON public.venue_profile_images FOR SELECT
+TO public
+USING (true);
+
+UPDATE storage.buckets
+SET allowed_mime_types = ARRAY[
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/json'
+]
+WHERE id = 'venue-images';
+
+
+-- ============================================================
 -- 018_event_review_feedback.sql
 -- ============================================================
 -- Human review feedback for pipeline events (/admin/event-review ratings).

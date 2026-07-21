@@ -11,6 +11,7 @@ import EventCounts from '@/components/EventCounts'
 import EventLikeCount from '@/components/EventLikeCount'
 import FollowVenueButton from '@/components/FollowVenueButton'
 import FollowPromoterButton from '@/components/FollowPromoterButton'
+import { EventImageThumb } from '@/components/EventImageGallery'
 import EventModal from '@/app/calendar/components/EventModal'
 import { logActivity } from '@/lib/activityLog'
 
@@ -358,13 +359,13 @@ function FeedCard({
       onKeyDown={(e) => e.key === 'Enter' && onOpen()}
     >
       <div className="aspect-[4/3] relative bg-slate-800 overflow-hidden">
-        <img
-          src={p.imageUrl || '/lisboa.png'}
+        <EventImageThumb
+          imageUrl={p.imageUrl}
+          imageUrls={p.imageUrls}
           alt={event.title}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
+          className="absolute inset-0 w-full h-full transition-transform duration-500 group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
         <div className="absolute top-3 left-3 right-3 flex flex-wrap gap-1.5">
           {reasons.slice(0, 3).map((r) => (
             <span

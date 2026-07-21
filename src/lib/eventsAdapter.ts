@@ -10,6 +10,7 @@ import { loadEventTags } from '@/data/loaders/eventTagsLoader'
 import { loadVenueTags } from '@/data/loaders/venueTagsLoader'
 import { loadPromoters } from '@/data/loaders/promotersLoader'
 import { buildVenueIndex } from '@/data/venueIndex'
+import { loadVenueProfileImageMap, mergeVenueProfileImages } from '@/lib/venueProfileImages'
 import type { Venue } from '@/models/Venue'
 import type { Promoter } from '@/models/Promoter'
 import type { Event } from '@/models/Event'
@@ -99,6 +100,16 @@ export interface NormalizedEvent {
     language?: string
     ticketUrl?: string
     imageUrl?: string
+    /** All distinct flyer images from collapsed same-venue same-day acts. */
+    imageUrls?: string[]
+    /** How many original posts were collapsed into this night entry. */
+    sameVenueDayCount?: number
+    /** Individual acts when this card is a collapsed venue night. */
+    nightActs?: NightAct[]
+    /** Original event ids folded into this night (includes primary). */
+    mergedEventIds?: string[]
+    /** All promoter ids/names across acts (for filter / follow reasons). */
+    promoterIds?: string[]
 
     // Status (scheduled, postponed, sold_out, etc.)
     status?: string
@@ -130,6 +141,8 @@ export interface NormalizedEvent {
 
 const IMAGE_PROXY = 'https://images.weserv.nl/?url='
 const MAX_EVENTS_PER_VENUE = 15
+/** Min events at same venue on same day before we treat them as one night / share images. */
+const MIN_SAME_VENUE_DAY_EVENTS = 2
 
 function sanitizeImageUrl(url?: string): string | undefined {
   if (!url || typeof url !== 'string') return undefined
@@ -253,6 +266,87 @@ function enrichEventsWithVenuePromoterLinks(
   })
 }
 
+/** Calendar day (YYYY-MM-DD) in the event timezone — used to cluster a venue night. */
+function toVenueDayKey(isoStart: string, timeZone?: string): string {
+  const tz = timeZone || 'Europe/Lisbon'
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(isoStart))
+  } catch {
+    return isoStart.slice(0, 10)
+  }
+}
+
+function sameVenueNightKey(event: NormalizedEvent): string | null {
+  const venue =
+    event.extendedProps.venueKey ||
+    event.extendedProps.venueId ||
+    event.extendedProps.venueName?.toLowerCase().trim()
+  if (!venue) return null
+  const day = toVenueDayKey(event.start, event.extendedProps.timezone)
+  return `${normKey(venue)}|${day}`
+}
+
+/**
+ * When several events share a venue + calendar day, they are usually one night / lineup.
+ * Attach every distinct post flyer to each sibling so cards can show a multi-image gallery.
+ */
+export function enrichSameVenueDayImages(events: NormalizedEvent[]): NormalizedEvent[] {
+  const byNight = new Map<string, NormalizedEvent[]>()
+  for (const event of events) {
+    const key = sameVenueNightKey(event)
+    if (!key) continue
+    if (!byNight.has(key)) byNight.set(key, [])
+    byNight.get(key)!.push(event)
+  }
+
+  const extras = new Map<string, { imageUrls: string[]; sameVenueDayCount: number }>()
+
+  for (const group of byNight.values()) {
+    if (group.length < MIN_SAME_VENUE_DAY_EVENTS) continue
+
+    const sorted = [...group].sort(
+      (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
+    )
+    const urls: string[] = []
+    const seen = new Set<string>()
+    for (const ev of sorted) {
+      const url = ev.extendedProps.imageUrl
+      if (url && !seen.has(url)) {
+        seen.add(url)
+        urls.push(url)
+      }
+    }
+    if (urls.length < 2) continue
+
+    for (const ev of group) {
+      const own = ev.extendedProps.imageUrl
+      const ordered = own ? [own, ...urls.filter((u) => u !== own)] : urls
+      extras.set(ev.id, { imageUrls: ordered, sameVenueDayCount: group.length })
+    }
+  }
+
+  if (extras.size === 0) return events
+
+  return events.map((ev) => {
+    const extra = extras.get(ev.id)
+    if (!extra) return ev
+    return {
+      ...ev,
+      extendedProps: {
+        ...ev.extendedProps,
+        imageUrls: extra.imageUrls,
+        sameVenueDayCount: extra.sameVenueDayCount,
+        imageUrl: extra.imageUrls[0] ?? ev.extendedProps.imageUrl,
+      },
+    }
+  })
+}
+
 const EVENTS_CACHE_TAG = 'events'
 const EVENTS_REVALIDATE_SECONDS = 300 // 5 min
 
@@ -291,9 +385,12 @@ async function fetchEventsFromSource(): Promise<NormalizedEvent[]> {
   const listingEvents = filterEventsForListing(domainEvents)
   const normalized = listingEvents.map(eventToNormalizedEvent)
   const promoters = await loadPromoters(process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL)
-  const enriched = enrichEventsWithVenuePromoterLinks(normalized, venues, promoters)
+  const withLinks = enrichEventsWithVenuePromoterLinks(normalized, venues, promoters)
+  // Share flyer images across same-venue same-day siblings before capping,
+  // so images from capped-out posts still appear on remaining cards.
+  const withNightImages = enrichSameVenueDayImages(withLinks)
 
-  const capped = capEventsPerVenue(enriched, MAX_EVENTS_PER_VENUE)
+  const capped = capEventsPerVenue(withNightImages, MAX_EVENTS_PER_VENUE)
   return capped.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 }
 
@@ -358,7 +455,9 @@ export async function fetchAllEventsForDetail(): Promise<NormalizedEvent[]> {
   const venueIndex = buildVenueIndex(venues)
   const { events } = await loadEvents(csvUrl, venueIndex, allowedEventTags)
   const visible = events.filter((e) => e.status !== 'draft')
-  return visible.map(eventToNormalizedEvent).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+  return enrichSameVenueDayImages(visible.map(eventToNormalizedEvent)).sort(
+    (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
+  )
 }
 
 /**
@@ -573,8 +672,12 @@ export async function fetchVenues(): Promise<VenueForDisplay[]> {
   const venueTagsUrl = process.env.NEXT_PUBLIC_VENUE_TAGS_CSV_URL
   const venueTags = venueTagsUrl ? await loadVenueTags(venueTagsUrl) : []
   const allowedVenueTags = venueTags.length > 0 ? venueTags : null
-  const { venues } = await loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags)
-  return venues.map((v) => ({
+  const [{ venues }, imageByHandle] = await Promise.all([
+    loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags),
+    loadVenueProfileImageMap(),
+  ])
+  const withImages = mergeVenueProfileImages(venues, imageByHandle)
+  return withImages.map((v) => ({
     venue_id: v.venue_id,
     name: v.name,
     slug: v.slug,

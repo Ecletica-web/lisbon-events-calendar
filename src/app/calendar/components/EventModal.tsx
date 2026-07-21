@@ -12,6 +12,7 @@ import FollowVenueButton from '@/components/FollowVenueButton'
 import EventActionButtons from '@/components/EventActionButtons'
 import EventLikeCount from '@/components/EventLikeCount'
 import EventCounts from '@/components/EventCounts'
+import { EventImageGallery } from '@/components/EventImageGallery'
 import { useUserActions } from '@/contexts/UserActionsContext'
 import { getEventReasons } from '@/lib/eventReasons'
 
@@ -90,13 +91,11 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
         style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
         onClick={(e) => e.stopPropagation()}
       >
-        <img
-          src={props.imageUrl || '/lisboa.png'}
+        <EventImageGallery
+          imageUrl={props.imageUrl}
+          imageUrls={props.imageUrls}
           alt={event.title}
-          className="w-full h-24 object-cover rounded-md mb-3"
-          onError={(e) => {
-            e.currentTarget.src = '/lisboa.png'
-          }}
+          heightClass="h-28 sm:h-36"
         />
 
         <div className="flex items-start justify-between gap-2 mb-3">

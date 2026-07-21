@@ -102,7 +102,7 @@ function stageMarkers(log: string, stage: Exclude<StageId, 'queued' | 'done'>): 
   const hardError = errRe.test(log) || (legacyFail && !hasDone)
   const softWarning =
     stage === 'venue-images' && /Sheets update failed|Sheets API has not been used/i.test(log)
-      ? 'Sheets API disabled — profile pics archived but Venues sheet not updated'
+      ? 'Sheets API disabled — pics saved to Supabase for /venues; Venues sheet not updated'
       : undefined
 
   return {
@@ -227,21 +227,45 @@ function stateGlyph(state: StageState): string {
 export function PipelineRunLogPanel({
   run,
   onRefresh,
+  onAbort,
   refreshing,
+  aborting,
 }: {
   run: PipelineRunForLog | null
   onRefresh?: () => void
+  onAbort?: (runId: string) => void
   refreshing?: boolean
+  aborting?: boolean
 }) {
   const derived = run ? deriveRunStages(run) : null
+  const canStop =
+    !!run &&
+    !!onAbort &&
+    (run.status === 'queued' || run.status === 'running' || run.status === 'abort_requested')
+  const stopping = run?.status === 'abort_requested' || aborting
 
   return (
     <section className="rounded-lg border border-slate-700 bg-slate-800/40 p-4 space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h2 className="text-lg font-medium text-white">Pipeline log</h2>
         <div className="flex items-center gap-2">
-          {run && (run.status === 'queued' || run.status === 'running') && (
-            <span className="text-xs text-amber-300">Live · auto-refresh</span>
+          {run &&
+            (run.status === 'queued' ||
+              run.status === 'running' ||
+              run.status === 'abort_requested') && (
+              <span className="text-xs text-amber-300">
+                {stopping ? 'Stopping after current post…' : 'Live · auto-refresh'}
+              </span>
+            )}
+          {canStop && (
+            <button
+              type="button"
+              onClick={() => onAbort?.(run!.id)}
+              disabled={stopping}
+              className="px-3 py-1.5 rounded bg-red-900/60 border border-red-700 text-red-100 text-sm disabled:opacity-60"
+            >
+              {stopping ? 'Stopping…' : 'Stop extract'}
+            </button>
           )}
           {onRefresh && (
             <button
