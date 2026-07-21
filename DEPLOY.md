@@ -20,6 +20,12 @@ In **Settings → Environment Variables**, add:
 | `NEXT_PUBLIC_VENUES_CSV_URL` | `https://docs.google.com/spreadsheets/d/1kXx0Nw_iJNX73gCnK_byG7o5r5LJVy2SVhpLc8wmUk0/export?format=csv&gid=1135937280` |
 | `NEXT_PUBLIC_EVENT_TAGS_CSV_URL` | `https://docs.google.com/spreadsheets/d/1kXx0Nw_iJNX73gCnK_byG7o5r5LJVy2SVhpLc8wmUk0/export?format=csv&gid=26543790` |
 | `NEXT_PUBLIC_VENUE_TAGS_CSV_URL` | `https://docs.google.com/spreadsheets/d/1kXx0Nw_iJNX73gCnK_byG7o5r5LJVy2SVhpLc8wmUk0/export?format=csv&gid=1823379312` |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://fytnwjhlinmusfrxtxaz.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | *(from Supabase → Settings → API)* |
+| `SUPABASE_SERVICE_ROLE_KEY` | *(from Supabase → Settings → API)* |
+| `ADMIN_EMAILS` | `ecleticaweblda@gmail.com` |
+
+For a brand-new Supabase project, also run the SQL in [`supabase/SETUP_NEW_PROJECT.sql`](supabase/SETUP_NEW_PROJECT.sql) and follow [`docs/NEW_SUPABASE_PROJECT.md`](docs/NEW_SUPABASE_PROJECT.md).
 
 ## 4. Deploy
 Click **Deploy**. Vercel will build and give you a live URL (e.g. `lisbon-events-calendar.vercel.app`).
