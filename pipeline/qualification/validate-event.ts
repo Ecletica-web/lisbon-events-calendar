@@ -33,15 +33,13 @@ export interface ValidateContext {
 export function validateEvent(event: ExtractedEvent, ctx: ValidateContext): ValidationResult {
   const cfg = getConfig()
   const reasons: string[] = []
-  const now = ctx.now ?? new Date()
 
   if (!event.title?.trim()) reasons.push(REASON.MISSING_TITLE)
 
   if (!isValidIsoDate(event.start_datetime)) {
     reasons.push(REASON.MISSING_START)
-  } else if (new Date(event.start_datetime!) < now) {
-    reasons.push(REASON.PAST_EVENT)
   }
+  // Past start datetimes are allowed (do not push REASON.PAST_EVENT).
 
   if (!event.venue_name_raw?.trim()) reasons.push(REASON.MISSING_VENUE)
   else if (!ctx.venueResolved) reasons.push(REASON.VENUE_UNRESOLVED)

@@ -602,33 +602,58 @@ export async function writeVenueProfileImagesIndex(
   if (error) throw new Error(`venue-images _index.json upload failed: ${error.message}`)
 }
 
+export type StoredProfileImageKind = 'venue' | 'promoter' | 'profile'
+
+export interface StoredProfileImage {
+  handle: string
+  kind: StoredProfileImageKind
+  primaryImageUrl: string
+  fileName: string
+}
+
+/**
+ * List archived profile pics already in the venue-images bucket.
+ * Filenames: venue_{handle}.jpg | promoter_{handle}.jpg | profile_{handle}.jpg
+ */
+export async function listStoredProfileImages(): Promise<StoredProfileImage[]> {
+  if (!isSupabaseStoreConfigured()) return []
+  const sb = getSupabaseStore()
+  const { data: files, error } = await sb.storage.from('venue-images').list('', { limit: 1000 })
+  if (error) throw new Error(`venue-images list failed: ${error.message}`)
+  if (!files?.length) return []
+
+  const cfg = getConfig()
+  const base = (cfg.SUPABASE_URL || '').replace(/\/$/, '')
+  const out: StoredProfileImage[] = []
+
+  for (const f of files) {
+    const name = f.name || ''
+    if (name === '_index.json') continue
+    const m = name.match(/^(venue|promoter|profile)_(.+)\.(jpe?g|png|gif|webp)$/i)
+    if (!m) continue
+    const kind = m[1].toLowerCase() as StoredProfileImageKind
+    const handle = normalizeIgHandle(m[2])
+    if (!handle) continue
+    out.push({
+      handle,
+      kind,
+      fileName: name,
+      primaryImageUrl: `${base}/storage/v1/object/public/venue-images/${name}`,
+    })
+  }
+
+  return out
+}
+
 /**
  * Seed venue image URLs from files already in the venue-images bucket
  * (e.g. archived before Sheets failed). Paths look like venue_{handle}.jpg.
  */
 export async function backfillVenueProfileImagesFromStorage(): Promise<number> {
-  if (!isSupabaseStoreConfigured()) return 0
-  const sb = getSupabaseStore()
-  const { data: files, error } = await sb.storage.from('venue-images').list('', { limit: 1000 })
-  if (error) throw new Error(`venue-images list failed: ${error.message}`)
-  if (!files?.length) return 0
-
-  const cfg = getConfig()
-  const base = (cfg.SUPABASE_URL || '').replace(/\/$/, '')
-  const updates: Array<{ handle: string; primaryImageUrl: string }> = []
-
-  for (const f of files) {
-    const name = f.name || ''
-    if (name === '_index.json') continue
-    const m = name.match(/^(?:venue|promoter|profile)_(.+)\.(jpe?g|png|gif|webp)$/i)
-    if (!m) continue
-    const handle = normalizeIgHandle(m[1])
-    if (!handle) continue
-    updates.push({
-      handle,
-      primaryImageUrl: `${base}/storage/v1/object/public/venue-images/${name}`,
-    })
-  }
-
-  return upsertVenueProfileImages(updates, false)
+  const stored = await listStoredProfileImages()
+  if (stored.length === 0) return 0
+  return upsertVenueProfileImages(
+    stored.map((s) => ({ handle: s.handle, primaryImageUrl: s.primaryImageUrl })),
+    false
+  )
 }

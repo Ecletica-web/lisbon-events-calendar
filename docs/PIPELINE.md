@@ -48,13 +48,33 @@ Queue from `/admin/scrapers` or CLI (`npm run profile-images`, `npm run scrape`,
 
 ### Venue / promoter profile pictures
 
+**Where images live**
+
+| Location | Role |
+|----------|------|
+| Supabase Storage bucket **`venue-images`** | Files: `venue_{handle}.jpg`, `promoter_{handle}.jpg` (+ public `_index.json` handle→URL map) |
+| Table **`venue_profile_images`** (optional, migration 021) | Same map as rows; app can read either |
+| Sheets **`Venues` / `Promoters`.`primary_image_url`** | Human-editable mirror used by CSV/gviz; pipeline writes here when Sheets API + SA work |
+
+If Sheets write fails (API off / SA no access), pics still land in Supabase — the site can merge from `_index.json`, but the sheet keeps placeholders until you sync.
+
 `profile-images` run:
 
-1. Apify profile details for venue + promoter handles
-2. Archive into Supabase `venue-images` + `_index.json` / `venue_profile_images`
-3. Best-effort write `Venues` / `Promoters` sheet `primary_image_url`
+1. **Push existing bucket files → Sheets** (repairs placeholders without re-scraping)
+2. Apify **profile** actor (`dSCLg0C3YEZ83HzYX`) for venue + promoter handles
+3. Archive into Supabase `venue-images` + `_index.json` / `venue_profile_images`
+4. Write `Venues` / `Promoters` sheet `primary_image_url` (replaces empty/placeholder)
 
-`/venues` and `/promoters` fill empty/placeholder images from that Supabase map by `instagram_handle`.
+Repair only (no Apify): `npm run profile-images -- --sheets-only`
+
+`/venues` and `/promoters` also fill empty/placeholder images from the Supabase map by `instagram_handle`.
+
+**Apify actors**
+
+| Mode | Actor | Default id |
+|------|-------|------------|
+| `scrape` / `full` posts | `apify/instagram-post-scraper` | `nH2AHrwxeTRJoN5hX` |
+| `profile-images` | `apify/instagram-profile-scraper` | `dSCLg0C3YEZ83HzYX` |
 
 Admin can also enqueue runs via `/admin/scrapers` → `pipeline_runs` (status=`queued`)
 → worker polls and runs scrape/extract/verify/full/profile-images.
@@ -100,7 +120,8 @@ npm run golden              # replay Testing CSVs (report only)
 #   --force-vision         run vision even when caption has all mandatory fields
 #   --skip-verify          skip online verify on extract/full
 #   --skip-venue-images    skip IG profile pic → Venues.primary_image_url sync
-#   --force-venue-images   overwrite existing venue-images URLs```
+#   --force-venue-images   overwrite existing venue-images URLs
+#   --sheets-only          profile-images: push Supabase pics → Sheets only (no Apify)```
 
 ## Admin (`/admin`)
 
@@ -137,13 +158,15 @@ Caption extraction always runs. Vision runs **only** when caption is incomplete
 6. Publish Processed Events as CSV → `NEXT_PUBLIC_EVENTS_CSV_URL`. Publish Venues CSV → `NEXT_PUBLIC_VENUES_CSV_URL`.
 7. Start the worker: `cd pipeline && npm run worker`.
 
-During **scrape** / **full**, the pipeline also fetches Instagram **profile pics** for Fontes IG handles typed as venues, stores them in the Supabase `venue-images` bucket, and writes the public URL into the Venues sheet `primary_image_url` (skips rows that already use `venue-images`). Disable with `--skip-venue-images` or uncheck “Sync venue profile pics” in `/admin/scrapers`.
+During **`profile-images`**, the pipeline fetches Instagram profile pics for Fontes IG venues + promoters, stores them in the Supabase `venue-images` bucket, and writes public URLs into the Venues/Promoters sheet `primary_image_url` (skips rows that already use `venue-images` unless `--force-venue-images`). Use `--sheets-only` to push already-archived files into Sheets after fixing API access.
 
 ## Env vars
 
 | Var | Needed for |
 |-----|-----------|
-| `APIFY_API_TOKEN` | scrape (+ venue profile details) |
+| `APIFY_API_TOKEN` | scrape + profile-images |
+| `APIFY_INSTAGRAM_POST_ACTOR_ID` | posts scraper (default `nH2AHrwxeTRJoN5hX`) |
+| `APIFY_INSTAGRAM_PROFILE_ACTOR_ID` | profile scraper (default `dSCLg0C3YEZ83HzYX`) |
 | `OPENAI_API_KEY` | text / Whisper / verify / vision fallback |
 | `PROCESSING_VISION_PROVIDER`, `NVIDIA_NIM_API_KEY` | Nemotron VL |
 | `DOCUMENT_AI_*` | optional OCR |
@@ -157,7 +180,8 @@ During **scrape** / **full**, the pipeline also fetches Instagram **profile pics
 
 `missing_title` / `missing_or_invalid_start_datetime` → **fail**;
 `missing_venue_name_raw`, `venue_unresolved`, `low_confidence`,
-`past_event`, `program_undersplit`, `online_verification_*` → **review**.
+`program_undersplit`, `online_verification_*` → **review**.
+Past start datetimes are allowed (no longer `past_event` → review).
 
 ## Key modules
 

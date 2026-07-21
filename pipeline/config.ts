@@ -17,9 +17,14 @@ const boolFlag = z
   .transform((v) => v === '1' || v?.toLowerCase() === 'true')
 
 const configSchema = z.object({
-  // Scraping
+  // Scraping — dedicated actors (posts vs profile pics)
   APIFY_API_TOKEN: z.string().optional(),
-  APIFY_INSTAGRAM_ACTOR_ID: z.string().default('shu8hvrXbJbY3Eb9W'),
+  /** @deprecated Prefer APIFY_INSTAGRAM_POST_ACTOR_ID; kept as fallback alias */
+  APIFY_INSTAGRAM_ACTOR_ID: z.string().optional(),
+  /** apify/instagram-post-scraper — posts only */
+  APIFY_INSTAGRAM_POST_ACTOR_ID: z.string().default('nH2AHrwxeTRJoN5hX'),
+  /** apify/instagram-profile-scraper — avatars / bio */
+  APIFY_INSTAGRAM_PROFILE_ACTOR_ID: z.string().default('dSCLg0C3YEZ83HzYX'),
   PIPELINE_RUN_MODE: z.enum(['per_account', 'batch']).default('batch'),
   PIPELINE_MAX_POSTS_PER_ACCOUNT: z.coerce.number().default(20),
 

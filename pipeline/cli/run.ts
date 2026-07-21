@@ -1,7 +1,7 @@
 /**
  * Pipeline CLI.
  *
- *   npm run profile-images  [-- --handle=lux --force-venue-images]
+ *   npm run profile-images  [-- --handle=lux --force-venue-images --sheets-only]
  *   npm run scrape          [-- --handle=lux --dry-run --limit=10]
  *   npm run extract         [-- --limit=20 --dry-run --force-vision]
  *   npm run verify          [-- --limit=20 --dry-run]
@@ -64,6 +64,8 @@ export interface CliFlags {
   /** @deprecated scrape/full are posts-only; use mode profile-images */
   syncVenueImages: boolean
   forceVenueImages: boolean
+  /** Skip Apify; only push Supabase venue-images → Venues/Promoters sheets */
+  sheetsOnly: boolean
   /**
    * Only fetch posts newer than now − N days.
    * Combined with last successful scrape: Apify cutoff = max(lastScrape, now − N days).
@@ -81,6 +83,7 @@ export function parseFlags(argv: string[]): CliFlags {
     skipVerify: false,
     syncVenueImages: false,
     forceVenueImages: false,
+    sheetsOnly: false,
   }
   for (const arg of argv.slice(1)) {
     if (arg === '--dry-run') flags.dryRun = true
@@ -89,6 +92,7 @@ export function parseFlags(argv: string[]): CliFlags {
     else if (arg === '--skip-venue-images') flags.syncVenueImages = false
     else if (arg === '--sync-venue-images') flags.syncVenueImages = true
     else if (arg === '--force-venue-images') flags.forceVenueImages = true
+    else if (arg === '--sheets-only') flags.sheetsOnly = true
     else if (arg.startsWith('--handle=')) flags.handle = arg.slice('--handle='.length).replace(/^@/, '').toLowerCase()
     else if (arg.startsWith('--limit=')) flags.limit = parseInt(arg.slice('--limit='.length), 10) || undefined
     else if (arg.startsWith('--max-age-days=')) {
@@ -141,6 +145,7 @@ export async function commandProfileImages(flags: CliFlags): Promise<Record<stri
   const imgStats = await syncProfileImages(watchlist, {
     dryRun: flags.dryRun,
     force: flags.forceVenueImages,
+    sheetsOnly: flags.sheetsOnly,
     log: (line) => logRun(flags, line),
   })
   await logRun(flags, '=== STAGE: profile-images (done) ===')
@@ -554,17 +559,28 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
   if (!flags.runId && !flags.dryRun && isSupabaseStoreConfigured()) {
     const modeForDb =
       flags.command === 'images' ? 'profile-images' : (flags.command as PipelineRunMode)
-    createdRunId =
-      (await createPipelineRun({
-        mode: modeForDb,
-        runParams: {
-          handle: flags.handle,
-          limit: flags.limit,
-          forceVision: flags.forceVision,
-        },
-        requestedBy: 'cli',
-        status: 'running',
-      })) ?? undefined
+    try {
+      createdRunId =
+        (await createPipelineRun({
+          mode: modeForDb,
+          runParams: {
+            handle: flags.handle,
+            limit: flags.limit,
+            forceVision: flags.forceVision,
+            sheetsOnly: flags.sheetsOnly,
+          },
+          requestedBy: 'cli',
+          status: 'running',
+        })) ?? undefined
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      // Migration 022 not applied yet — still run the command without a runs row
+      if (/pipeline_runs_mode_check|invalid input value/i.test(msg) && modeForDb === 'profile-images') {
+        console.warn(`[cli] pipeline_runs cannot store mode=profile-images yet (${msg}). Continuing without a run row. Apply supabase/APPLY_021_022_profile_images.sql`)
+      } else {
+        throw err
+      }
+    }
     if (createdRunId) {
       flags = { ...flags, runId: createdRunId }
       await updatePipelineRun(createdRunId, {
