@@ -71,8 +71,11 @@ function getClient(): ApifyClient {
 
 export function buildInstagramApifyInput(options: InstagramScrapeOptions): Record<string, unknown> {
   const cfg = getConfig()
+  const uniqueHandles = [
+    ...new Set(options.handles.map((h) => h.replace(/^@/, '').toLowerCase()).filter(Boolean)),
+  ]
   const input: Record<string, unknown> = {
-    directUrls: options.handles.map((h) => `https://www.instagram.com/${h.replace(/^@/, '')}/`),
+    directUrls: uniqueHandles.map((h) => `https://www.instagram.com/${h}/`),
     resultsType: 'posts',
     resultsLimit: options.resultsLimitPerAccount ?? cfg.PIPELINE_MAX_POSTS_PER_ACCOUNT,
     addParentData: false,

@@ -223,22 +223,27 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
   stats.post_max_age_days = flags.postMaxAgeDays ?? null
   await logRun(flags, `[scrape] wrote ${written} new pipeline_posts (${items.length - rows.length} already known)`)
 
-  // Legacy Sheets Run_Log (optional, when Sheets configured)
-  await appendRunLog(
-    {
-      run_id: runId,
-      started_at: startedAt,
-      finished_at: new Date().toISOString(),
-      mode: cfg.PIPELINE_RUN_MODE,
-      handles: handles.join('|'),
-      posts_scraped: items.length,
-      new_rows: written,
-      apify_run_id: apifyRunIds.join('|'),
-      status: error ? 'error' : 'success',
-      error,
-    },
-    flags.dryRun
-  )
+  // Legacy Sheets Run_Log — optional; never abort the scrape if Sheets API is unavailable
+  try {
+    await appendRunLog(
+      {
+        run_id: runId,
+        started_at: startedAt,
+        finished_at: new Date().toISOString(),
+        mode: cfg.PIPELINE_RUN_MODE,
+        handles: handles.join('|'),
+        posts_scraped: items.length,
+        new_rows: written,
+        apify_run_id: apifyRunIds.join('|'),
+        status: error ? 'error' : 'success',
+        error,
+      },
+      flags.dryRun
+    )
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    await logRun(flags, `[scrape] Run_Log sheet append skipped: ${msg}`)
+  }
 
   if (flags.runId && apifyRunIds.length) {
     await updatePipelineRun(flags.runId, { apify_run_id: apifyRunIds.join('|') })
