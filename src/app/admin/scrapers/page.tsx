@@ -28,6 +28,7 @@ export default function AdminScrapersPage() {
   const { getAuthHeaders, isAdmin } = useAdminAuthHeaders()
   const [watchlist, setWatchlist] = useState<WatchlistRow[]>([])
   const [sheetsUrl, setSheetsUrl] = useState<string | null>(null)
+  const [canWriteSheets, setCanWriteSheets] = useState(false)
   const [runs, setRuns] = useState<PipelineRun[]>([])
   const [configText, setConfigText] = useState('{}')
   const [workerHb, setWorkerHb] = useState<string | null>(null)
@@ -47,10 +48,18 @@ export default function AdminScrapersPage() {
       fetch('/api/admin/pipeline/config', { headers }),
       fetch('/api/admin/hub', { headers }),
     ])
-    if (wl.ok) {
-      const j = await wl.json()
-      setWatchlist(j.rows || [])
-      setSheetsUrl(j.sheetsUrl || null)
+    const wlJson = await wl.json().catch(() => ({}))
+    setWatchlist(Array.isArray(wlJson.rows) ? wlJson.rows : [])
+    setSheetsUrl(wlJson.sheetsUrl || null)
+    setCanWriteSheets(!!wlJson.canWrite)
+    if (!wl.ok) {
+      setMessage(wlJson.error || `Fontes IG load failed (HTTP ${wl.status})`)
+    } else if (wlJson.canWrite === false) {
+      setMessage(
+        'Fontes IG is read-only until GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON is set on Vercel (and the sheet is shared with that account).'
+      )
+    } else {
+      setMessage(null)
     }
     if (runsRes.ok) setRuns((await runsRes.json()).runs || [])
     if (cfg.ok) {
@@ -220,7 +229,14 @@ export default function AdminScrapersPage() {
 
       <section className="rounded-lg border border-slate-700 bg-slate-800/40 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h2 className="text-lg font-medium text-white">Fontes IG (Google Sheets)</h2>
+          <h2 className="text-lg font-medium text-white">
+            Fontes IG (Google Sheets)
+            {watchlist.length > 0 && (
+              <span className="ml-2 text-sm font-normal text-slate-400">
+                {watchlist.length} sources
+              </span>
+            )}
+          </h2>
           <div className="flex gap-2">
             {sheetsUrl && (
               <a
@@ -234,9 +250,14 @@ export default function AdminScrapersPage() {
             )}
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || !canWriteSheets}
+              title={
+                canWriteSheets
+                  ? undefined
+                  : 'Needs GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON'
+              }
               onClick={() => void saveWatchlist()}
-              className="px-3 py-1.5 rounded bg-emerald-700 text-white text-sm"
+              className="px-3 py-1.5 rounded bg-emerald-700 text-white text-sm disabled:opacity-50"
             >
               Save list
             </button>

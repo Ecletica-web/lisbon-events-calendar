@@ -2,9 +2,14 @@
  * Google Sheets helpers for the Next.js admin (Fontes IG + Processed Events).
  * Uses the same service-account env vars as the pipeline.
  * googleapis is loaded dynamically so Vercel/webpack does not bundle it at build time.
+ *
+ * Fontes IG can be *read* via public CSV export when the sheet is shared as
+ * "Anyone with the link" (same as the calendar CSV URLs). Writes still need a
+ * service account.
  */
 
 import * as fs from 'fs'
+import Papa from 'papaparse'
 import type { sheets_v4 } from 'googleapis'
 import {
   FONTES_IG_HEADER,
@@ -37,14 +42,29 @@ function loadServiceAccount(raw: string): { client_email: string; private_key: s
   return json
 }
 
+/** Sheet id from env, or derived from NEXT_PUBLIC_EVENTS_CSV_URL. */
+export function resolveSpreadsheetId(): string | null {
+  const direct = process.env.GOOGLE_SHEETS_ID?.trim()
+  if (direct) return direct
+  const csvUrl = process.env.NEXT_PUBLIC_EVENTS_CSV_URL || ''
+  const m = csvUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
+  return m?.[1] ?? null
+}
+
+/** True when service account can read/write via Sheets API. */
+export function isAppSheetsWriteConfigured(): boolean {
+  return !!(resolveSpreadsheetId() && process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON)
+}
+
+/** @deprecated Prefer isAppSheetsWriteConfigured / resolveSpreadsheetId */
 export function isAppSheetsConfigured(): boolean {
-  return !!(process.env.GOOGLE_SHEETS_ID && process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON)
+  return isAppSheetsWriteConfigured()
 }
 
 async function getSheets(): Promise<sheets_v4.Sheets> {
   if (sheetsApi) return sheetsApi
   const raw = process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON
-  const id = process.env.GOOGLE_SHEETS_ID
+  const id = resolveSpreadsheetId()
   if (!raw || !id) throw new Error('GOOGLE_SHEETS_ID / GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON not configured')
   const { google } = await import('googleapis')
   const credentials = loadServiceAccount(raw)
@@ -57,11 +77,13 @@ async function getSheets(): Promise<sheets_v4.Sheets> {
 }
 
 function spreadsheetId(): string {
-  return process.env.GOOGLE_SHEETS_ID!
+  const id = resolveSpreadsheetId()
+  if (!id) throw new Error('GOOGLE_SHEETS_ID not configured')
+  return id
 }
 
 export function getSheetsEditUrl(): string | null {
-  const id = process.env.GOOGLE_SHEETS_ID
+  const id = resolveSpreadsheetId()
   return id ? `https://docs.google.com/spreadsheets/d/${id}/edit` : null
 }
 
@@ -101,20 +123,7 @@ export interface WatchlistRow {
   rowIndex: number
 }
 
-export async function readWatchlistFromSheets(): Promise<WatchlistRow[]> {
-  let rows: Record<string, string>[] = []
-  try {
-    ;({ rows } = await readTab(TAB_WATCHLIST))
-  } catch {
-    rows = []
-  }
-  if (rows.length === 0) {
-    try {
-      ;({ rows } = await readTab(TAB_WATCHLIST_LEGACY))
-    } catch {
-      rows = []
-    }
-  }
+function mapRowsToWatchlist(rows: Record<string, string>[]): WatchlistRow[] {
   const out: WatchlistRow[] = []
   rows.forEach((r, i) => {
     const e = rowToWatchlistEntry(r)
@@ -131,6 +140,68 @@ export async function readWatchlistFromSheets(): Promise<WatchlistRow[]> {
     })
   })
   return out
+}
+
+/** Public gviz CSV export (works when sheet is link-shared, no service account). */
+async function readTabViaPublicCsv(tabName: string): Promise<Record<string, string>[]> {
+  const id = resolveSpreadsheetId()
+  if (!id) throw new Error('No spreadsheet id (set GOOGLE_SHEETS_ID or NEXT_PUBLIC_EVENTS_CSV_URL)')
+  const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`
+  const res = await fetch(url, { cache: 'no-store' })
+  if (!res.ok) throw new Error(`Public CSV fetch failed for "${tabName}" (HTTP ${res.status})`)
+  const text = await res.text()
+  // gviz returns HTML error page when tab missing / sheet private
+  if (text.trimStart().startsWith('<')) {
+    throw new Error(`Public CSV for "${tabName}" unavailable (sheet private or tab missing)`)
+  }
+  const parsed = Papa.parse<Record<string, string>>(text, {
+    header: true,
+    skipEmptyLines: true,
+  })
+  return (parsed.data || []).map((row) => {
+    const out: Record<string, string> = {}
+    for (const [k, v] of Object.entries(row)) out[k] = v == null ? '' : String(v)
+    return out
+  })
+}
+
+export async function readWatchlistFromSheets(): Promise<WatchlistRow[]> {
+  let rows: Record<string, string>[] = []
+  let apiError: string | null = null
+
+  if (isAppSheetsWriteConfigured()) {
+    try {
+      ;({ rows } = await readTab(TAB_WATCHLIST))
+    } catch (err) {
+      apiError = err instanceof Error ? err.message : String(err)
+      rows = []
+    }
+    if (rows.length === 0) {
+      try {
+        ;({ rows } = await readTab(TAB_WATCHLIST_LEGACY))
+      } catch (err) {
+        if (!apiError) apiError = err instanceof Error ? err.message : String(err)
+        rows = []
+      }
+    }
+  }
+
+  if (rows.length === 0) {
+    for (const tab of [TAB_WATCHLIST, TAB_WATCHLIST_LEGACY]) {
+      try {
+        rows = await readTabViaPublicCsv(tab)
+        if (rows.length > 0) break
+      } catch (err) {
+        if (!apiError) apiError = err instanceof Error ? err.message : String(err)
+      }
+    }
+  }
+
+  const mapped = mapRowsToWatchlist(rows)
+  if (mapped.length === 0 && apiError) {
+    throw new Error(apiError)
+  }
+  return mapped
 }
 
 /** Replace Fontes IG tab contents (Fontes IG layout + Active column). */
