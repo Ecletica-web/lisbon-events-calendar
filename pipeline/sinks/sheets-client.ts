@@ -121,7 +121,7 @@ export function isSheetsConfigured(): boolean {
   return Boolean(cfg.GOOGLE_SHEETS_ID && cfg.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON)
 }
 
-/** Writes to Sheets (Processed, Venues, Run_Log) — off by default (manual sheet edits). */
+/** Writes to Sheets (Processed, Venues, Run_Log) when SA is configured and PIPELINE_SHEETS_WRITE is not disabled. */
 export function isSheetsWriteEnabled(): boolean {
   return isSheetsConfigured() && Boolean(getConfig().PIPELINE_SHEETS_WRITE)
 }

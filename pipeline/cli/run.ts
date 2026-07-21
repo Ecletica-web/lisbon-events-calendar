@@ -7,8 +7,9 @@
  *   npm run full    [-- ...]
  *
  * Storage split:
- *   - Watchlist + Processed Events → Google Sheets
+ *   - Watchlist + Processed Events → Google Sheets (high-confidence auto-appended)
  *   - Raw posts, extractions, review queue, verifications, runs → Supabase
+ *   - extract/full always run Tier 5 unless --skip-verify
  *   - --dry-run skips remote writes (local CSV for Processed only)
  */
 
@@ -307,8 +308,8 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
     return k.row
   })
 
-  // Sheets writes off by default: keep a local CSV + park auto-pass events in the
-  // Supabase review queue so you can paste them into Processed Events manually.
+  // High-confidence auto-pass → Processed sheet (no human review). Soft fails → review queue.
+  // If Sheets write is unavailable, park auto-pass in the review queue for manual paste.
   if (!isSheetsWriteEnabled()) {
     const manualQueue: NeedsReviewRow[] = keptRows.map((row) => ({
       review_id: `rev_manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -334,7 +335,7 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
       image_error: '',
       verification_verdict: '',
       verification_notes:
-        'Auto-pass (Sheets write disabled). Copy into Processed Events sheet, then Approve.',
+        'Auto-pass (Sheets write disabled). Set PIPELINE_SHEETS_WRITE=1 + service account, or paste into Processed Events.',
       verification_sources: '',
       suggested_corrections: JSON.stringify({
         title: row.title,
@@ -344,7 +345,7 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
         event_id: row.event_id,
       }),
     }))
-    await appendProcessed(keptRows, true) // local CSV only (dry-run path)
+    await appendProcessed(keptRows, true) // local CSV only
     await appendReviewQueue([...allNeedsReview, ...manualQueue], flags.dryRun)
     await logRun(
       flags,
@@ -353,6 +354,10 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
   } else {
     await appendProcessed(keptRows, flags.dryRun)
     await appendReviewQueue(allNeedsReview, flags.dryRun)
+    await logRun(
+      flags,
+      `[extract] wrote ${keptRows.length} high-confidence event(s) to Processed; ${allNeedsReview.length} sent to review queue`
+    )
   }
 
   await logRun(
@@ -362,9 +367,12 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
   if (flags.dryRun || !isSheetsWriteEnabled()) {
     await logRun(flags, '[extract] local CSV under pipeline/out/ (Processed Events sheet not auto-updated)')
   }
-  const cfg = getConfig()
-  if (cfg.PIPELINE_VERIFY_ON_EXTRACT && !flags.skipVerify && keptRows.length > 0) {
-    await commandVerify({ ...flags, limit: flags.limit }, keptRows)
+
+  // Tier 5 online verify on this run's auto-pass rows (unless --skip-verify).
+  // Unclean verifies → Tier 6 /admin/event-review; clean ones stay published without review.
+  let verifyStats: Record<string, unknown> = {}
+  if (!flags.skipVerify && keptRows.length > 0) {
+    verifyStats = await commandVerify({ ...flags, limit: undefined }, keptRows)
   }
 
   return {
@@ -373,6 +381,7 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
     discarded,
     dropped_dupes: droppedAsDuplicate,
     dropped_existing: droppedAsExisting,
+    ...verifyStats,
   }
 }
 
@@ -509,11 +518,9 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
         Object.assign(combined, await commandVerify(flags))
         break
       case 'full':
+        // scrape → extract (tiers 0–4) → Tier 5 verify on auto-pass (inside extract)
         Object.assign(combined, await commandScrape(flags))
         Object.assign(combined, await commandExtract(flags))
-        if (!flags.skipVerify && !getConfig().PIPELINE_VERIFY_ON_EXTRACT) {
-          Object.assign(combined, await commandVerify(flags))
-        }
         break
       default:
         throw new Error(`Unknown command "${flags.command}". Use: scrape | extract | verify | full`)

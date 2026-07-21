@@ -29,6 +29,7 @@ const configSchema = z.object({
 
   // Online verification search (optional; OpenAI web_search used when absent)
   BRAVE_SEARCH_API_KEY: z.string().optional(),
+  /** @deprecated Extract always runs Tier 5 unless --skip-verify. Kept for env compatibility. */
   PIPELINE_VERIFY_ON_EXTRACT: boolFlag,
 
   // Vision
@@ -47,8 +48,14 @@ const configSchema = z.object({
   // Google Sheets — reads via public CSV or service account; writes optional
   GOOGLE_SHEETS_ID: z.string().optional(),
   GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON: z.string().optional(),
-  /** When 1/true, allow appending to Processed / Run_Log / Venues (needs service account). Default off = manual Sheets edits. */
-  PIPELINE_SHEETS_WRITE: boolFlag,
+  /** When 1/true, append high-confidence events to Processed (needs service account). Default on when unset. */
+  PIPELINE_SHEETS_WRITE: z
+    .string()
+    .optional()
+    .transform((v) => {
+      if (v === undefined || v === '') return true
+      return v === '1' || v.toLowerCase() === 'true'
+    }),
 
   // Supabase pipeline store (raw posts, extractions, review, verify, runs)
   SUPABASE_URL: z.string().optional(),

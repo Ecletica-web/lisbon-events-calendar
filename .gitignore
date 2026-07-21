@@ -27,6 +27,10 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+pipeline/.env
+
+# GCP service account keys (never commit)
+lisbon-events-calendar-*.json
 
 # vercel
 .vercel

@@ -5,7 +5,7 @@ tiered AI → validation. **Storage is split:**
 
 | Store | What lives there |
 |-------|------------------|
-| **Google Sheets** | Fontes IG, Venues, Promoters, **Processed Events** — human-edited / inspected. Pipeline **reads** via public CSV; **writes are off by default** (`PIPELINE_SHEETS_WRITE=0`). |
+| **Google Sheets** | Fontes IG, Venues, Promoters, **Processed Events** — human-edited / inspected. Pipeline **reads** via public CSV; **writes high-confidence auto-pass events** when `PIPELINE_SHEETS_WRITE=1` + service account (default on). |
 | **Supabase** | Raw posts, every AI tier artifact, review queue, verifications, run queue/log, scraper config, image buckets |
 
 The Next.js app consumes the published Processed CSV and hosts `/admin`. Long jobs are
@@ -20,16 +20,19 @@ Watchlist (Sheets CSV) ─→ Apify ─→ pipeline_posts (Supabase)
                                       │
                         merge + validate + venue resolve + dedupe
                                       │
-              pass → review queue (manual paste into Processed sheet)
-                   → or Processed sheet when PIPELINE_SHEETS_WRITE=1 + SA JSON
-              review/fail → pipeline_review_queue (Supabase)
+              pass (high confidence) → Processed sheet (no human review)
+              review/fail → pipeline_review_queue (Supabase) → Tier 6
                                       │
-                        Tier 5 verify → pipeline_verifications
+                        Tier 5 verify (always on extract/full unless --skip-verify)
+                                      │
+              clean verified → stay on Processed (no Tier 6)
+              disputed / corrections → pipeline_review_queue → Tier 6
                                       │
                         Tier 6 → /admin/event-review
 ```
 
-To enable automatic Sheets appends later: set `PIPELINE_SHEETS_WRITE=1` and `GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON`.
+A **`full`** run (default in `/admin/scrapers`) does scrape → extract → Tier 5. Only low-confidence
+extraction issues and unclean Tier 5 verifies need human review.
 
 Admin can also enqueue runs via `/admin/scrapers` → `pipeline_runs` (status=`queued`)
 → worker polls and runs scrape/extract/verify/full.
@@ -60,9 +63,9 @@ written by the pipeline; use `npm run backfill` once to migrate old rows into Su
 ```bash
 npm install                 # once
 npm run scrape              # Watchlist → Apify → pipeline_posts (+ archive images)
-npm run extract             # status=new posts → tiers → review queue / Processed sheet
+npm run extract             # status=new posts → tiers → Processed (pass) / review queue + Tier 5
 npm run verify              # Processed sheet → web search + LLM; write pipeline_verifications
-npm run full                # scrape → extract → verify
+npm run full                # scrape → extract (includes Tier 5 verify)
 npm run worker              # poll pipeline_runs forever (keep running on a workstation)
 npm run backfill            # one-off: Sheets legacy tabs → Supabase
 npm run golden              # replay Testing CSVs (report only)
@@ -91,8 +94,10 @@ Requires Supabase login + email in `ADMIN_EMAILS`.
 
 ## Online verification (Tier 5) → Human review (Tier 6)
 
-Same behaviour as before: suggestions only; never auto-edits Processed. Queues
-`pipeline_review_queue` when not a clean verify. Tier 6 is `/admin/event-review`.
+Tier 5 runs automatically after extract (and therefore on every `full` run) unless
+`--skip-verify`. Suggestions only for field fixes; never auto-edits Processed.
+Clean verifies stay published. Unclean verifies and soft validation failures queue
+`pipeline_review_queue` for Tier 6 at `/admin/event-review`.
 
 ## Vision trigger (mandatory fields)
 

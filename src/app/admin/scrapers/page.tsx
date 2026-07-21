@@ -172,6 +172,10 @@ export default function AdminScrapersPage() {
             {workerHb ? new Date(workerHb).toLocaleString() : 'never — run npm run worker'}
           </span>
         </div>
+        <p className="text-xs text-slate-400">
+          <span className="text-slate-300">full</span> = scrape → extract → Tier 5 verify. High-confidence
+          events go straight to Processed; only soft fails / disputed verifies land in Event Review.
+        </p>
         <div className="flex flex-wrap gap-3 items-end">
           <label className="text-sm text-slate-300">
             Mode
@@ -180,10 +184,10 @@ export default function AdminScrapersPage() {
               value={mode}
               onChange={(e) => setMode(e.target.value as typeof mode)}
             >
-              <option value="full">full</option>
+              <option value="full">full (through Tier 5)</option>
               <option value="scrape">scrape</option>
-              <option value="extract">extract</option>
-              <option value="verify">verify</option>
+              <option value="extract">extract (+ Tier 5)</option>
+              <option value="verify">verify (Tier 5 only)</option>
             </select>
           </label>
           <label className="text-sm text-slate-300">
