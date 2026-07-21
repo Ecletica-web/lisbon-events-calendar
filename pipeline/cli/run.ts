@@ -16,6 +16,7 @@ import { getConfig } from '../config'
 import { scrapeInstagram } from '../scrapers/apify-client'
 import { transformInstagramApifyPost } from '../scrapers/instagram-transform'
 import { archiveImage } from '../media/media-archive'
+import { syncVenueProfileImages } from '../media/venue-profile-images'
 import { processPost } from '../process-post'
 import { dedupeCandidates } from '../qualification/dedupe'
 import {
@@ -53,6 +54,9 @@ export interface CliFlags {
   dryRun: boolean
   forceVision: boolean
   skipVerify: boolean
+  /** Fetch IG profile pics → venue-images → Venues.primary_image_url (default on for scrape/full) */
+  syncVenueImages: boolean
+  forceVenueImages: boolean
   /** When set by the worker, status/logs go to this pipeline_runs row */
   runId?: string
 }
@@ -63,11 +67,16 @@ export function parseFlags(argv: string[]): CliFlags {
     dryRun: false,
     forceVision: false,
     skipVerify: false,
+    syncVenueImages: true,
+    forceVenueImages: false,
   }
   for (const arg of argv.slice(1)) {
     if (arg === '--dry-run') flags.dryRun = true
     else if (arg === '--force-vision') flags.forceVision = true
     else if (arg === '--skip-verify') flags.skipVerify = true
+    else if (arg === '--skip-venue-images') flags.syncVenueImages = false
+    else if (arg === '--sync-venue-images') flags.syncVenueImages = true
+    else if (arg === '--force-venue-images') flags.forceVenueImages = true
     else if (arg.startsWith('--handle=')) flags.handle = arg.slice('--handle='.length).replace(/^@/, '').toLowerCase()
     else if (arg.startsWith('--limit=')) flags.limit = parseInt(arg.slice('--limit='.length), 10) || undefined
     else if (arg.startsWith('--run-id=')) flags.runId = arg.slice('--run-id='.length)
@@ -94,6 +103,22 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
   if (handles.length === 0) {
     await logRun(flags, 'No active handles in Watchlist tab (or --handle not found). Nothing to scrape.')
     return stats
+  }
+
+  // Venue profile images (IG avatar → Supabase venue-images → Venues sheet)
+  if (flags.syncVenueImages) {
+    try {
+      const imgStats = await syncVenueProfileImages(watchlist, {
+        dryRun: flags.dryRun,
+        force: flags.forceVenueImages,
+        log: (line) => logRun(flags, line),
+      })
+      stats.venue_images = imgStats
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      await logRun(flags, `[venue-images] unexpected error (continuing scrape): ${msg}`)
+      stats.venue_images_error = msg
+    }
   }
 
   const onlyPostsNewerThan =

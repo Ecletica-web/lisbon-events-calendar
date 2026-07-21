@@ -101,24 +101,26 @@ Caption extraction always runs. Vision runs **only** when caption is incomplete
 1. `cd pipeline && npm install`
 2. Copy `pipeline/.env.example` → `pipeline/.env` (include `SUPABASE_URL` + service role).
 3. Share the Google Sheet with the service account; set `GOOGLE_SHEETS_ID` (Watchlist + Processed).
-4. Apply Supabase migrations through `019_pipeline_store.sql`.
+4. Apply Supabase migrations through `020_venue_images_bucket.sql` (or re-run `SETUP_NEW_PROJECT.sql` on a new project).
 5. App `.env.local`: same Sheets + Supabase keys, plus `ADMIN_EMAILS=you@example.com`.
-6. Publish Processed Events as CSV → `NEXT_PUBLIC_EVENTS_CSV_URL`.
+6. Publish Processed Events as CSV → `NEXT_PUBLIC_EVENTS_CSV_URL`. Publish Venues CSV → `NEXT_PUBLIC_VENUES_CSV_URL`.
 7. Start the worker: `cd pipeline && npm run worker`.
+
+During **scrape** / **full**, the pipeline also fetches Instagram **profile pics** for Fontes IG handles typed as venues, stores them in the Supabase `venue-images` bucket, and writes the public URL into the Venues sheet `primary_image_url` (skips rows that already use `venue-images`). Disable with `--skip-venue-images` or uncheck “Sync venue profile pics” in `/admin/scrapers`.
 
 ## Env vars
 
 | Var | Needed for |
 |-----|-----------|
-| `APIFY_API_TOKEN` | scrape |
+| `APIFY_API_TOKEN` | scrape (+ venue profile details) |
 | `OPENAI_API_KEY` | text / Whisper / verify / vision fallback |
 | `PROCESSING_VISION_PROVIDER`, `NVIDIA_NIM_API_KEY` | Nemotron VL |
 | `DOCUMENT_AI_*` | optional OCR |
-| `GOOGLE_SHEETS_ID`, `GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON` | Watchlist + Processed |
-| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | pipeline store + worker |
-| `EVENT_IMPORT_API_KEY`, `APP_BASE_URL` | persist-image |
+| `GOOGLE_SHEETS_ID`, `GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON` | Fontes IG + Processed + Venues image updates |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | pipeline store + worker + image buckets |
+| `EVENT_IMPORT_API_KEY`, `APP_BASE_URL` | persist-image (events + venue avatars) |
 | `ADMIN_EMAILS` | (app) comma-separated admin allowlist |
-| `NEXT_PUBLIC_VENUES_CSV_URL` | venue resolution |
+| `NEXT_PUBLIC_VENUES_CSV_URL` | venue resolution + venue profile images in UI |
 
 ## Validation reason codes
 

@@ -37,12 +37,26 @@ export interface ApifyInstagramItem {
   ownerUsername?: string
   ownerFullName?: string
   ownerId?: string
+  /** Present on some post items / parent data */
+  ownerProfilePicUrl?: string
   locationName?: string
   locationId?: string
   latestComments?: unknown[]
   inputUrl?: string
   isSponsored?: boolean
   productType?: string
+  [key: string]: unknown
+}
+
+/** Profile/details item from resultsType: 'details'. */
+export interface ApifyInstagramProfile {
+  username?: string
+  fullName?: string
+  url?: string
+  profilePicUrl?: string
+  profilePicUrlHD?: string
+  biography?: string
+  followersCount?: number
   [key: string]: unknown
 }
 
@@ -97,4 +111,36 @@ export async function scrapeInstagram(options: InstagramScrapeOptions): Promise<
     return results
   }
   return [await runActor(buildInstagramApifyInput(options))]
+}
+
+/**
+ * Fetch Instagram profile metadata (incl. profile pic) via resultsType: 'details'.
+ * One actor run for all handles (cheap vs posts scrape).
+ */
+export async function scrapeInstagramProfiles(handles: string[]): Promise<ApifyInstagramProfile[]> {
+  const unique = [...new Set(handles.map((h) => h.replace(/^@/, '').toLowerCase()).filter(Boolean))]
+  if (unique.length === 0) return []
+
+  const input: Record<string, unknown> = {
+    directUrls: unique.map((h) => `https://www.instagram.com/${h}/`),
+    resultsType: 'details',
+    resultsLimit: 1,
+    proxy: { useApifyProxy: true },
+  }
+  const { items } = await runActor(input)
+  return items as ApifyInstagramProfile[]
+}
+
+export function profilePicFromApifyProfile(p: ApifyInstagramProfile): string {
+  const hd = typeof p.profilePicUrlHD === 'string' ? p.profilePicUrlHD.trim() : ''
+  const std = typeof p.profilePicUrl === 'string' ? p.profilePicUrl.trim() : ''
+  return hd || std
+}
+
+export function usernameFromApifyProfile(p: ApifyInstagramProfile): string {
+  const u = typeof p.username === 'string' ? p.username : ''
+  if (u) return u.replace(/^@/, '').toLowerCase()
+  const url = typeof p.url === 'string' ? p.url : ''
+  const m = url.match(/instagram\.com\/([^/?#]+)/i)
+  return m ? m[1].toLowerCase() : ''
 }

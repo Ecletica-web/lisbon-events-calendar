@@ -3,7 +3,8 @@ import { supabaseServer } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
-const BUCKET = 'event-images'
+const DEFAULT_BUCKET = 'event-images'
+const ALLOWED_BUCKETS = new Set(['event-images', 'venue-images'])
 const MAX_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_EXT = ['jpg', 'jpeg', 'png', 'gif', 'webp']
 const FETCH_TIMEOUT_MS = 15000
@@ -12,6 +13,13 @@ function sanitizeEventId(id: string): string {
   return id
     .replace(/[^a-zA-Z0-9_-]/g, '_')
     .slice(0, 128) || 'event'
+}
+
+function resolveBucket(raw: unknown): string {
+  const b = typeof raw === 'string' ? raw.trim() : ''
+  if (!b) return DEFAULT_BUCKET
+  if (!ALLOWED_BUCKETS.has(b)) return DEFAULT_BUCKET
+  return b
 }
 
 function getExtFromMime(mime: string): string {
@@ -27,7 +35,9 @@ function getExtFromMime(mime: string): string {
 function checkAuth(request: NextRequest): boolean {
   const apiKey = process.env.EVENT_IMPORT_API_KEY
   if (!apiKey) return false
-  const header = request.headers.get('x-api-key') ?? request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+  const header =
+    request.headers.get('x-api-key') ??
+    request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
   return header === apiKey
 }
 
@@ -45,12 +55,16 @@ export async function POST(request: NextRequest) {
   try {
     let buffer: ArrayBuffer
     let ext = 'jpg'
+    let eventId = ''
+    let bucket = DEFAULT_BUCKET
+    let mimeUpload = ''
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData()
       const file = formData.get('file') as File | null
       const eventIdRaw = formData.get('eventId') ?? formData.get('event_id')
-      const eventId = typeof eventIdRaw === 'string' ? eventIdRaw.trim() : ''
+      eventId = typeof eventIdRaw === 'string' ? eventIdRaw.trim() : ''
+      bucket = resolveBucket(formData.get('bucket'))
 
       if (!file || !eventId) {
         return NextResponse.json({ error: 'Missing file or eventId' }, { status: 400 })
@@ -62,21 +76,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'File too large (max 5MB)' }, { status: 400 })
       }
       buffer = await file.arrayBuffer()
-      const path = `${sanitizeEventId(eventId)}.${ext}`
-      const { data, error } = await supabaseServer.storage
-        .from(BUCKET)
-        .upload(path, buffer, { contentType: file.type, upsert: true })
-
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      const { data: urlData } = supabaseServer.storage.from(BUCKET).getPublicUrl(data.path)
-      return NextResponse.json({ url: urlData.publicUrl, path: data.path })
-    }
-
-    if (contentType.includes('application/json')) {
+      mimeUpload = file.type
+    } else if (contentType.includes('application/json')) {
       const body = await request.json().catch(() => ({}))
       const imageUrl = typeof body.imageUrl === 'string' ? body.imageUrl.trim() : ''
       const eventIdRaw = body.eventId ?? body.event_id ?? ''
-      const eventId = typeof eventIdRaw === 'string' ? eventIdRaw.trim() : ''
+      eventId = typeof eventIdRaw === 'string' ? eventIdRaw.trim() : ''
+      bucket = resolveBucket(body.bucket)
 
       if (!imageUrl || !eventId) {
         return NextResponse.json({ error: 'Missing imageUrl or eventId' }, { status: 400 })
@@ -102,17 +108,23 @@ export async function POST(request: NextRequest) {
       }
       const mime = res.headers.get('content-type')?.split(';')[0] ?? ''
       ext = getExtFromMime(mime)
-      const path = `${sanitizeEventId(eventId)}.${ext}`
-      const { data, error } = await supabaseServer.storage
-        .from(BUCKET)
-        .upload(path, buffer, { contentType: mime || `image/${ext}`, upsert: true })
-
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      const { data: urlData } = supabaseServer.storage.from(BUCKET).getPublicUrl(data.path)
-      return NextResponse.json({ url: urlData.publicUrl, path: data.path })
+      mimeUpload = mime || `image/${ext}`
+    } else {
+      return NextResponse.json(
+        { error: 'Use multipart/form-data (file + eventId) or JSON (imageUrl + eventId)' },
+        { status: 400 }
+      )
     }
 
-    return NextResponse.json({ error: 'Use multipart/form-data (file + eventId) or JSON (imageUrl + eventId)' }, { status: 400 })
+    const path = `${sanitizeEventId(eventId)}.${ext}`
+    const { data, error } = await supabaseServer.storage.from(bucket).upload(path, buffer!, {
+      contentType: mimeUpload || `image/${ext}`,
+      upsert: true,
+    })
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    const { data: urlData } = supabaseServer.storage.from(bucket).getPublicUrl(data.path)
+    return NextResponse.json({ url: urlData.publicUrl, path: data.path, bucket })
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') {
       return NextResponse.json({ error: 'Image fetch timed out' }, { status: 408 })

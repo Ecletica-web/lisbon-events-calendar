@@ -17,7 +17,7 @@ import type {
   WatchlistEntry,
   VerificationLogRow,
 } from '../types'
-import { appendRows, readTab, isSheetsConfigured } from './sheets-client'
+import { appendRows, readTab, isSheetsConfigured, getSheetsApi, getSpreadsheetId } from './sheets-client'
 import { rowToWatchlistEntry } from './fontes-ig'
 
 export const TAB_EVENTS_RAW = 'Events_Raw'
@@ -197,4 +197,97 @@ export async function appendRunLog(entry: RunLogEntry, dryRun = false): Promise<
     [{ ...entry, posts_scraped: String(entry.posts_scraped), new_rows: String(entry.new_rows) }],
     dryRun
   )
+}
+
+// ---- Venues (primary_image_url from IG profile pics) ----
+
+export const TAB_VENUES = 'Venues'
+
+function normalizeIgHandle(raw: string): string {
+  return raw.replace(/^@/, '').toLowerCase().trim().split(/[/?#]/)[0]
+}
+
+function shouldReplaceVenueImage(currentUrl: string, force?: boolean): boolean {
+  if (force) return true
+  const u = (currentUrl || '').trim()
+  if (!u) return true
+  if (/placeholder|picsum\.photos|placehold\.it/i.test(u)) return true
+  // Already archived in our venue-images bucket
+  if (/\/storage\/v1\/object\/public\/venue-images\//i.test(u)) return false
+  // Replace ephemeral CDN / other URLs with stable Supabase copy
+  return true
+}
+
+/**
+ * Set Venues.primary_image_url by instagram_handle match.
+ * Fills empty/placeholder cells; replaces non-archived URLs; skips existing venue-images URLs.
+ */
+export async function updateVenuePrimaryImages(
+  updates: Array<{ handle: string; primaryImageUrl: string }>,
+  options?: { dryRun?: boolean; force?: boolean }
+): Promise<{ updated: number; skipped: number }> {
+  if (updates.length === 0) return { updated: 0, skipped: 0 }
+  if (options?.dryRun || !isSheetsConfigured()) {
+    console.log(`[venues] dry-run / no sheets: would update ${updates.length} venue image(s)`)
+    return { updated: 0, skipped: updates.length }
+  }
+
+  const { header, rows } = await readTab(TAB_VENUES)
+  const handleCol = header.findIndex((h) => h.trim().toLowerCase() === 'instagram_handle')
+  const imageCol = header.findIndex((h) => h.trim().toLowerCase() === 'primary_image_url')
+  if (handleCol < 0 || imageCol < 0) {
+    throw new Error('Venues tab missing instagram_handle or primary_image_url column')
+  }
+
+  const byHandle = new Map(
+    updates.map((u) => [normalizeIgHandle(u.handle), u.primaryImageUrl] as const)
+  )
+  const api = getSheetsApi()
+  const spreadsheetId = getSpreadsheetId()
+  const data: { range: string; values: string[][] }[] = []
+  let updated = 0
+  let skipped = 0
+
+  rows.forEach((row, i) => {
+    const handle = normalizeIgHandle(String(row.instagram_handle || row[header[handleCol]] || ''))
+    const nextUrl = byHandle.get(handle)
+    if (!nextUrl) return
+    const current = String(row.primary_image_url || row[header[imageCol]] || '')
+    if (!shouldReplaceVenueImage(current, options?.force)) {
+      skipped++
+      return
+    }
+    const a1Col = columnIndexToA1(imageCol)
+    data.push({
+      range: `'${TAB_VENUES}'!${a1Col}${i + 2}`,
+      values: [[nextUrl]],
+    })
+    updated++
+  })
+
+  if (data.length === 0) return { updated: 0, skipped }
+
+  for (let i = 0; i < data.length; i += 100) {
+    const chunk = data.slice(i, i + 100)
+    await api.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        valueInputOption: 'RAW',
+        data: chunk,
+      },
+    })
+  }
+
+  return { updated, skipped }
+}
+
+function columnIndexToA1(index: number): string {
+  let n = index + 1
+  let s = ''
+  while (n > 0) {
+    const rem = (n - 1) % 26
+    s = String.fromCharCode(65 + rem) + s
+    n = Math.floor((n - 1) / 26)
+  }
+  return s
 }

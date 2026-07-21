@@ -8,13 +8,21 @@ import { getConfig, requireConfig } from '../config'
 export interface ArchiveResult {
   url: string
   path: string
+  bucket?: string
 }
 
+export type ArchiveBucket = 'event-images' | 'venue-images'
+
 /** Archive one remote image; returns null on failure (caller decides how to degrade). */
-export async function archiveImage(imageUrl: string, eventId: string): Promise<ArchiveResult | null> {
+export async function archiveImage(
+  imageUrl: string,
+  eventId: string,
+  options?: { bucket?: ArchiveBucket }
+): Promise<ArchiveResult | null> {
   const cfg = getConfig()
   const apiKey = requireConfig('EVENT_IMPORT_API_KEY', 'media archive (persist-image)')
   const endpoint = `${cfg.APP_BASE_URL.replace(/\/$/, '')}/api/admin/events/persist-image`
+  const bucket = options?.bucket ?? 'event-images'
 
   try {
     const res = await fetch(endpoint, {
@@ -23,11 +31,13 @@ export async function archiveImage(imageUrl: string, eventId: string): Promise<A
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
       },
-      body: JSON.stringify({ imageUrl, eventId }),
+      body: JSON.stringify({ imageUrl, eventId, bucket }),
     })
     if (!res.ok) {
       const body = await res.text().catch(() => '')
-      console.error(`[media-archive] persist-image failed (${res.status}) for ${eventId}: ${body.slice(0, 200)}`)
+      console.error(
+        `[media-archive] persist-image failed (${res.status}) for ${eventId}: ${body.slice(0, 200)}`
+      )
       return null
     }
     const data = (await res.json()) as ArchiveResult

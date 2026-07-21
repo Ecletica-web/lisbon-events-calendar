@@ -51,6 +51,8 @@ export async function POST(request: NextRequest) {
     if (body.forceVision) runParams.forceVision = true
     if (body.skipVerify) runParams.skipVerify = true
     if (body.postMaxAgeDays != null) runParams.postMaxAgeDays = Number(body.postMaxAgeDays)
+    if (body.syncVenueImages === false) runParams.syncVenueImages = false
+    if (body.forceVenueImages === true) runParams.forceVenueImages = true
 
     const run = await enqueuePipelineRun({
       mode: mode as 'scrape' | 'extract' | 'verify' | 'full',

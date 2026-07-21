@@ -36,6 +36,7 @@ export default function AdminScrapersPage() {
   const [handle, setHandle] = useState('')
   const [limit, setLimit] = useState('')
   const [forceVision, setForceVision] = useState(false)
+  const [syncVenueImages, setSyncVenueImages] = useState(true)
   const [message, setMessage] = useState<string | null>(null)
   const [logOpen, setLogOpen] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -124,7 +125,7 @@ export default function AdminScrapersPage() {
     setMessage(null)
     try {
       const headers = await getAuthHeaders()
-      const body: Record<string, unknown> = { mode, forceVision }
+      const body: Record<string, unknown> = { mode, forceVision, syncVenueImages }
       if (handle.trim()) body.handle = handle.trim()
       if (limit.trim()) body.limit = Number(limit)
       const res = await fetch('/api/admin/pipeline/runs', {
@@ -208,6 +209,14 @@ export default function AdminScrapersPage() {
               onChange={(e) => setForceVision(e.target.checked)}
             />
             Force vision
+          </label>
+          <label className="text-sm text-slate-300 flex items-center gap-2 pb-2">
+            <input
+              type="checkbox"
+              checked={syncVenueImages}
+              onChange={(e) => setSyncVenueImages(e.target.checked)}
+            />
+            Sync venue profile pics
           </label>
           <button
             type="button"

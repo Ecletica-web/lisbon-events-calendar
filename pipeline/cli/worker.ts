@@ -31,6 +31,12 @@ async function executeRun(run: {
   if (params.forceVision === true || params.force_vision === true) argv.push('--force-vision')
   if (params.skipVerify === true || params.skip_verify === true) argv.push('--skip-verify')
   if (params.dryRun === true || params.dry_run === true) argv.push('--dry-run')
+  if (params.syncVenueImages === false || params.sync_venue_images === false) {
+    argv.push('--skip-venue-images')
+  }
+  if (params.forceVenueImages === true || params.force_venue_images === true) {
+    argv.push('--force-venue-images')
+  }
   argv.push(`--run-id=${run.id}`)
 
   const flags: CliFlags = parseFlags(argv)
