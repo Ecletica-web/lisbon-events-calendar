@@ -1,21 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { AdminSheetTable } from '@/components/admin/AdminSheetTable'
 import { useAdminAuthHeaders } from '@/lib/useAdminAuth'
-
-interface PostRow {
-  id: string
-  owner_username: string | null
-  short_code: string | null
-  caption: string | null
-  media_type: string | null
-  processing_status: string
-  posted_at: string | null
-  stored_image_url: string | null
-  thumbnail_url: string | null
-  like_count: string | null
-  source_url: string | null
-}
+import { EVENTS_RAW_COLUMNS } from '@/lib/pipelineSheetColumns'
 
 interface Extraction {
   id: string
@@ -28,14 +16,16 @@ interface Extraction {
 
 export default function AdminEventsRawPage() {
   const { getAuthHeaders, isAdmin } = useAdminAuthHeaders()
-  const [rows, setRows] = useState<PostRow[]>([])
+  const [columns] = useState<string[]>([...EVENTS_RAW_COLUMNS])
+  const [rows, setRows] = useState<Record<string, string>[]>([])
   const [total, setTotal] = useState(0)
+  const [source, setSource] = useState<'supabase' | 'sheets'>('supabase')
   const [q, setQ] = useState('')
   const [handle, setHandle] = useState('')
   const [status, setStatus] = useState('')
   const [offset, setOffset] = useState(0)
   const [detail, setDetail] = useState<{
-    post: PostRow & Record<string, unknown>
+    post: Record<string, unknown>
     extractions: Extraction[]
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -51,13 +41,14 @@ export default function AdminEventsRawPage() {
     if (handle) params.set('handle', handle)
     if (status) params.set('status', status)
     const res = await fetch(`/api/admin/pipeline/posts?${params}`, { headers })
+    const j = await res.json().catch(() => ({}))
     if (!res.ok) {
-      setError((await res.json().catch(() => ({}))).error || res.statusText)
+      setError(j.error || res.statusText)
       return
     }
-    const j = await res.json()
     setRows(j.rows || [])
     setTotal(j.total || 0)
+    setSource(j.source === 'sheets' ? 'sheets' : 'supabase')
     setError(null)
   }, [getAuthHeaders, q, handle, status, offset])
 
@@ -65,7 +56,13 @@ export default function AdminEventsRawPage() {
     if (isAdmin) void load()
   }, [isAdmin, load])
 
-  async function openDetail(id: string) {
+  async function openDetail(row: Record<string, string>) {
+    if (source === 'sheets') {
+      setDetail({ post: row, extractions: [] })
+      return
+    }
+    const id = row.id
+    if (!id) return
     const headers = await getAuthHeaders()
     const res = await fetch(`/api/admin/pipeline/posts?id=${id}`, { headers })
     if (!res.ok) return
@@ -74,6 +71,13 @@ export default function AdminEventsRawPage() {
 
   return (
     <div className="space-y-4">
+      <p className="text-sm text-slate-400">
+        Columns match the <strong className="text-slate-200">Events_Raw</strong> Google Sheet.
+        {source === 'sheets'
+          ? ' Showing sheet data (Supabase store empty — run scrape or backfill).'
+          : ' Showing Supabase pipeline_posts.'}
+      </p>
+
       <div className="flex flex-wrap gap-2 items-end">
         <label className="text-sm text-slate-300">
           Search
@@ -101,6 +105,7 @@ export default function AdminEventsRawPage() {
               setOffset(0)
               setStatus(e.target.value)
             }}
+            disabled={source === 'sheets'}
           >
             <option value="">all</option>
             <option value="new">new</option>
@@ -123,50 +128,15 @@ export default function AdminEventsRawPage() {
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
       <p className="text-xs text-slate-500">
-        Showing {rows.length} of {total}
+        Showing {rows.length} of {total} · {columns.length} columns
       </p>
 
-      <div className="overflow-x-auto rounded border border-slate-700">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-slate-800 text-slate-400">
-            <tr>
-              <th className="p-2">Image</th>
-              <th className="p-2">Handle</th>
-              <th className="p-2">Media</th>
-              <th className="p-2">Status</th>
-              <th className="p-2">Posted</th>
-              <th className="p-2">Caption</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr
-                key={r.id}
-                className="border-t border-slate-800 hover:bg-slate-800/60 cursor-pointer"
-                onClick={() => void openDetail(r.id)}
-              >
-                <td className="p-2">
-                  {(r.stored_image_url || r.thumbnail_url) && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={r.stored_image_url || r.thumbnail_url || ''}
-                      alt=""
-                      className="w-12 h-12 object-cover rounded"
-                    />
-                  )}
-                </td>
-                <td className="p-2 text-slate-200">@{r.owner_username}</td>
-                <td className="p-2 text-slate-400">{r.media_type}</td>
-                <td className="p-2 text-slate-300">{r.processing_status}</td>
-                <td className="p-2 text-slate-500 text-xs">
-                  {r.posted_at ? new Date(r.posted_at).toLocaleDateString() : '—'}
-                </td>
-                <td className="p-2 text-slate-400 max-w-xs truncate">{r.caption}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AdminSheetTable
+        columns={columns}
+        rows={rows}
+        rowKey={(r, i) => r.id || r.source_event_id || String(i)}
+        onRowClick={(r) => void openDetail(r)}
+      />
 
       <div className="flex gap-2">
         <button
@@ -195,56 +165,44 @@ export default function AdminEventsRawPage() {
           >
             <div className="flex justify-between items-start">
               <h2 className="text-lg text-white font-medium">
-                @{String(detail.post.owner_username)} / {String(detail.post.short_code)}
+                @{String(detail.post.owner_username || detail.post.ownerUsername || '')} /{' '}
+                {String(detail.post.short_code || detail.post.shortCode || '')}
               </h2>
               <button type="button" className="text-slate-400" onClick={() => setDetail(null)}>
                 Close
               </button>
             </div>
-            {(detail.post.stored_image_url || detail.post.thumbnail_url) && (
+            {(detail.post.stored_image_url || detail.post.thumbnail_url || detail.post.displayUrl) && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={String(detail.post.stored_image_url || detail.post.thumbnail_url)}
+                src={String(
+                  detail.post.stored_image_url ||
+                    detail.post.thumbnail_url ||
+                    detail.post.displayUrl ||
+                    ''
+                )}
                 alt=""
-                className="w-full max-h-64 object-contain rounded bg-black"
+                className="w-full rounded"
               />
             )}
-            <p className="text-sm text-slate-300 whitespace-pre-wrap">{String(detail.post.caption || '')}</p>
-            <p className="text-xs text-slate-500">
-              status={detail.post.processing_status} · likes={String(detail.post.like_count || '')}{' '}
-              {detail.post.source_url && (
-                <a
-                  href={String(detail.post.source_url)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-indigo-400"
-                >
-                  Open post
-                </a>
-              )}
-            </p>
-
-            <h3 className="text-white font-medium pt-2">AI tiers</h3>
-            {detail.extractions.length === 0 && (
-              <p className="text-slate-500 text-sm">No extraction artifacts yet.</p>
+            <pre className="text-xs text-slate-400 whitespace-pre-wrap break-all bg-slate-950 p-3 rounded max-h-64 overflow-auto">
+              {JSON.stringify(detail.post, null, 2)}
+            </pre>
+            {detail.extractions.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm text-white">AI tiers</h3>
+                {detail.extractions.map((ex) => (
+                  <details key={ex.id} className="text-xs text-slate-400 border border-slate-700 rounded p-2">
+                    <summary className="cursor-pointer text-slate-200">
+                      {ex.tier} {ex.model ? `(${ex.model})` : ''}
+                    </summary>
+                    <pre className="mt-2 whitespace-pre-wrap break-all max-h-48 overflow-auto">
+                      {JSON.stringify(ex.parsed_json ?? ex.raw_model_text, null, 2)}
+                    </pre>
+                  </details>
+                ))}
+              </div>
             )}
-            {detail.extractions.map((ex) => (
-              <details key={ex.id} className="rounded border border-slate-700 p-3">
-                <summary className="cursor-pointer text-sm text-indigo-300">
-                  {ex.tier} {ex.model ? `(${ex.model})` : ''}
-                </summary>
-                {ex.parsed_json != null && (
-                  <pre className="mt-2 text-xs text-slate-400 overflow-auto max-h-48">
-                    {JSON.stringify(ex.parsed_json, null, 2)}
-                  </pre>
-                )}
-                {ex.raw_model_text && (
-                  <pre className="mt-2 text-xs text-slate-500 overflow-auto max-h-40 whitespace-pre-wrap">
-                    {ex.raw_model_text.slice(0, 8000)}
-                  </pre>
-                )}
-              </details>
-            ))}
           </div>
         </div>
       )}

@@ -5,7 +5,13 @@ import {
   resolveReviewItem,
   reviewToProcessedRow,
 } from '@/lib/adminPipeline'
-import { appendProcessedToSheets, isAppSheetsConfigured } from '@/lib/googleSheets'
+import {
+  appendProcessedToSheets,
+  getSheetsEditUrl,
+  isAppSheetsWriteConfigured,
+  readNeedsReviewFromSheets,
+} from '@/lib/googleSheets'
+import { NEEDS_REVIEW_COLUMNS, projectRows } from '@/lib/pipelineSheetColumns'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -19,8 +25,25 @@ export async function GET(request: NextRequest) {
     | 'rejected'
     | 'all'
   try {
-    const rows = await listReviewQueue(status)
-    return NextResponse.json({ rows })
+    const sbRows = await listReviewQueue(status)
+    let rows = projectRows(sbRows as Record<string, unknown>[], NEEDS_REVIEW_COLUMNS)
+    let source: 'supabase' | 'sheets' = 'supabase'
+
+    if (rows.length === 0 && (status === 'pending' || status === 'all')) {
+      const sheet = await readNeedsReviewFromSheets(200).catch(() => null)
+      if (sheet && sheet.rows.length > 0) {
+        source = 'sheets'
+        rows = projectRows(sheet.rows, NEEDS_REVIEW_COLUMNS)
+      }
+    }
+
+    return NextResponse.json({
+      columns: [...NEEDS_REVIEW_COLUMNS],
+      rows,
+      source,
+      sheetsUrl: getSheetsEditUrl(),
+      canWrite: isAppSheetsWriteConfigured(),
+    })
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed' },
@@ -46,22 +69,23 @@ export async function POST(request: NextRequest) {
         ? (body.fieldEdits as Record<string, string>)
         : undefined
 
-    // Load current row first so we can append to Sheets before flipping status
     const pending = await listReviewQueue('pending')
     const previous = pending.find((r) => r.review_id === String(body.reviewId))
-    if (!previous && body.action === 'approved') {
-      // May already be resolved — still allow reject path via resolve
-    }
 
     let processedAppended = false
     if (body.action === 'approved') {
-      if (!isAppSheetsConfigured()) {
+      if (!isAppSheetsWriteConfigured()) {
         return NextResponse.json(
-          { error: 'GOOGLE_SHEETS_* not configured — cannot append to Processed Events' },
+          {
+            error:
+              'GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON not configured — cannot append to Processed Events',
+          },
           { status: 503 }
         )
       }
-      const source = previous ?? (await listReviewQueue('all')).find((r) => r.review_id === String(body.reviewId))
+      const source =
+        previous ??
+        (await listReviewQueue('all')).find((r) => r.review_id === String(body.reviewId))
       if (!source) {
         return NextResponse.json({ error: 'Review item not found' }, { status: 404 })
       }

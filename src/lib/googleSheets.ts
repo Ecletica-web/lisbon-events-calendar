@@ -231,9 +231,67 @@ export async function writeWatchlistToSheets(
   })
 }
 
-export async function readProcessedFromSheets(limit = 200): Promise<Record<string, string>[]> {
-  const { rows } = await readTab(TAB_PROCESSED)
-  return rows.slice(-limit).reverse()
+export async function readProcessedFromSheets(limit = 200): Promise<{
+  columns: string[]
+  rows: Record<string, string>[]
+}> {
+  return readNamedTab(TAB_PROCESSED, limit)
+}
+
+/** Events_Raw / Needs_Review legacy tabs (bulk store; admin can still browse via public CSV). */
+export async function readEventsRawFromSheets(limit = 200): Promise<{
+  columns: string[]
+  rows: Record<string, string>[]
+}> {
+  return readNamedTab('Events_Raw', limit)
+}
+
+export async function readNeedsReviewFromSheets(limit = 200): Promise<{
+  columns: string[]
+  rows: Record<string, string>[]
+}> {
+  return readNamedTab('Needs_Review', limit)
+}
+
+async function readNamedTab(
+  tabName: string,
+  limit: number
+): Promise<{ columns: string[]; rows: Record<string, string>[] }> {
+  let header: string[] = []
+  let rows: Record<string, string>[] = []
+  let apiError: string | null = null
+
+  if (isAppSheetsWriteConfigured()) {
+    try {
+      const tab = await readTab(tabName)
+      header = tab.header
+      rows = tab.rows
+    } catch (err) {
+      apiError = err instanceof Error ? err.message : String(err)
+    }
+  }
+
+  if (rows.length === 0) {
+    try {
+      rows = await readTabViaPublicCsv(tabName)
+      header = rows.length > 0 ? Object.keys(rows[0]) : []
+    } catch (err) {
+      if (!apiError) apiError = err instanceof Error ? err.message : String(err)
+    }
+  }
+
+  if (rows.length === 0 && apiError) throw new Error(apiError)
+
+  // Prefer newest last rows (sheet append order), then reverse for UI
+  const sliced = rows.slice(-limit).reverse()
+  const columns =
+    header.filter((h) => h.trim() !== '').length > 0
+      ? header.filter((h) => h.trim() !== '')
+      : sliced.length > 0
+        ? Object.keys(sliced[0]).filter((h) => h.trim() !== '')
+        : []
+
+  return { columns, rows: sliced }
 }
 
 export async function appendProcessedToSheets(row: Record<string, string>): Promise<void> {
