@@ -138,6 +138,7 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
 
   // Venue profile images (IG avatar → Supabase venue-images → Venues sheet)
   if (flags.syncVenueImages) {
+    await logRun(flags, '=== STAGE: venue-images (start) ===')
     try {
       const imgStats = await syncVenueProfileImages(watchlist, {
         dryRun: flags.dryRun,
@@ -145,9 +146,11 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
         log: (line) => logRun(flags, line),
       })
       stats.venue_images = imgStats
+      await logRun(flags, '=== STAGE: venue-images (done) ===')
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       await logRun(flags, `[venue-images] unexpected error (continuing scrape): ${msg}`)
+      await logRun(flags, '=== STAGE: venue-images (error, continuing) ===')
       stats.venue_images_error = msg
     }
   }
@@ -514,18 +517,28 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
   try {
     switch (flags.command) {
       case 'scrape':
+        await logRun(flags, '=== STAGE: scrape (start) ===')
         Object.assign(combined, await commandScrape(flags))
+        await logRun(flags, '=== STAGE: scrape (done) ===')
         break
       case 'extract':
+        await logRun(flags, '=== STAGE: extract (start) ===')
         Object.assign(combined, await commandExtract(flags))
+        await logRun(flags, '=== STAGE: extract (done) ===')
         break
       case 'verify':
+        await logRun(flags, '=== STAGE: verify (start) ===')
         Object.assign(combined, await commandVerify(flags))
+        await logRun(flags, '=== STAGE: verify (done) ===')
         break
       case 'full':
-        // scrape → extract (tiers 0–4) → Tier 5 verify on auto-pass (inside extract)
+        // scrape → extract (tiers 0–4 + Tier 5 verify inside extract)
+        await logRun(flags, '=== STAGE: scrape (start) ===')
         Object.assign(combined, await commandScrape(flags))
+        await logRun(flags, '=== STAGE: scrape (done) ===')
+        await logRun(flags, '=== STAGE: extract (start) ===')
         Object.assign(combined, await commandExtract(flags))
+        await logRun(flags, '=== STAGE: extract (done) ===')
         break
       default:
         throw new Error(`Unknown command "${flags.command}". Use: scrape | extract | verify | full`)

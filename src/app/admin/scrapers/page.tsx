@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useAdminAuthHeaders } from '@/lib/useAdminAuth'
+import { PipelineRunLogPanel } from '@/components/admin/PipelineRunLogPanel'
 
 interface WatchlistRow {
   handle: string
@@ -39,7 +40,7 @@ export default function AdminScrapersPage() {
   const [forceVision, setForceVision] = useState(false)
   const [syncVenueImages, setSyncVenueImages] = useState(true)
   const [message, setMessage] = useState<string | null>(null)
-  const [logOpen, setLogOpen] = useState<string | null>(null)
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
@@ -63,7 +64,14 @@ export default function AdminScrapersPage() {
     } else {
       setMessage(null)
     }
-    if (runsRes.ok) setRuns((await runsRes.json()).runs || [])
+    if (runsRes.ok) {
+      const nextRuns: PipelineRun[] = (await runsRes.json()).runs || []
+      setRuns(nextRuns)
+      setSelectedRunId((prev) => {
+        if (prev && nextRuns.some((r) => r.id === prev)) return prev
+        return nextRuns[0]?.id ?? null
+      })
+    }
     if (cfg.ok) {
       const j = await cfg.json()
       setConfigText(JSON.stringify(j.config?.config_json ?? {}, null, 2))
@@ -78,6 +86,18 @@ export default function AdminScrapersPage() {
   useEffect(() => {
     if (isAdmin) void load()
   }, [isAdmin, load])
+
+  const selectedRun = runs.find((r) => r.id === selectedRunId) ?? runs[0] ?? null
+  const live =
+    !!selectedRun && (selectedRun.status === 'queued' || selectedRun.status === 'running')
+
+  useEffect(() => {
+    if (!isAdmin || !live) return
+    const t = setInterval(() => {
+      void load()
+    }, 4000)
+    return () => clearInterval(t)
+  }, [isAdmin, live, load])
 
   async function saveWatchlist() {
     setBusy(true)
@@ -138,6 +158,7 @@ export default function AdminScrapersPage() {
       const j = await res.json()
       if (!res.ok) throw new Error(j.error || 'Enqueue failed')
       setMessage(`Queued ${mode} run ${j.run?.id}`)
+      if (j.run?.id) setSelectedRunId(j.run.id)
       await load()
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Error')
@@ -252,6 +273,8 @@ export default function AdminScrapersPage() {
           </button>
         </div>
       </section>
+
+      <PipelineRunLogPanel run={selectedRun} onRefresh={() => void load()} />
 
       <section className="rounded-lg border border-slate-700 bg-slate-800/40 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -399,7 +422,15 @@ export default function AdminScrapersPage() {
         <div className="space-y-2">
           {runs.length === 0 && <p className="text-slate-500 text-sm">No runs yet.</p>}
           {runs.map((run) => (
-            <div key={run.id} className="rounded border border-slate-700 bg-slate-900/50 p-3 text-sm">
+            <div
+              key={run.id}
+              className={`rounded border p-3 text-sm cursor-pointer ${
+                selectedRun?.id === run.id
+                  ? 'border-indigo-500 bg-indigo-950/30'
+                  : 'border-slate-700 bg-slate-900/50'
+              }`}
+              onClick={() => setSelectedRunId(run.id)}
+            >
               <div className="flex flex-wrap gap-2 items-center justify-between">
                 <div className="text-slate-200">
                   <span className="font-mono text-xs text-slate-500">{run.id.slice(0, 8)}</span>{' '}
@@ -419,7 +450,7 @@ export default function AdminScrapersPage() {
                     <span className="text-slate-500 ml-2">by {run.requested_by}</span>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                   {(run.status === 'queued' || run.status === 'running') && (
                     <button
                       type="button"
@@ -429,13 +460,6 @@ export default function AdminScrapersPage() {
                       Abort
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="text-xs text-indigo-400"
-                    onClick={() => setLogOpen(logOpen === run.id ? null : run.id)}
-                  >
-                    {logOpen === run.id ? 'Hide log' : 'Log'}
-                  </button>
                   {run.apify_run_id && (
                     <a
                       className="text-xs text-indigo-400"
@@ -454,11 +478,6 @@ export default function AdminScrapersPage() {
                   <span className="ml-2">{JSON.stringify(run.stats)}</span>
                 )}
               </div>
-              {logOpen === run.id && (
-                <pre className="mt-2 max-h-48 overflow-auto text-xs text-slate-400 whitespace-pre-wrap">
-                  {run.log || '(empty)'}
-                </pre>
-              )}
             </div>
           ))}
         </div>
