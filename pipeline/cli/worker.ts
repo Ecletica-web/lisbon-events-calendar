@@ -33,7 +33,11 @@ async function executeRun(run: {
   params: Record<string, unknown>
 }): Promise<void> {
   const params = run.params ?? {}
-  const argv: string[] = [run.mode]
+  const command =
+    typeof params.pipelineCommand === 'string' && params.pipelineCommand
+      ? params.pipelineCommand
+      : run.mode
+  const argv: string[] = [command]
   if (typeof params.handle === 'string' && params.handle) argv.push(`--handle=${params.handle}`)
   if (typeof params.limit === 'number' && params.limit > 0) argv.push(`--limit=${params.limit}`)
   const maxAge =

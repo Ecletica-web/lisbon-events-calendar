@@ -78,6 +78,7 @@ export function scoreEvent(event: NormalizedEvent, ctx: UserFeedContext): number
     ...(event.extendedProps.promoterIds || []),
     ...(event.extendedProps.nightActs || []).flatMap((a) => [a.promoterId, a.promoterName]),
   ]
+    .filter((s): s is string => !!s)
     .map(normId)
     .filter(Boolean)
 

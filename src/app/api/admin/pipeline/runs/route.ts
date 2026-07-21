@@ -41,8 +41,11 @@ export async function POST(request: NextRequest) {
     }
 
     const mode = body.mode as string
-    if (!['scrape', 'extract', 'verify', 'full'].includes(mode)) {
-      return NextResponse.json({ error: 'mode must be scrape|extract|verify|full' }, { status: 400 })
+    if (!['scrape', 'extract', 'verify', 'full', 'profile-images'].includes(mode)) {
+      return NextResponse.json(
+        { error: 'mode must be profile-images|scrape|extract|verify|full' },
+        { status: 400 }
+      )
     }
 
     const runParams: Record<string, unknown> = {}
@@ -63,11 +66,12 @@ export async function POST(request: NextRequest) {
       }
       runParams.postMaxAgeDays = Math.floor(days)
     }
-    if (body.syncVenueImages === false) runParams.syncVenueImages = false
-    if (body.forceVenueImages === true) runParams.forceVenueImages = true
+    if (body.forceVenueImages === true || body.forceProfileImages === true) {
+      runParams.forceVenueImages = true
+    }
 
     const run = await enqueuePipelineRun({
-      mode: mode as 'scrape' | 'extract' | 'verify' | 'full',
+      mode: mode as 'scrape' | 'extract' | 'verify' | 'full' | 'profile-images',
       runParams,
       requestedBy: auth.email,
     })

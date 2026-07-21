@@ -222,43 +222,42 @@ export async function appendRunLog(entry: RunLogEntry, dryRun = false): Promise<
 // ---- Venues (primary_image_url from IG profile pics) ----
 
 export const TAB_VENUES = 'Venues'
+export const TAB_PROMOTERS = 'Promoters'
 
 function normalizeIgHandle(raw: string): string {
   return raw.replace(/^@/, '').toLowerCase().trim().split(/[/?#]/)[0]
 }
 
-function shouldReplaceVenueImage(currentUrl: string, force?: boolean): boolean {
+function shouldReplaceProfileImage(currentUrl: string, force?: boolean): boolean {
   if (force) return true
   const u = (currentUrl || '').trim()
   if (!u) return true
   if (/placeholder|picsum\.photos|placehold\.it/i.test(u)) return true
-  // Already archived in our venue-images bucket
   if (/\/storage\/v1\/object\/public\/venue-images\//i.test(u)) return false
-  // Replace ephemeral CDN / other URLs with stable Supabase copy
   return true
 }
 
 /**
- * Set Venues.primary_image_url by instagram_handle match.
- * Fills empty/placeholder cells; replaces non-archived URLs; skips existing venue-images URLs.
+ * Set primary_image_url by instagram_handle on Venues or Promoters tab.
  */
-export async function updateVenuePrimaryImages(
+export async function updateSheetPrimaryImages(
+  tabName: typeof TAB_VENUES | typeof TAB_PROMOTERS,
   updates: Array<{ handle: string; primaryImageUrl: string }>,
   options?: { dryRun?: boolean; force?: boolean }
 ): Promise<{ updated: number; skipped: number }> {
   if (updates.length === 0) return { updated: 0, skipped: 0 }
   if (options?.dryRun || !isSheetsWriteEnabled()) {
     console.log(
-      `[venues] Sheets write disabled — archived ${updates.length} image URL(s); paste into Venues.primary_image_url manually if needed`
+      `[${tabName}] Sheets write disabled — archived ${updates.length} image URL(s); paste into primary_image_url manually if needed`
     )
     return { updated: 0, skipped: updates.length }
   }
 
-  const { header, rows } = await readTab(TAB_VENUES)
+  const { header, rows } = await readTab(tabName)
   const handleCol = header.findIndex((h) => h.trim().toLowerCase() === 'instagram_handle')
   const imageCol = header.findIndex((h) => h.trim().toLowerCase() === 'primary_image_url')
   if (handleCol < 0 || imageCol < 0) {
-    throw new Error('Venues tab missing instagram_handle or primary_image_url column')
+    throw new Error(`${tabName} tab missing instagram_handle or primary_image_url column`)
   }
 
   const byHandle = new Map(
@@ -275,13 +274,13 @@ export async function updateVenuePrimaryImages(
     const nextUrl = byHandle.get(handle)
     if (!nextUrl) return
     const current = String(row.primary_image_url || row[header[imageCol]] || '')
-    if (!shouldReplaceVenueImage(current, options?.force)) {
+    if (!shouldReplaceProfileImage(current, options?.force)) {
       skipped++
       return
     }
     const a1Col = columnIndexToA1(imageCol)
     data.push({
-      range: `'${TAB_VENUES}'!${a1Col}${i + 2}`,
+      range: `'${tabName}'!${a1Col}${i + 2}`,
       values: [[nextUrl]],
     })
     updated++
@@ -301,6 +300,21 @@ export async function updateVenuePrimaryImages(
   }
 
   return { updated, skipped }
+}
+
+/** @deprecated use updateSheetPrimaryImages(TAB_VENUES, ...) */
+export async function updateVenuePrimaryImages(
+  updates: Array<{ handle: string; primaryImageUrl: string }>,
+  options?: { dryRun?: boolean; force?: boolean }
+): Promise<{ updated: number; skipped: number }> {
+  return updateSheetPrimaryImages(TAB_VENUES, updates, options)
+}
+
+export async function updatePromoterPrimaryImages(
+  updates: Array<{ handle: string; primaryImageUrl: string }>,
+  options?: { dryRun?: boolean; force?: boolean }
+): Promise<{ updated: number; skipped: number }> {
+  return updateSheetPrimaryImages(TAB_PROMOTERS, updates, options)
 }
 
 function columnIndexToA1(index: number): string {

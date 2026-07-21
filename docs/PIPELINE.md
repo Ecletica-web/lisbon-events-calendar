@@ -34,18 +34,30 @@ Watchlist (Sheets CSV) ─→ Apify ─→ pipeline_posts (Supabase)
 A **`full`** run (default in `/admin/scrapers`) does scrape → extract → Tier 5. Only low-confidence
 extraction issues and unclean Tier 5 verifies need human review.
 
-### Venue profile pictures
+### Scrapers (separate modes)
 
-Scrape/full with “Sync venue profile pics” (default on):
+| Mode | What it does |
+|------|----------------|
+| **`profile-images`** | Instagram profile pics for Fontes IG **venues + promoters** → Supabase storage/index (+ Sheets when API enabled) |
+| **`scrape`** | Instagram **posts** only (no profile pics) |
+| **`extract`** | AI tiers on pending posts (+ Tier 5 unless skipped) |
+| **`verify`** | Tier 5 only |
+| **`full`** | scrape posts → extract (+ Tier 5). Does **not** sync profile pics |
 
-1. Apify profile details → archive into Supabase `venue-images`
-2. Upsert `venue_profile_images` + public `venue-images/_index.json` (so `/venues` works even if Sheets fails)
-3. Best-effort write `Venues.primary_image_url` in Google Sheets (needs Sheets API enabled)
+Queue from `/admin/scrapers` or CLI (`npm run profile-images`, `npm run scrape`, …).
 
-`/venues` loads the Venues CSV, then fills empty/placeholder images from Supabase by `instagram_handle`.
+### Venue / promoter profile pictures
+
+`profile-images` run:
+
+1. Apify profile details for venue + promoter handles
+2. Archive into Supabase `venue-images` + `_index.json` / `venue_profile_images`
+3. Best-effort write `Venues` / `Promoters` sheet `primary_image_url`
+
+`/venues` and `/promoters` fill empty/placeholder images from that Supabase map by `instagram_handle`.
 
 Admin can also enqueue runs via `/admin/scrapers` → `pipeline_runs` (status=`queued`)
-→ worker polls and runs scrape/extract/verify/full.
+→ worker polls and runs scrape/extract/verify/full/profile-images.
 
 ## Supabase tables (migration `019_pipeline_store.sql`)
 

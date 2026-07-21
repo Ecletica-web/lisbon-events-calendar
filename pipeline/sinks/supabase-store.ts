@@ -21,7 +21,7 @@ export type ExtractionTier =
   | 'merge'
   | 'validation'
 
-export type PipelineRunMode = 'scrape' | 'extract' | 'verify' | 'full'
+export type PipelineRunMode = 'scrape' | 'extract' | 'verify' | 'full' | 'profile-images'
 export type PipelineRunStatus =
   | 'queued'
   | 'running'
@@ -620,7 +620,7 @@ export async function backfillVenueProfileImagesFromStorage(): Promise<number> {
   for (const f of files) {
     const name = f.name || ''
     if (name === '_index.json') continue
-    const m = name.match(/^venue_(.+)\.(jpe?g|png|gif|webp)$/i)
+    const m = name.match(/^(?:venue|promoter|profile)_(.+)\.(jpe?g|png|gif|webp)$/i)
     if (!m) continue
     const handle = normalizeIgHandle(m[1])
     if (!handle) continue

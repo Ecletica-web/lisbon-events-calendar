@@ -1,10 +1,11 @@
 /**
  * Pipeline CLI.
  *
- *   npm run scrape  [-- --handle=lux --dry-run --limit=10]
- *   npm run extract [-- --limit=20 --dry-run --force-vision]
- *   npm run verify  [-- --limit=20 --dry-run]
- *   npm run full    [-- ...]
+ *   npm run profile-images  [-- --handle=lux --force-venue-images]
+ *   npm run scrape          [-- --handle=lux --dry-run --limit=10]
+ *   npm run extract         [-- --limit=20 --dry-run --force-vision]
+ *   npm run verify          [-- --limit=20 --dry-run]
+ *   npm run full            [-- ...]   # posts scrape → extract (no profile images)
  *
  * Storage split:
  *   - Watchlist + Processed Events → Google Sheets (high-confidence auto-appended)
@@ -17,7 +18,7 @@ import { getConfig } from '../config'
 import { scrapeInstagram } from '../scrapers/apify-client'
 import { transformInstagramApifyPost } from '../scrapers/instagram-transform'
 import { archiveImage } from '../media/media-archive'
-import { syncVenueProfileImages } from '../media/venue-profile-images'
+import { syncProfileImages } from '../media/venue-profile-images'
 import { processPost } from '../process-post'
 import { dedupeCandidates } from '../qualification/dedupe'
 import {
@@ -44,6 +45,7 @@ import {
   isAbortRequested,
   isSupabaseStoreConfigured,
   PipelineAbortedError,
+  type PipelineRunMode,
   readExistingPipelineSourceIds,
   readLastSuccessfulScrapeAt,
   readPendingPipelinePosts,
@@ -59,7 +61,7 @@ export interface CliFlags {
   dryRun: boolean
   forceVision: boolean
   skipVerify: boolean
-  /** Fetch IG profile pics → venue-images → Venues.primary_image_url (default on for scrape/full) */
+  /** @deprecated scrape/full are posts-only; use mode profile-images */
   syncVenueImages: boolean
   forceVenueImages: boolean
   /**
@@ -77,7 +79,7 @@ export function parseFlags(argv: string[]): CliFlags {
     dryRun: false,
     forceVision: false,
     skipVerify: false,
-    syncVenueImages: true,
+    syncVenueImages: false,
     forceVenueImages: false,
   }
   for (const arg of argv.slice(1)) {
@@ -127,6 +129,24 @@ async function logRun(flags: CliFlags, line: string): Promise<void> {
   }
 }
 
+export async function commandProfileImages(flags: CliFlags): Promise<Record<string, unknown>> {
+  let watchlist = await readWatchlist()
+  if (flags.handle) watchlist = watchlist.filter((w) => w.handle === flags.handle)
+  if (watchlist.filter((w) => w.active).length === 0) {
+    await logRun(flags, '[profile-images] No active handles in Fontes IG (or --handle not found).')
+    return { profiles_fetched: 0, archived: 0 }
+  }
+
+  await logRun(flags, '=== STAGE: profile-images (start) ===')
+  const imgStats = await syncProfileImages(watchlist, {
+    dryRun: flags.dryRun,
+    force: flags.forceVenueImages,
+    log: (line) => logRun(flags, line),
+  })
+  await logRun(flags, '=== STAGE: profile-images (done) ===')
+  return { profile_images: imgStats }
+}
+
 export async function commandScrape(flags: CliFlags): Promise<Record<string, unknown>> {
   const runId = `run_${Date.now()}`
   const startedAt = new Date().toISOString()
@@ -141,22 +161,22 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
     return stats
   }
 
-  // Venue profile images (IG avatar → Supabase venue-images → Venues sheet)
+  // Legacy: only if explicitly --sync-venue-images (prefer mode profile-images)
   if (flags.syncVenueImages) {
-    await logRun(flags, '=== STAGE: venue-images (start) ===')
+    await logRun(flags, '=== STAGE: profile-images (start) ===')
     try {
-      const imgStats = await syncVenueProfileImages(watchlist, {
+      const imgStats = await syncProfileImages(watchlist, {
         dryRun: flags.dryRun,
         force: flags.forceVenueImages,
         log: (line) => logRun(flags, line),
       })
-      stats.venue_images = imgStats
-      await logRun(flags, '=== STAGE: venue-images (done) ===')
+      stats.profile_images = imgStats
+      await logRun(flags, '=== STAGE: profile-images (done) ===')
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      await logRun(flags, `[venue-images] unexpected error (continuing scrape): ${msg}`)
-      await logRun(flags, '=== STAGE: venue-images (error, continuing) ===')
-      stats.venue_images_error = msg
+      await logRun(flags, `[profile-images] unexpected error (continuing scrape): ${msg}`)
+      await logRun(flags, '=== STAGE: profile-images (error, continuing) ===')
+      stats.profile_images_error = msg
     }
   }
 
@@ -532,9 +552,11 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
   // Record a run row for manual CLI invocations only (worker already owns its row)
   let createdRunId: string | undefined
   if (!flags.runId && !flags.dryRun && isSupabaseStoreConfigured()) {
+    const modeForDb =
+      flags.command === 'images' ? 'profile-images' : (flags.command as PipelineRunMode)
     createdRunId =
       (await createPipelineRun({
-        mode: flags.command as 'scrape' | 'extract' | 'verify' | 'full',
+        mode: modeForDb,
         runParams: {
           handle: flags.handle,
           limit: flags.limit,
@@ -554,6 +576,10 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
 
   try {
     switch (flags.command) {
+      case 'profile-images':
+      case 'images':
+        Object.assign(combined, await commandProfileImages(flags))
+        break
       case 'scrape':
         await logRun(flags, '=== STAGE: scrape (start) ===')
         Object.assign(combined, await commandScrape(flags))
@@ -570,7 +596,7 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
         await logRun(flags, '=== STAGE: verify (done) ===')
         break
       case 'full':
-        // scrape → extract (tiers 0–4 + Tier 5 verify inside extract)
+        // posts scrape → extract (tiers 0–4 + Tier 5). Profile images are a separate mode.
         await logRun(flags, '=== STAGE: scrape (start) ===')
         Object.assign(combined, await commandScrape(flags))
         await logRun(flags, '=== STAGE: scrape (done) ===')
@@ -580,7 +606,9 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
         await logRun(flags, '=== STAGE: extract (done) ===')
         break
       default:
-        throw new Error(`Unknown command "${flags.command}". Use: scrape | extract | verify | full`)
+        throw new Error(
+          `Unknown command "${flags.command}". Use: profile-images | scrape | extract | verify | full`
+        )
     }
 
     if (createdRunId) {

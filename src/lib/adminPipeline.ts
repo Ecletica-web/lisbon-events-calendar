@@ -45,22 +45,40 @@ export async function listPipelineRuns(limit = 20) {
 }
 
 export async function enqueuePipelineRun(params: {
-  mode: 'scrape' | 'extract' | 'verify' | 'full'
+  mode: 'scrape' | 'extract' | 'verify' | 'full' | 'profile-images'
   runParams?: Record<string, unknown>
   requestedBy?: string
 }) {
-  const { data, error } = await sb()
-    .from('pipeline_runs')
-    .insert({
-      mode: params.mode,
-      status: 'queued',
-      params: params.runParams ?? {},
-      requested_by: params.requestedBy ?? null,
-    })
-    .select('*')
-    .single()
-  if (error) throw new Error(error.message)
-  return data
+  const runParams = { ...(params.runParams ?? {}) }
+  const insertMode = async (mode: string, extraParams?: Record<string, unknown>) => {
+    const { data, error } = await sb()
+      .from('pipeline_runs')
+      .insert({
+        mode,
+        status: 'queued',
+        params: { ...runParams, ...extraParams },
+        requested_by: params.requestedBy ?? null,
+      })
+      .select('*')
+      .single()
+    if (error) throw new Error(error.message)
+    return data
+  }
+
+  try {
+    return await insertMode(params.mode)
+  } catch (err) {
+    // Until migration 022 is applied, profile-images is rejected by the mode CHECK.
+    // Fall back to scrape + pipelineCommand so the worker still runs the images scraper.
+    const msg = err instanceof Error ? err.message : String(err)
+    if (
+      params.mode === 'profile-images' &&
+      /pipeline_runs_mode_check|check constraint/i.test(msg)
+    ) {
+      return await insertMode('scrape', { pipelineCommand: 'profile-images' })
+    }
+    throw err
+  }
 }
 
 export async function requestAbortRun(runId: string) {

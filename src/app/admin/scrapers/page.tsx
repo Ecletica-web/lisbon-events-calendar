@@ -33,12 +33,14 @@ export default function AdminScrapersPage() {
   const [runs, setRuns] = useState<PipelineRun[]>([])
   const [configText, setConfigText] = useState('{}')
   const [workerHb, setWorkerHb] = useState<string | null>(null)
-  const [mode, setMode] = useState<'scrape' | 'extract' | 'verify' | 'full'>('full')
+  const [mode, setMode] = useState<
+    'profile-images' | 'scrape' | 'extract' | 'verify' | 'full'
+  >('scrape')
   const [handle, setHandle] = useState('')
   const [limit, setLimit] = useState('')
   const [postMaxAgeDays, setPostMaxAgeDays] = useState('14')
   const [forceVision, setForceVision] = useState(false)
-  const [syncVenueImages, setSyncVenueImages] = useState(true)
+  const [forceProfileImages, setForceProfileImages] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -150,10 +152,14 @@ export default function AdminScrapersPage() {
     setMessage(null)
     try {
       const headers = await getAuthHeaders()
-      const body: Record<string, unknown> = { mode, forceVision, syncVenueImages }
+      const body: Record<string, unknown> = { mode }
+      if (mode === 'extract' || mode === 'full') body.forceVision = forceVision
+      if (mode === 'profile-images' && forceProfileImages) body.forceProfileImages = true
       if (handle.trim()) body.handle = handle.trim()
-      if (limit.trim()) body.limit = Number(limit)
-      if (postMaxAgeDays.trim()) body.postMaxAgeDays = Number(postMaxAgeDays)
+      if (limit.trim() && mode !== 'profile-images') body.limit = Number(limit)
+      if (postMaxAgeDays.trim() && (mode === 'scrape' || mode === 'full')) {
+        body.postMaxAgeDays = Number(postMaxAgeDays)
+      }
       const res = await fetch('/api/admin/pipeline/runs', {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -208,8 +214,9 @@ export default function AdminScrapersPage() {
           </span>
         </div>
         <p className="text-xs text-slate-400">
-          <span className="text-slate-300">full</span> = scrape → extract → Tier 5 verify. High-confidence
-          events go straight to Processed; only soft fails / disputed verifies land in Event Review.
+          Separate scrapers: <span className="text-slate-300">profile-images</span> (venue + promoter
+          IG avatars) and <span className="text-slate-300">scrape</span> (Instagram posts).{' '}
+          <span className="text-slate-300">full</span> = posts → extract → Tier 5 (no profile pics).
         </p>
         <div className="flex flex-wrap gap-3 items-end">
           <label className="text-sm text-slate-300">
@@ -219,10 +226,11 @@ export default function AdminScrapersPage() {
               value={mode}
               onChange={(e) => setMode(e.target.value as typeof mode)}
             >
-              <option value="full">full (through Tier 5)</option>
-              <option value="scrape">scrape</option>
+              <option value="profile-images">profile-images (venues + promoters)</option>
+              <option value="scrape">scrape posts</option>
               <option value="extract">extract (+ Tier 5)</option>
               <option value="verify">verify (Tier 5 only)</option>
+              <option value="full">full (posts → extract → Tier 5)</option>
             </select>
           </label>
           <label className="text-sm text-slate-300">
@@ -234,42 +242,50 @@ export default function AdminScrapersPage() {
               placeholder="luxfragil"
             />
           </label>
-          <label className="text-sm text-slate-300">
-            Limit
-            <input
-              className="block mt-1 w-24 bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white"
-              value={limit}
-              onChange={(e) => setLimit(e.target.value)}
-              placeholder="10"
-            />
-          </label>
-          <label className="text-sm text-slate-300">
-            Max age (days)
-            <input
-              className="block mt-1 w-28 bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white"
-              value={postMaxAgeDays}
-              onChange={(e) => setPostMaxAgeDays(e.target.value)}
-              placeholder="14"
-              inputMode="numeric"
-              title="Only scrape posts newer than this many days (also respects last successful scrape)"
-            />
-          </label>
-          <label className="text-sm text-slate-300 flex items-center gap-2 pb-2">
-            <input
-              type="checkbox"
-              checked={forceVision}
-              onChange={(e) => setForceVision(e.target.checked)}
-            />
-            Force vision
-          </label>
-          <label className="text-sm text-slate-300 flex items-center gap-2 pb-2">
-            <input
-              type="checkbox"
-              checked={syncVenueImages}
-              onChange={(e) => setSyncVenueImages(e.target.checked)}
-            />
-            Sync venue profile pics
-          </label>
+          {(mode === 'scrape' || mode === 'extract' || mode === 'full' || mode === 'verify') && (
+            <label className="text-sm text-slate-300">
+              Limit
+              <input
+                className="block mt-1 w-24 bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white"
+                value={limit}
+                onChange={(e) => setLimit(e.target.value)}
+                placeholder="10"
+              />
+            </label>
+          )}
+          {(mode === 'scrape' || mode === 'full') && (
+            <label className="text-sm text-slate-300">
+              Max age (days)
+              <input
+                className="block mt-1 w-28 bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white"
+                value={postMaxAgeDays}
+                onChange={(e) => setPostMaxAgeDays(e.target.value)}
+                placeholder="14"
+                inputMode="numeric"
+                title="Only scrape posts newer than this many days (also respects last successful scrape)"
+              />
+            </label>
+          )}
+          {(mode === 'extract' || mode === 'full') && (
+            <label className="text-sm text-slate-300 flex items-center gap-2 pb-2">
+              <input
+                type="checkbox"
+                checked={forceVision}
+                onChange={(e) => setForceVision(e.target.checked)}
+              />
+              Force vision
+            </label>
+          )}
+          {mode === 'profile-images' && (
+            <label className="text-sm text-slate-300 flex items-center gap-2 pb-2">
+              <input
+                type="checkbox"
+                checked={forceProfileImages}
+                onChange={(e) => setForceProfileImages(e.target.checked)}
+              />
+              Force overwrite existing pics
+            </label>
+          )}
           <button
             type="button"
             disabled={busy}

@@ -14,7 +14,7 @@ export interface PipelineRunForLog {
   finished_at: string | null
 }
 
-type StageId = 'queued' | 'venue-images' | 'scrape' | 'extract' | 'verify' | 'done'
+type StageId = 'queued' | 'profile-images' | 'scrape' | 'extract' | 'verify' | 'done'
 type StageState = 'pending' | 'running' | 'done' | 'error' | 'skipped'
 
 interface StageInfo {
@@ -24,17 +24,19 @@ interface StageInfo {
   detail?: string
 }
 
-const STAGE_ORDER: StageId[] = ['queued', 'venue-images', 'scrape', 'extract', 'verify', 'done']
+const STAGE_ORDER: StageId[] = ['queued', 'profile-images', 'scrape', 'extract', 'verify', 'done']
 
-function expectedStages(mode: string, syncVenueImages: boolean): StageId[] {
+function expectedStages(mode: string): StageId[] {
   const stages: StageId[] = ['queued']
+  if (mode === 'profile-images' || mode === 'images') {
+    stages.push('profile-images')
+  }
   if (mode === 'scrape' || mode === 'full') {
-    if (syncVenueImages) stages.push('venue-images')
     stages.push('scrape')
   }
   if (mode === 'extract' || mode === 'full') {
     stages.push('extract')
-    stages.push('verify') // Tier 5 runs inside extract unless --skip-verify
+    stages.push('verify')
   }
   if (mode === 'verify') stages.push('verify')
   stages.push('done')
@@ -62,14 +64,21 @@ function stageMarkers(log: string, stage: Exclude<StageId, 'queued' | 'done'>): 
   skipped: boolean
   softWarning?: string
 } {
-  const startRe = new RegExp(`=== STAGE: ${stage} \\(start\\) ===`, 'i')
-  const doneRe = new RegExp(`=== STAGE: ${stage} \\(done\\) ===`, 'i')
-  const errRe = new RegExp(`=== STAGE: ${stage} \\(error`, 'i')
-  const skippedRe = new RegExp(`=== STAGE: ${stage} \\(skipped`, 'i')
-  // Fallback for older logs without STAGE banners
+  // Older runs used "venue-images"; new runs use "profile-images"
+  const aliases =
+    stage === 'profile-images' ? ['profile-images', 'venue-images'] : [stage]
+
+  const startRe = new RegExp(
+    `=== STAGE: (${aliases.join('|')}) \\(start\\) ===`,
+    'i'
+  )
+  const doneRe = new RegExp(`=== STAGE: (${aliases.join('|')}) \\(done\\) ===`, 'i')
+  const errRe = new RegExp(`=== STAGE: (${aliases.join('|')}) \\(error`, 'i')
+  const skippedRe = new RegExp(`=== STAGE: (${aliases.join('|')}) \\(skipped`, 'i')
+
   const legacyStart =
-    stage === 'venue-images'
-      ? /\[venue-images\] fetching/i.test(log)
+    stage === 'profile-images'
+      ? /\[(?:profile|venue)-images\] fetching/i.test(log)
       : stage === 'scrape'
         ? /\[scrape\] \d+ handle/i.test(log)
         : stage === 'extract'
@@ -82,10 +91,10 @@ function stageMarkers(log: string, stage: Exclude<StageId, 'queued' | 'done'>): 
         ? /\[extract\].*pipeline error/i.test(log) && !/\[extract\] done:/i.test(log)
         : stage === 'verify'
           ? /\[verify\].*error/i.test(log) && !/\[verify\] done:/i.test(log)
-          : false // venue-images Sheets failures are soft — stage still completes
+          : false
   const legacyDone =
-    stage === 'venue-images'
-      ? /=== STAGE: venue-images \(done\) ===|\[venue-images\] (Apify returned|Venues sheet|no active)/i.test(
+    stage === 'profile-images'
+      ? /=== STAGE: (?:profile|venue)-images \(done\) ===|\[(?:profile|venue)-images\] (Apify returned|Venues sheet|Promoters sheet|no active|supabase index)/i.test(
           log
         )
       : stage === 'scrape'
@@ -101,8 +110,8 @@ function stageMarkers(log: string, stage: Exclude<StageId, 'queued' | 'done'>): 
   const hasDone = doneRe.test(log) || legacyDone
   const hardError = errRe.test(log) || (legacyFail && !hasDone)
   const softWarning =
-    stage === 'venue-images' && /Sheets update failed|Sheets API has not been used/i.test(log)
-      ? 'Sheets API disabled — pics saved to Supabase for /venues; Venues sheet not updated'
+    stage === 'profile-images' && /Sheets update failed|Sheets API has not been used/i.test(log)
+      ? 'Sheets API disabled — pics saved to Supabase for /venues & /promoters; sheet not updated'
       : undefined
 
   return {
@@ -120,12 +129,15 @@ export function deriveRunStages(run: PipelineRunForLog): {
   summary: string
   softNotes: string[]
 } {
-  const syncVenue =
-    run.params?.syncVenueImages !== false && run.params?.sync_venue_images !== false
-  const expected = expectedStages(run.mode, syncVenue !== false)
+  const expected = expectedStages(
+    typeof run.params?.pipelineCommand === 'string' && run.params.pipelineCommand
+      ? String(run.params.pipelineCommand)
+      : run.mode
+  )
   const log = run.log || ''
   const runFailed = run.status === 'error' || run.status === 'aborted'
-  const runActive = run.status === 'queued' || run.status === 'running'
+  const runActive =
+    run.status === 'queued' || run.status === 'running' || run.status === 'abort_requested'
   const err = lastErrorLine(log)
 
   const stages: StageInfo[] = STAGE_ORDER.filter((id) => expected.includes(id)).map((id) => {
@@ -155,8 +167,8 @@ export function deriveRunStages(run: PipelineRunForLog): {
     else if (runFailed && !m.started) state = 'skipped'
 
     const label =
-      id === 'venue-images'
-        ? 'Venue images'
+      id === 'profile-images'
+        ? 'Profile images'
         : id === 'scrape'
           ? 'Scrape posts'
           : id === 'extract'
@@ -182,12 +194,14 @@ export function deriveRunStages(run: PipelineRunForLog): {
 
   let summary = ''
   if (run.status === 'queued') summary = 'Waiting for worker…'
+  else if (run.status === 'abort_requested') summary = 'Stop requested — finishing current step…'
   else if (run.status === 'running') {
     const current =
       [...stages].reverse().find((s) => s.state === 'running') ||
       stages.find((s) => s.state === 'pending')
     summary = current ? `Running: ${current.label}` : 'Running…'
   } else if (run.status === 'success') summary = 'Completed successfully'
+  else if (run.status === 'aborted') summary = 'Stopped'
   else if (brokeAt) summary = `Broke at ${brokeAt}${err ? ` — ${err}` : ''}`
   else summary = `Status: ${run.status}`
 
@@ -264,7 +278,7 @@ export function PipelineRunLogPanel({
               disabled={stopping}
               className="px-3 py-1.5 rounded bg-red-900/60 border border-red-700 text-red-100 text-sm disabled:opacity-60"
             >
-              {stopping ? 'Stopping…' : 'Stop extract'}
+              {stopping ? 'Stopping…' : 'Stop run'}
             </button>
           )}
           {onRefresh && (

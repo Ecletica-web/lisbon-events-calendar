@@ -25,6 +25,7 @@ export function getEventReasons(event: NormalizedEvent, ctx: EventReasonsContext
     ...(event.extendedProps.promoterIds || []),
     ...(event.extendedProps.nightActs || []).flatMap((a) => [a.promoterId, a.promoterName]),
   ]
+    .filter((s): s is string => !!s)
     .map(norm)
     .filter(Boolean)
 

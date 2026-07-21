@@ -1,8 +1,7 @@
 /**
- * Sync Instagram profile pictures → Supabase venue-images + venue_profile_images
- * → (best-effort) Venues.primary_image_url in Google Sheets.
- *
- * /venues reads CSV first, then fills empty/placeholder images from venue_profile_images.
+ * Profile-image scraper — Instagram avatars for Fontes IG venues AND promoters.
+ * Archives to Supabase venue-images + _index.json / venue_profile_images,
+ * then best-effort writes Venues + Promoters sheet primary_image_url.
  */
 
 import { getConfig } from '../config'
@@ -12,81 +11,108 @@ import {
   scrapeInstagramProfiles,
   usernameFromApifyProfile,
 } from '../scrapers/apify-client'
-import { updateVenuePrimaryImages } from '../sinks/sheets-writer'
+import {
+  TAB_PROMOTERS,
+  TAB_VENUES,
+  updateSheetPrimaryImages,
+} from '../sinks/sheets-writer'
 import {
   backfillVenueProfileImagesFromStorage,
   upsertVenueProfileImages,
 } from '../sinks/supabase-store'
 import type { WatchlistEntry } from '../types'
 
-export interface SyncVenueImagesResult {
+export interface SyncProfileImagesResult {
   profilesFetched: number
   archived: number
   supabaseUpserted: number
-  sheetUpdated: number
-  sheetSkipped: number
+  venuesSheetUpdated: number
+  venuesSheetSkipped: number
+  promotersSheetUpdated: number
+  promotersSheetSkipped: number
   errors: string[]
 }
 
+/** @deprecated alias */
+export type SyncVenueImagesResult = SyncProfileImagesResult
+
+function normalizeHandle(raw: string): string {
+  return raw.replace(/^@/, '').toLowerCase().trim()
+}
+
 /**
- * For venue-type watchlist handles: Apify profile details → archive to venue-images →
- * upsert venue_profile_images → write public URL into Venues sheet (if Sheets API works).
+ * Active venue + promoter handles from Fontes IG → Apify profiles → archive →
+ * Supabase index → Venues/Promoters sheets.
  */
-export async function syncVenueProfileImages(
+export async function syncProfileImages(
   watchlist: WatchlistEntry[],
   options?: { dryRun?: boolean; force?: boolean; log?: (line: string) => void | Promise<void> }
-): Promise<SyncVenueImagesResult> {
+): Promise<SyncProfileImagesResult> {
   const log = options?.log ?? ((line: string) => console.log(line))
-  const result: SyncVenueImagesResult = {
+  const result: SyncProfileImagesResult = {
     profilesFetched: 0,
     archived: 0,
     supabaseUpserted: 0,
-    sheetUpdated: 0,
-    sheetSkipped: 0,
+    venuesSheetUpdated: 0,
+    venuesSheetSkipped: 0,
+    promotersSheetUpdated: 0,
+    promotersSheetSkipped: 0,
     errors: [],
   }
 
-  // Recover any images already in storage from prior runs where Sheets failed
   try {
     const seeded = await backfillVenueProfileImagesFromStorage()
     if (seeded > 0) {
       result.supabaseUpserted += seeded
-      await log(`[venue-images] seeded ${seeded} URL(s) from venue-images bucket → venue_profile_images`)
+      await log(`[profile-images] seeded ${seeded} URL(s) from storage → index`)
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     result.errors.push(`storage backfill: ${msg}`)
-    await log(`[venue-images] storage backfill skipped: ${msg}`)
+    await log(`[profile-images] storage backfill skipped: ${msg}`)
   }
 
   const venueHandles = [
     ...new Set(
       watchlist
         .filter((w) => w.active && w.type === 'venue')
-        .map((w) => w.handle.replace(/^@/, '').toLowerCase())
+        .map((w) => normalizeHandle(w.handle))
         .filter(Boolean)
     ),
   ]
+  const promoterHandles = [
+    ...new Set(
+      watchlist
+        .filter((w) => w.active && w.type === 'promoter')
+        .map((w) => normalizeHandle(w.handle))
+        .filter(Boolean)
+    ),
+  ]
+  const allHandles = [...new Set([...venueHandles, ...promoterHandles])]
+  const venueSet = new Set(venueHandles)
+  const promoterSet = new Set(promoterHandles)
 
-  if (venueHandles.length === 0) {
-    await log('[venue-images] no active venue handles in Fontes IG — skip')
+  if (allHandles.length === 0) {
+    await log('[profile-images] no active venue/promoter handles in Fontes IG — skip')
     return result
   }
 
-  await log(`[venue-images] fetching Instagram profiles for ${venueHandles.length} venue(s)…`)
+  await log(
+    `[profile-images] fetching Instagram profiles for ${venueHandles.length} venue(s) + ${promoterHandles.length} promoter(s)…`
+  )
 
   let profiles
   try {
-    profiles = await scrapeInstagramProfiles(venueHandles)
+    profiles = await scrapeInstagramProfiles(allHandles)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     result.errors.push(msg)
-    await log(`[venue-images] Apify details failed: ${msg}`)
+    await log(`[profile-images] Apify details failed: ${msg}`)
     return result
   }
 
   result.profilesFetched = profiles.length
-  await log(`[venue-images] Apify returned ${profiles.length} profile(s)`)
+  await log(`[profile-images] Apify returned ${profiles.length} profile(s)`)
 
   const cfg = getConfig()
   const updates: Array<{ handle: string; primaryImageUrl: string }> = []
@@ -100,57 +126,87 @@ export async function syncVenueProfileImages(
       continue
     }
 
+    const kind = promoterSet.has(handle)
+      ? 'promoter'
+      : venueSet.has(handle)
+        ? 'venue'
+        : 'profile'
+    const archiveId = `${kind}_${handle}`
+
     if (options?.dryRun || !cfg.EVENT_IMPORT_API_KEY) {
-      await log(`[venue-images] dry-run / no EVENT_IMPORT_API_KEY: would archive @${handle}`)
+      await log(`[profile-images] dry-run / no EVENT_IMPORT_API_KEY: would archive @${handle}`)
       updates.push({ handle, primaryImageUrl: picUrl })
       continue
     }
 
-    const archived = await archiveImage(picUrl, `venue_${handle}`, { bucket: 'venue-images' })
+    const archived = await archiveImage(picUrl, archiveId, { bucket: 'venue-images' })
     if (!archived?.url) {
       result.errors.push(`archive failed for @${handle}`)
-      await log(`[venue-images] archive failed for @${handle}`)
+      await log(`[profile-images] archive failed for @${handle}`)
       continue
     }
     result.archived++
     updates.push({ handle, primaryImageUrl: archived.url })
-    await log(`[venue-images] archived @${handle} → ${archived.url}`)
+    await log(`[profile-images] archived @${handle} (${kind}) → ${archived.url}`)
   }
 
   if (missingPic > 0) {
-    await log(`[venue-images] ${missingPic} profile(s) missing username or profile pic URL`)
+    await log(`[profile-images] ${missingPic} profile(s) missing username or profile pic URL`)
   }
 
   if (updates.length === 0) return result
 
-  // Always persist to Supabase so /venues can merge images without Sheets
   try {
     const n = await upsertVenueProfileImages(updates, options?.dryRun)
     result.supabaseUpserted += n
-    await log(`[venue-images] venue_profile_images upserted=${n}`)
+    await log(`[profile-images] supabase index upserted=${n}`)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     result.errors.push(msg)
-    await log(`[venue-images] Supabase upsert failed: ${msg}`)
+    await log(`[profile-images] Supabase upsert failed: ${msg}`)
   }
 
-  try {
-    const sheet = await updateVenuePrimaryImages(updates, {
-      dryRun: options?.dryRun,
-      force: options?.force,
-    })
-    result.sheetUpdated = sheet.updated
-    result.sheetSkipped = sheet.skipped
-    await log(
-      `[venue-images] Venues sheet updated=${sheet.updated} skipped=${sheet.skipped}`
-    )
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    result.errors.push(msg)
-    await log(
-      `[venue-images] Sheets update failed (Supabase URLs still available for /venues): ${msg}`
-    )
+  const venueUpdates = updates.filter((u) => venueSet.has(normalizeHandle(u.handle)))
+  const promoterUpdates = updates.filter((u) => promoterSet.has(normalizeHandle(u.handle)))
+
+  if (venueUpdates.length > 0) {
+    try {
+      const sheet = await updateSheetPrimaryImages(TAB_VENUES, venueUpdates, {
+        dryRun: options?.dryRun,
+        force: options?.force,
+      })
+      result.venuesSheetUpdated = sheet.updated
+      result.venuesSheetSkipped = sheet.skipped
+      await log(
+        `[profile-images] Venues sheet updated=${sheet.updated} skipped=${sheet.skipped}`
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      result.errors.push(msg)
+      await log(`[profile-images] Venues sheet update failed: ${msg}`)
+    }
+  }
+
+  if (promoterUpdates.length > 0) {
+    try {
+      const sheet = await updateSheetPrimaryImages(TAB_PROMOTERS, promoterUpdates, {
+        dryRun: options?.dryRun,
+        force: options?.force,
+      })
+      result.promotersSheetUpdated = sheet.updated
+      result.promotersSheetSkipped = sheet.skipped
+      await log(
+        `[profile-images] Promoters sheet updated=${sheet.updated} skipped=${sheet.skipped}`
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      result.errors.push(msg)
+      await log(`[profile-images] Promoters sheet update failed: ${msg}`)
+    }
   }
 
   return result
 }
+
+/** @deprecated use syncProfileImages */
+export const syncVenueProfileImages = syncProfileImages

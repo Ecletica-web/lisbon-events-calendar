@@ -5,6 +5,8 @@
   "description": "CAF-style scraping + tiered AI extraction pipeline for Lisbon Events Calendar. Writes to Google Sheets; the Next.js app consumes the published CSV.",
   "scripts": {
     "scrape": "tsx cli/run.ts scrape",
+    "profile-images": "tsx cli/run.ts profile-images",
+    "images": "tsx cli/run.ts profile-images",
     "extract": "tsx cli/run.ts extract",
     "verify": "tsx cli/run.ts verify",
     "full": "tsx cli/run.ts full",

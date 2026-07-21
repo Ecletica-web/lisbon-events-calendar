@@ -795,7 +795,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_pipeline_verifications_event_unique
 -- ---- Job queue + run ledger ----
 CREATE TABLE IF NOT EXISTS public.pipeline_runs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  mode text NOT NULL CHECK (mode IN ('scrape', 'extract', 'verify', 'full')),
+  mode text NOT NULL CHECK (mode IN ('scrape', 'extract', 'verify', 'full', 'profile-images')),
   status text NOT NULL DEFAULT 'queued' CHECK (status IN (
     'queued', 'running', 'success', 'error', 'abort_requested', 'aborted'
   )),

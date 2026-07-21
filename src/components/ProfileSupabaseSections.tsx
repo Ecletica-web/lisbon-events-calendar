@@ -97,7 +97,9 @@ export default function ProfileSupabaseSections({
       e.extendedProps.promoterName,
       ...(e.extendedProps.promoterIds || []),
       ...(e.extendedProps.nightActs || []).flatMap((a) => [a.promoterId, a.promoterName]),
-    ].map(norm)
+    ]
+      .filter((s): s is string => !!s)
+      .map(norm)
     const venueMatch = venueKey && followedVenueIds.has(venueKey)
     const promoterMatch = promoterKeys.some((k) => k && followedPromoterIds.has(k))
     return venueMatch || promoterMatch

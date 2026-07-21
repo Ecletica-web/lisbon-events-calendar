@@ -33,7 +33,7 @@ Single entrypoint for understanding this codebase. Keep this file short; update 
 | Saved views, personas | `lib/savedViews.ts`, `lib/savedViewsSync.ts`; personas API under `app/api/personas/` |
 | For You / recommendations | `app/api/foryou/route.ts`, `lib/recommendationEngine.ts` |
 | Event scraping / AI extraction | `pipeline/` (CLI: scrape, extract, worker, backfill); orchestration in `pipeline/process-post.ts` |
-| Admin ops (scrapers / raw / review) | `/admin`, `lib/adminPipeline.ts`, `lib/googleSheets.ts` |
+| Admin ops (scrapers / raw / review) | `/admin`, `lib/adminPipeline.ts`, `lib/googleSheets.ts`. Modes: `profile-images` (avatars), `scrape` (posts), `extract`, `verify`, `full` |
 | Event review feedback | `lib/adminEventReviewFeedback.ts`, `app/api/admin/event-review/feedback/`, Supabase `event_review_feedback` |
 
 ## Docs
