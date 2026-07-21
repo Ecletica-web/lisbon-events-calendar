@@ -128,16 +128,25 @@ export async function listPipelinePosts(opts: {
 }) {
   const limit = opts.limit ?? 50
   const offset = opts.offset ?? 0
+  // Omit raw_json — can be huge and break admin list responses
   let query = sb()
     .from('pipeline_posts')
-    .select('*', { count: 'exact' })
-    .order('posted_at', { ascending: false, nullsFirst: false })
+    .select(
+      'id,source_name,source_event_id,source_url,owner_username,owner_id,owner_full_name,caption,posted_at,scraped_at,run_id,location_id,location_name,location_address,latitude,longitude,media_type,media_urls,thumbnail_url,permalink,hashtags,mentions,external_links,like_count,comment_count,stored_image_url,image_status,image_storage_path,image_error,short_code,display_url,carousel_slide_urls,archived_slide_urls,video_url,created_at,updated_at,processing_status',
+      { count: 'exact' }
+    )
+    .order('scraped_at', { ascending: false, nullsFirst: false })
     .range(offset, offset + limit - 1)
 
-  if (opts.handle) query = query.ilike('owner_username', opts.handle)
+  if (opts.handle) query = query.ilike('owner_username', `%${opts.handle}%`)
   if (opts.status) query = query.eq('processing_status', opts.status)
   if (opts.mediaType) query = query.eq('media_type', opts.mediaType)
-  if (opts.q) query = query.or(`caption.ilike.%${opts.q}%,short_code.ilike.%${opts.q}%`)
+  if (opts.q) {
+    const safe = opts.q.replace(/[%(),]/g, ' ').trim()
+    if (safe) {
+      query = query.or(`caption.ilike.%${safe}%,short_code.ilike.%${safe}%,source_event_id.ilike.%${safe}%`)
+    }
+  }
 
   const { data, error, count } = await query
   if (error) throw new Error(error.message)

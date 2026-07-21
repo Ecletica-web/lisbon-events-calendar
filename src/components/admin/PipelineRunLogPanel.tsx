@@ -59,10 +59,12 @@ function stageMarkers(log: string, stage: Exclude<StageId, 'queued' | 'done'>): 
   started: boolean
   done: boolean
   errored: boolean
+  skipped: boolean
 } {
   const startRe = new RegExp(`=== STAGE: ${stage} \\(start\\) ===`, 'i')
   const doneRe = new RegExp(`=== STAGE: ${stage} \\(done\\) ===`, 'i')
   const errRe = new RegExp(`=== STAGE: ${stage} \\(error`, 'i')
+  const skippedRe = new RegExp(`=== STAGE: ${stage} \\(skipped`, 'i')
   // Fallback for older logs without STAGE banners
   const legacyStart =
     stage === 'venue-images'
@@ -89,10 +91,14 @@ function stageMarkers(log: string, stage: Exclude<StageId, 'queued' | 'done'>): 
           ? /\[extract\] done:/i.test(log)
           : /\[verify\] done:/i.test(log)
 
+  if (skippedRe.test(log)) {
+    return { started: true, done: true, errored: false, skipped: true }
+  }
   return {
     started: startRe.test(log) || legacyStart,
     done: doneRe.test(log) || legacyDone,
     errored: errRe.test(log) || legacyFail,
+    skipped: false,
   }
 }
 
@@ -129,7 +135,8 @@ export function deriveRunStages(run: PipelineRunForLog): {
 
     const m = stageMarkers(log, id)
     let state: StageState = 'pending'
-    if (m.errored) state = 'error'
+    if (m.skipped) state = 'skipped'
+    else if (m.errored) state = 'error'
     else if (m.done) state = 'done'
     else if (m.started) state = runActive ? 'running' : runFailed ? 'error' : 'running'
     else if (runFailed && !m.started) state = 'skipped'

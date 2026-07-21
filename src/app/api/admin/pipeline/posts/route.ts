@@ -30,13 +30,13 @@ export async function GET(request: NextRequest) {
       offset,
     })
 
+    const adminColumns = ['processing_status', ...EVENTS_RAW_COLUMNS] as const
     let rows = projectRows(
       (result.rows as Record<string, unknown>[]).map((r) => ({
         ...r,
-        // Expose processing_status for filters; not a Sheets column but useful
         processing_status: r.processing_status,
       })),
-      EVENTS_RAW_COLUMNS
+      adminColumns
     )
     let total = result.total
     let source: 'supabase' | 'sheets' = 'supabase'
@@ -60,12 +60,12 @@ export async function GET(request: NextRequest) {
           )
         }
         total = filtered.length
-        rows = projectRows(filtered.slice(offset, offset + limit), EVENTS_RAW_COLUMNS)
+        rows = projectRows(filtered.slice(offset, offset + limit), adminColumns)
       }
     }
 
     return NextResponse.json({
-      columns: [...EVENTS_RAW_COLUMNS],
+      columns: [...adminColumns],
       rows,
       total,
       source,

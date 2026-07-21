@@ -8,7 +8,8 @@ import * as dotenv from 'dotenv'
 import { z } from 'zod'
 
 dotenv.config({ path: path.join(__dirname, '.env') })
-dotenv.config({ path: path.join(__dirname, '..', '.env.local') })
+// Prefer repo-root .env.local for shared keys (overrides empty placeholders in pipeline/.env)
+dotenv.config({ path: path.join(__dirname, '..', '.env.local'), override: true })
 
 const boolFlag = z
   .string()

@@ -3,7 +3,7 @@
  * via the app's existing POST /api/admin/events/persist-image bridge.
  */
 
-import { getConfig, requireConfig } from '../config'
+import { getConfig } from '../config'
 
 export interface ArchiveResult {
   url: string
@@ -20,7 +20,13 @@ export async function archiveImage(
   options?: { bucket?: ArchiveBucket }
 ): Promise<ArchiveResult | null> {
   const cfg = getConfig()
-  const apiKey = requireConfig('EVENT_IMPORT_API_KEY', 'media archive (persist-image)')
+  if (!cfg.EVENT_IMPORT_API_KEY?.trim()) {
+    console.warn(
+      `[media-archive] EVENT_IMPORT_API_KEY not set — skipping persist for ${eventId} (using CDN URL)`
+    )
+    return null
+  }
+  const apiKey = cfg.EVENT_IMPORT_API_KEY
   const endpoint = `${cfg.APP_BASE_URL.replace(/\/$/, '')}/api/admin/events/persist-image`
   const bucket = options?.bucket ?? 'event-images'
 

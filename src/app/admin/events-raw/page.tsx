@@ -16,7 +16,7 @@ interface Extraction {
 
 export default function AdminEventsRawPage() {
   const { getAuthHeaders, isAdmin } = useAdminAuthHeaders()
-  const [columns] = useState<string[]>([...EVENTS_RAW_COLUMNS])
+  const [columns, setColumns] = useState<string[]>(['processing_status', ...EVENTS_RAW_COLUMNS])
   const [rows, setRows] = useState<Record<string, string>[]>([])
   const [total, setTotal] = useState(0)
   const [source, setSource] = useState<'supabase' | 'sheets'>('supabase')
@@ -29,9 +29,11 @@ export default function AdminEventsRawPage() {
     extractions: Extraction[]
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
   const limit = 40
 
   const load = useCallback(async () => {
+    setLoading(true)
     const headers = await getAuthHeaders()
     const params = new URLSearchParams({
       limit: String(limit),
@@ -40,16 +42,27 @@ export default function AdminEventsRawPage() {
     if (q) params.set('q', q)
     if (handle) params.set('handle', handle)
     if (status) params.set('status', status)
-    const res = await fetch(`/api/admin/pipeline/posts?${params}`, { headers })
-    const j = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      setError(j.error || res.statusText)
-      return
+    try {
+      const res = await fetch(`/api/admin/pipeline/posts?${params}`, { headers })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(j.error || res.statusText)
+        setRows([])
+        setTotal(0)
+        return
+      }
+      if (Array.isArray(j.columns) && j.columns.length > 0) setColumns(j.columns)
+      setRows(j.rows || [])
+      setTotal(j.total || 0)
+      setSource(j.source === 'sheets' ? 'sheets' : 'supabase')
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Load failed')
+      setRows([])
+      setTotal(0)
+    } finally {
+      setLoading(false)
     }
-    setRows(j.rows || [])
-    setTotal(j.total || 0)
-    setSource(j.source === 'sheets' ? 'sheets' : 'supabase')
-    setError(null)
   }, [getAuthHeaders, q, handle, status, offset])
 
   useEffect(() => {
@@ -128,7 +141,7 @@ export default function AdminEventsRawPage() {
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
       <p className="text-xs text-slate-500">
-        Showing {rows.length} of {total} · {columns.length} columns
+        {loading ? 'Loading…' : `Showing ${rows.length} of ${total}`} · {columns.length} columns
       </p>
 
       <AdminSheetTable

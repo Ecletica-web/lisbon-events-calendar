@@ -379,8 +379,17 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
   // Tier 5 online verify on this run's auto-pass rows (unless --skip-verify).
   // Unclean verifies → Tier 6 /admin/event-review; clean ones stay published without review.
   let verifyStats: Record<string, unknown> = {}
-  if (!flags.skipVerify && keptRows.length > 0) {
+  if (flags.skipVerify) {
+    await logRun(flags, '=== STAGE: verify (skipped: --skip-verify) ===')
+  } else if (keptRows.length === 0) {
+    await logRun(
+      flags,
+      '=== STAGE: verify (skipped: no high-confidence auto-pass events) ==='
+    )
+  } else {
+    await logRun(flags, '=== STAGE: verify (start) ===')
     verifyStats = await commandVerify({ ...flags, limit: undefined }, keptRows)
+    await logRun(flags, '=== STAGE: verify (done) ===')
   }
 
   return {
