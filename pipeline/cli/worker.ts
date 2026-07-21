@@ -28,6 +28,13 @@ async function executeRun(run: {
   const argv: string[] = [run.mode]
   if (typeof params.handle === 'string' && params.handle) argv.push(`--handle=${params.handle}`)
   if (typeof params.limit === 'number' && params.limit > 0) argv.push(`--limit=${params.limit}`)
+  const maxAge =
+    typeof params.postMaxAgeDays === 'number'
+      ? params.postMaxAgeDays
+      : typeof params.post_max_age_days === 'number'
+        ? params.post_max_age_days
+        : null
+  if (maxAge != null && maxAge > 0) argv.push(`--max-age-days=${maxAge}`)
   if (params.forceVision === true || params.force_vision === true) argv.push('--force-vision')
   if (params.skipVerify === true || params.skip_verify === true) argv.push('--skip-verify')
   if (params.dryRun === true || params.dry_run === true) argv.push('--dry-run')

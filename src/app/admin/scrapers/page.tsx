@@ -35,6 +35,7 @@ export default function AdminScrapersPage() {
   const [mode, setMode] = useState<'scrape' | 'extract' | 'verify' | 'full'>('full')
   const [handle, setHandle] = useState('')
   const [limit, setLimit] = useState('')
+  const [postMaxAgeDays, setPostMaxAgeDays] = useState('14')
   const [forceVision, setForceVision] = useState(false)
   const [syncVenueImages, setSyncVenueImages] = useState(true)
   const [message, setMessage] = useState<string | null>(null)
@@ -128,6 +129,7 @@ export default function AdminScrapersPage() {
       const body: Record<string, unknown> = { mode, forceVision, syncVenueImages }
       if (handle.trim()) body.handle = handle.trim()
       if (limit.trim()) body.limit = Number(limit)
+      if (postMaxAgeDays.trim()) body.postMaxAgeDays = Number(postMaxAgeDays)
       const res = await fetch('/api/admin/pipeline/runs', {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -200,6 +202,17 @@ export default function AdminScrapersPage() {
               value={limit}
               onChange={(e) => setLimit(e.target.value)}
               placeholder="10"
+            />
+          </label>
+          <label className="text-sm text-slate-300">
+            Max age (days)
+            <input
+              className="block mt-1 w-28 bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white"
+              value={postMaxAgeDays}
+              onChange={(e) => setPostMaxAgeDays(e.target.value)}
+              placeholder="14"
+              inputMode="numeric"
+              title="Only scrape posts newer than this many days (also respects last successful scrape)"
             />
           </label>
           <label className="text-sm text-slate-300 flex items-center gap-2 pb-2">

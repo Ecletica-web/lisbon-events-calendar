@@ -66,12 +66,14 @@ npm run backfill            # one-off: Sheets legacy tabs → Supabase
 npm run golden              # replay Testing CSVs (report only)
 
 # Flags (after --):
-#   --dry-run        skip remote writes where possible
-#   --handle=lux     restrict to one watchlist handle
-#   --limit=10       cap rows processed
-#   --force-vision   run vision even when caption has all mandatory fields
-#   --skip-verify    skip online verify on extract/full
-```
+#   --dry-run              skip remote writes where possible
+#   --handle=lux           restrict to one watchlist handle
+#   --limit=10             cap rows processed
+#   --max-age-days=14      only posts newer than now−N days (combined with last scrape)
+#   --force-vision         run vision even when caption has all mandatory fields
+#   --skip-verify          skip online verify on extract/full
+#   --skip-venue-images    skip IG profile pic → Venues.primary_image_url sync
+#   --force-venue-images   overwrite existing venue-images URLs```
 
 ## Admin (`/admin`)
 

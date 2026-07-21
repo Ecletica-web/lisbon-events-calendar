@@ -57,6 +57,11 @@ export interface CliFlags {
   /** Fetch IG profile pics → venue-images → Venues.primary_image_url (default on for scrape/full) */
   syncVenueImages: boolean
   forceVenueImages: boolean
+  /**
+   * Only fetch posts newer than now − N days.
+   * Combined with last successful scrape: Apify cutoff = max(lastScrape, now − N days).
+   */
+  postMaxAgeDays?: number
   /** When set by the worker, status/logs go to this pipeline_runs row */
   runId?: string
 }
@@ -79,9 +84,33 @@ export function parseFlags(argv: string[]): CliFlags {
     else if (arg === '--force-venue-images') flags.forceVenueImages = true
     else if (arg.startsWith('--handle=')) flags.handle = arg.slice('--handle='.length).replace(/^@/, '').toLowerCase()
     else if (arg.startsWith('--limit=')) flags.limit = parseInt(arg.slice('--limit='.length), 10) || undefined
-    else if (arg.startsWith('--run-id=')) flags.runId = arg.slice('--run-id='.length)
+    else if (arg.startsWith('--max-age-days=')) {
+      const n = parseInt(arg.slice('--max-age-days='.length), 10)
+      if (Number.isFinite(n) && n > 0) flags.postMaxAgeDays = Math.min(n, 365)
+    } else if (arg.startsWith('--run-id=')) flags.runId = arg.slice('--run-id='.length)
   }
   return flags
+}
+
+/** Resolve Apify onlyPostsNewerThan from last scrape + optional max-age window. */
+export async function resolveOnlyPostsNewerThan(
+  postMaxAgeDays?: number
+): Promise<{ cutoff?: string; lastScrapeAt?: string; maxAgeCutoff?: string }> {
+  const lastScrapeAt =
+    (await readLastSuccessfulScrapeAt()) ?? (await readLastSuccessfulRunAt()) ?? undefined
+
+  let maxAgeCutoff: string | undefined
+  if (postMaxAgeDays != null && postMaxAgeDays > 0) {
+    const d = new Date()
+    d.setUTCDate(d.getUTCDate() - postMaxAgeDays)
+    maxAgeCutoff = d.toISOString()
+  }
+
+  const candidates = [lastScrapeAt, maxAgeCutoff].filter(Boolean) as string[]
+  if (candidates.length === 0) return {}
+  // Later timestamp = stricter (fewer older posts)
+  const cutoff = candidates.sort().at(-1)
+  return { cutoff, lastScrapeAt, maxAgeCutoff }
 }
 
 async function logRun(flags: CliFlags, line: string): Promise<void> {
@@ -121,11 +150,15 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
     }
   }
 
-  const onlyPostsNewerThan =
-    (await readLastSuccessfulScrapeAt()) ?? (await readLastSuccessfulRunAt()) ?? undefined
+  const window = await resolveOnlyPostsNewerThan(flags.postMaxAgeDays)
+  const onlyPostsNewerThan = window.cutoff
   await logRun(
     flags,
-    `[scrape] ${handles.length} handle(s), mode=${cfg.PIPELINE_RUN_MODE}, newerThan=${onlyPostsNewerThan ?? 'none'}`
+    `[scrape] ${handles.length} handle(s), mode=${cfg.PIPELINE_RUN_MODE}, newerThan=${onlyPostsNewerThan ?? 'none'}` +
+      (window.lastScrapeAt ? ` (lastScrape=${window.lastScrapeAt})` : '') +
+      (window.maxAgeCutoff
+        ? ` (maxAgeDays=${flags.postMaxAgeDays} → ${window.maxAgeCutoff})`
+        : '')
   )
 
   let apifyRunIds: string[] = []
@@ -141,6 +174,25 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
   } catch (err) {
     error = err instanceof Error ? err.message : String(err)
     await logRun(flags, `[scrape] failed: ${error}`)
+  }
+
+  // Safety net if Apify returns older posts than the cutoff
+  if (onlyPostsNewerThan) {
+    const before = items.length
+    const cutMs = Date.parse(onlyPostsNewerThan)
+    if (Number.isFinite(cutMs)) {
+      items = items.filter((row) => {
+        if (!row?.posted_at) return true
+        const t = Date.parse(row.posted_at)
+        return !Number.isFinite(t) || t >= cutMs
+      })
+      if (items.length < before) {
+        await logRun(
+          flags,
+          `[scrape] dropped ${before - items.length} post(s) older than ${onlyPostsNewerThan}`
+        )
+      }
+    }
   }
 
   const existingIds = await readExistingPipelineSourceIds()
@@ -165,6 +217,8 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
   stats.posts_scraped = items.length
   stats.new_rows = written
   stats.apify_run_id = apifyRunIds.join('|')
+  stats.only_posts_newer_than = onlyPostsNewerThan ?? null
+  stats.post_max_age_days = flags.postMaxAgeDays ?? null
   await logRun(flags, `[scrape] wrote ${written} new pipeline_posts (${items.length - rows.length} already known)`)
 
   // Legacy Sheets Run_Log (optional, when Sheets configured)

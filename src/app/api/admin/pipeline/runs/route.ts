@@ -47,10 +47,22 @@ export async function POST(request: NextRequest) {
 
     const runParams: Record<string, unknown> = {}
     if (body.handle) runParams.handle = String(body.handle).replace(/^@/, '').toLowerCase()
-    if (body.limit != null) runParams.limit = Number(body.limit)
+    if (body.limit != null && body.limit !== '') {
+      const limit = Number(body.limit)
+      if (Number.isFinite(limit) && limit > 0) runParams.limit = limit
+    }
     if (body.forceVision) runParams.forceVision = true
     if (body.skipVerify) runParams.skipVerify = true
-    if (body.postMaxAgeDays != null) runParams.postMaxAgeDays = Number(body.postMaxAgeDays)
+    if (body.postMaxAgeDays != null && body.postMaxAgeDays !== '') {
+      const days = Number(body.postMaxAgeDays)
+      if (!Number.isFinite(days) || days < 1 || days > 365) {
+        return NextResponse.json(
+          { error: 'postMaxAgeDays must be between 1 and 365' },
+          { status: 400 }
+        )
+      }
+      runParams.postMaxAgeDays = Math.floor(days)
+    }
     if (body.syncVenueImages === false) runParams.syncVenueImages = false
     if (body.forceVenueImages === true) runParams.forceVenueImages = true
 
