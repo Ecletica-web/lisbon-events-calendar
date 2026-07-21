@@ -60,6 +60,7 @@ function stageMarkers(log: string, stage: Exclude<StageId, 'queued' | 'done'>): 
   done: boolean
   errored: boolean
   skipped: boolean
+  softWarning?: string
 } {
   const startRe = new RegExp(`=== STAGE: ${stage} \\(start\\) ===`, 'i')
   const doneRe = new RegExp(`=== STAGE: ${stage} \\(done\\) ===`, 'i')
@@ -78,13 +79,15 @@ function stageMarkers(log: string, stage: Exclude<StageId, 'queued' | 'done'>): 
     stage === 'scrape'
       ? /\[scrape\] failed:/i.test(log)
       : stage === 'extract'
-        ? /\[extract\].*error/i.test(log)
+        ? /\[extract\].*pipeline error/i.test(log) && !/\[extract\] done:/i.test(log)
         : stage === 'verify'
-          ? /\[verify\].*error/i.test(log)
-          : /\[venue-images\].*failed/i.test(log)
+          ? /\[verify\].*error/i.test(log) && !/\[verify\] done:/i.test(log)
+          : false // venue-images Sheets failures are soft — stage still completes
   const legacyDone =
     stage === 'venue-images'
-      ? /\[venue-images\] (Apify returned|Venues sheet|no active)/i.test(log)
+      ? /=== STAGE: venue-images \(done\) ===|\[venue-images\] (Apify returned|Venues sheet|no active)/i.test(
+          log
+        )
       : stage === 'scrape'
         ? /\[scrape\] wrote /i.test(log)
         : stage === 'extract'
@@ -94,11 +97,20 @@ function stageMarkers(log: string, stage: Exclude<StageId, 'queued' | 'done'>): 
   if (skippedRe.test(log)) {
     return { started: true, done: true, errored: false, skipped: true }
   }
+
+  const hasDone = doneRe.test(log) || legacyDone
+  const hardError = errRe.test(log) || (legacyFail && !hasDone)
+  const softWarning =
+    stage === 'venue-images' && /Sheets update failed|Sheets API has not been used/i.test(log)
+      ? 'Sheets API disabled — profile pics archived but Venues sheet not updated'
+      : undefined
+
   return {
     started: startRe.test(log) || legacyStart,
-    done: doneRe.test(log) || legacyDone,
-    errored: errRe.test(log) || legacyFail,
+    done: hasDone,
+    errored: hardError,
     skipped: false,
+    softWarning,
   }
 }
 
@@ -106,6 +118,7 @@ export function deriveRunStages(run: PipelineRunForLog): {
   stages: StageInfo[]
   brokeAt: string | null
   summary: string
+  softNotes: string[]
 } {
   const syncVenue =
     run.params?.syncVenueImages !== false && run.params?.sync_venue_images !== false
@@ -154,23 +167,31 @@ export function deriveRunStages(run: PipelineRunForLog): {
       id,
       label,
       state,
-      detail: state === 'error' ? err : undefined,
+      detail: state === 'error' ? err : m.softWarning,
     }
   })
 
-  const broke = stages.find((s) => s.state === 'error')
+  // Hard break only when the run ended in error — soft Sheets warnings don't abort the pipeline
+  const broke = runFailed ? stages.find((s) => s.state === 'error') : undefined
   const brokeAt = broke ? broke.label : null
+  const softNotes = [
+    ...new Set(
+      stages.filter((s) => s.state === 'done' && s.detail).map((s) => s.detail as string)
+    ),
+  ]
 
   let summary = ''
   if (run.status === 'queued') summary = 'Waiting for worker…'
   else if (run.status === 'running') {
-    const current = [...stages].reverse().find((s) => s.state === 'running') || stages.find((s) => s.state === 'pending')
+    const current =
+      [...stages].reverse().find((s) => s.state === 'running') ||
+      stages.find((s) => s.state === 'pending')
     summary = current ? `Running: ${current.label}` : 'Running…'
   } else if (run.status === 'success') summary = 'Completed successfully'
   else if (brokeAt) summary = `Broke at ${brokeAt}${err ? ` — ${err}` : ''}`
   else summary = `Status: ${run.status}`
 
-  return { stages, brokeAt, summary }
+  return { stages, brokeAt, summary, softNotes }
 }
 
 function stateClass(state: StageState): string {
@@ -276,6 +297,19 @@ export function PipelineRunLogPanel({
               Broke at <strong>{derived.brokeAt}</strong>
               {lastErrorLine(run.log) ? `: ${lastErrorLine(run.log)}` : ''}
             </p>
+          )}
+
+          {derived.softNotes.length > 0 && (
+            <div className="space-y-1">
+              {derived.softNotes.map((note) => (
+                <p
+                  key={note}
+                  className="text-sm text-amber-200 bg-amber-950/30 border border-amber-800/60 rounded px-3 py-2"
+                >
+                  Warning: {note}
+                </p>
+              ))}
+            </div>
           )}
 
           {run.stats && Object.keys(run.stats).length > 0 && (
