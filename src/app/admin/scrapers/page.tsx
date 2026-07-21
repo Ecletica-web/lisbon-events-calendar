@@ -58,7 +58,7 @@ export default function AdminScrapersPage() {
       setMessage(wlJson.error || `Fontes IG load failed (HTTP ${wl.status})`)
     } else if (wlJson.canWrite === false) {
       setMessage(
-        'Fontes IG is read-only until GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON is set on Vercel (and the sheet is shared with that account).'
+        'Fontes IG is read-only here (no Sheets service account). Edit sources in Google Sheets; scrapes still read the public CSV.'
       )
     } else {
       setMessage(null)

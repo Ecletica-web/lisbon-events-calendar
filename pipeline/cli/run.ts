@@ -33,6 +33,7 @@ import {
   readProcessedFingerprints,
   readWatchlist,
 } from '../sinks/sheets-writer'
+import { isSheetsWriteEnabled } from '../sinks/sheets-client'
 import {
   appendReviewQueue,
   appendRunLogLine,
@@ -306,15 +307,61 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
     return k.row
   })
 
-  await appendProcessed(keptRows, flags.dryRun)
-  await appendReviewQueue(allNeedsReview, flags.dryRun)
+  // Sheets writes off by default: keep a local CSV + park auto-pass events in the
+  // Supabase review queue so you can paste them into Processed Events manually.
+  if (!isSheetsWriteEnabled()) {
+    const manualQueue: NeedsReviewRow[] = keptRows.map((row) => ({
+      review_id: `rev_manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      source_name: row.source_name,
+      source_event_id: row.source_event_id,
+      source_url: row.source_url,
+      owner_username: row.source_name,
+      caption: '',
+      description_short: row.title || row.description_short,
+      description_long: row.description_long,
+      validation_status: 'pass',
+      validation_reasons: 'manual_sheets_paste',
+      confidence_score: row.confidence_score,
+      start_datetime: row.start_datetime,
+      venue_name_raw: row.venue_name_raw || row.venue_name,
+      route: 'manual_sheets',
+      _raw_caption_ai_text: '',
+      raw_model_text: row._raw_model_text || '',
+      created_at: new Date().toISOString(),
+      thumbnail_url: '',
+      stored_image_url: row.primary_image_url,
+      image_storage_path: '',
+      image_error: '',
+      verification_verdict: '',
+      verification_notes:
+        'Auto-pass (Sheets write disabled). Copy into Processed Events sheet, then Approve.',
+      verification_sources: '',
+      suggested_corrections: JSON.stringify({
+        title: row.title,
+        start_datetime: row.start_datetime,
+        venue_name: row.venue_name || row.venue_name_raw,
+        primary_image_url: row.primary_image_url,
+        event_id: row.event_id,
+      }),
+    }))
+    await appendProcessed(keptRows, true) // local CSV only (dry-run path)
+    await appendReviewQueue([...allNeedsReview, ...manualQueue], flags.dryRun)
+    await logRun(
+      flags,
+      `[extract] Sheets write OFF — ${keptRows.length} auto-pass event(s) queued for manual paste + ${allNeedsReview.length} needs-review`
+    )
+  } else {
+    await appendProcessed(keptRows, flags.dryRun)
+    await appendReviewQueue(allNeedsReview, flags.dryRun)
+  }
 
   await logRun(
     flags,
     `[extract] done: ${keptRows.length} processed, ${allNeedsReview.length} needs-review, ${discarded} discarded, ${droppedAsDuplicate} in-batch dupes, ${droppedAsExisting} already published`
   )
-  if (flags.dryRun) await logRun(flags, '[extract] dry-run: Processed CSV under pipeline/out/')
-
+  if (flags.dryRun || !isSheetsWriteEnabled()) {
+    await logRun(flags, '[extract] local CSV under pipeline/out/ (Processed Events sheet not auto-updated)')
+  }
   const cfg = getConfig()
   if (cfg.PIPELINE_VERIFY_ON_EXTRACT && !flags.skipVerify && keptRows.length > 0) {
     await commandVerify({ ...flags, limit: flags.limit }, keptRows)

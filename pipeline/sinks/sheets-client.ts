@@ -120,3 +120,17 @@ export function isSheetsConfigured(): boolean {
   const cfg = getConfig()
   return Boolean(cfg.GOOGLE_SHEETS_ID && cfg.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON)
 }
+
+/** Writes to Sheets (Processed, Venues, Run_Log) — off by default (manual sheet edits). */
+export function isSheetsWriteEnabled(): boolean {
+  return isSheetsConfigured() && Boolean(getConfig().PIPELINE_SHEETS_WRITE)
+}
+
+/** Spreadsheet id from env or derived from venues/events CSV URL. */
+export function resolveSpreadsheetId(): string | null {
+  const cfg = getConfig()
+  if (cfg.GOOGLE_SHEETS_ID?.trim()) return cfg.GOOGLE_SHEETS_ID.trim()
+  const csvUrl = cfg.NEXT_PUBLIC_VENUES_CSV_URL || process.env.NEXT_PUBLIC_EVENTS_CSV_URL || ''
+  const m = csvUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
+  return m?.[1] ?? null
+}

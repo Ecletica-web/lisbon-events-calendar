@@ -44,9 +44,11 @@ const configSchema = z.object({
   DOCUMENT_AI_PROCESSOR_ID: z.string().optional(),
   DOCUMENT_AI_SERVICE_ACCOUNT_JSON: z.string().optional(),
 
-  // Google Sheets store (Watchlist + Processed Events only)
+  // Google Sheets — reads via public CSV or service account; writes optional
   GOOGLE_SHEETS_ID: z.string().optional(),
   GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON: z.string().optional(),
+  /** When 1/true, allow appending to Processed / Run_Log / Venues (needs service account). Default off = manual Sheets edits. */
+  PIPELINE_SHEETS_WRITE: boolFlag,
 
   // Supabase pipeline store (raw posts, extractions, review, verify, runs)
   SUPABASE_URL: z.string().optional(),

@@ -42,7 +42,8 @@ export async function GET(request: NextRequest) {
       rows,
       source,
       sheetsUrl: getSheetsEditUrl(),
-      canWrite: isAppSheetsWriteConfigured(),
+      canWriteSheets: isAppSheetsWriteConfigured(),
+      sheetsWriteMode: isAppSheetsWriteConfigured() ? 'auto' : 'manual',
     })
   } catch (err) {
     return NextResponse.json(
@@ -73,16 +74,9 @@ export async function POST(request: NextRequest) {
     const previous = pending.find((r) => r.review_id === String(body.reviewId))
 
     let processedAppended = false
+    let processedRow: Record<string, string> | null = null
+
     if (body.action === 'approved') {
-      if (!isAppSheetsWriteConfigured()) {
-        return NextResponse.json(
-          {
-            error:
-              'GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON not configured — cannot append to Processed Events',
-          },
-          { status: 503 }
-        )
-      }
       const source =
         previous ??
         (await listReviewQueue('all')).find((r) => r.review_id === String(body.reviewId))
@@ -92,9 +86,12 @@ export async function POST(request: NextRequest) {
       if (source.review_status !== 'pending') {
         return NextResponse.json({ error: 'Already resolved' }, { status: 409 })
       }
-      const sheetRow = reviewToProcessedRow(source as Record<string, unknown>, fieldEdits)
-      await appendProcessedToSheets(sheetRow)
-      processedAppended = true
+      processedRow = reviewToProcessedRow(source as Record<string, unknown>, fieldEdits)
+
+      if (isAppSheetsWriteConfigured()) {
+        await appendProcessedToSheets(processedRow)
+        processedAppended = true
+      }
     }
 
     const { updated } = await resolveReviewItem({
@@ -104,7 +101,16 @@ export async function POST(request: NextRequest) {
       fieldEdits,
     })
 
-    return NextResponse.json({ updated, processedAppended })
+    return NextResponse.json({
+      updated,
+      processedAppended,
+      processedRow,
+      message: processedAppended
+        ? 'Approved and appended to Processed Events sheet'
+        : body.action === 'approved'
+          ? 'Approved in Supabase. Paste processedRow into the Processed Events sheet (Sheets auto-write is off).'
+          : 'Rejected',
+    })
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed' },

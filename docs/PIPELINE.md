@@ -5,29 +5,31 @@ tiered AI → validation. **Storage is split:**
 
 | Store | What lives there |
 |-------|------------------|
-| **Google Sheets** | `Watchlist`, `Processed Events` (human-editable; calendar publishes Processed CSV) |
-| **Supabase** | Raw posts, every AI tier artifact, review queue, verifications, run queue/log, scraper config |
+| **Google Sheets** | Fontes IG, Venues, Promoters, **Processed Events** — human-edited / inspected. Pipeline **reads** via public CSV; **writes are off by default** (`PIPELINE_SHEETS_WRITE=0`). |
+| **Supabase** | Raw posts, every AI tier artifact, review queue, verifications, run queue/log, scraper config, image buckets |
 
-The Next.js app consumes the published Processed CSV and hosts `/admin` (Scrapers,
-Events Raw, Review, Processed). Long jobs are **queued** in Supabase and executed by
-a local **`npm run worker`** (not on Vercel).
+The Next.js app consumes the published Processed CSV and hosts `/admin`. Long jobs are
+**queued** in Supabase and executed by a local **`npm run worker`** (not on Vercel).
 
 ## Architecture
 
 ```
-Watchlist (Sheets) ─→ Apify ─→ pipeline_posts (Supabase)
+Watchlist (Sheets CSV) ─→ Apify ─→ pipeline_posts (Supabase)
                                       │
                 Tier 0–4 (+ OCR / Whisper) → pipeline_extractions
                                       │
                         merge + validate + venue resolve + dedupe
                                       │
-              pass → Processed Events (Sheets, status=scheduled)
+              pass → review queue (manual paste into Processed sheet)
+                   → or Processed sheet when PIPELINE_SHEETS_WRITE=1 + SA JSON
               review/fail → pipeline_review_queue (Supabase)
                                       │
                         Tier 5 verify → pipeline_verifications
-                                      │ (suggestions only; may re-queue review)
-                        Tier 6 → /admin/event-review (approve → Sheets)
+                                      │
+                        Tier 6 → /admin/event-review
 ```
+
+To enable automatic Sheets appends later: set `PIPELINE_SHEETS_WRITE=1` and `GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON`.
 
 Admin can also enqueue runs via `/admin/scrapers` → `pipeline_runs` (status=`queued`)
 → worker polls and runs scrape/extract/verify/full.

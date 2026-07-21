@@ -10,12 +10,13 @@ export default function AdminEventReviewPage() {
   const [columns] = useState<string[]>([...NEEDS_REVIEW_COLUMNS])
   const [rows, setRows] = useState<Record<string, string>[]>([])
   const [source, setSource] = useState<'supabase' | 'sheets'>('supabase')
-  const [canWrite, setCanWrite] = useState(false)
+  const [sheetsWriteMode, setSheetsWriteMode] = useState<'auto' | 'manual'>('manual')
   const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending')
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [selected, setSelected] = useState<Record<string, string> | null>(null)
   const [edits, setEdits] = useState<Record<string, string>>({})
+  const [lastProcessedRow, setLastProcessedRow] = useState<Record<string, string> | null>(null)
 
   const load = useCallback(async () => {
     const headers = await getAuthHeaders()
@@ -27,11 +28,13 @@ export default function AdminEventReviewPage() {
     }
     setRows(j.rows || [])
     setSource(j.source === 'sheets' ? 'sheets' : 'supabase')
-    setCanWrite(!!j.canWrite)
+    setSheetsWriteMode(j.sheetsWriteMode === 'auto' ? 'auto' : 'manual')
     setMessage(
       j.source === 'sheets'
-        ? 'Showing Needs_Review sheet (Supabase review queue empty). Approve/reject needs Supabase + Sheets write credentials.'
-        : null
+        ? 'Showing Needs_Review sheet (Supabase review queue empty).'
+        : j.sheetsWriteMode === 'manual'
+          ? 'Sheets auto-write is off — Approve marks the item done; paste into Processed Events yourself (or use suggested_corrections).'
+          : null
     )
   }, [getAuthHeaders, filter])
 
@@ -63,9 +66,13 @@ export default function AdminEventReviewPage() {
         action === 'approved'
           ? j.processedAppended
             ? 'Approved and appended to Processed Events sheet'
-            : 'Approved'
+            : j.message ||
+              'Approved. Copy the processed row into the Processed Events Google Sheet, then republish the CSV.'
           : 'Rejected'
       )
+      if (action === 'approved' && j.processedRow) {
+        setLastProcessedRow(j.processedRow as Record<string, string>)
+      }
       setSelected(null)
       setEdits({})
       await load()
@@ -79,9 +86,11 @@ export default function AdminEventReviewPage() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-400">
-        Columns match the <strong className="text-slate-200">Needs_Review</strong> Google Sheet.
-        {source === 'sheets' ? ' Sheet fallback.' : ' Supabase queue.'}
-        {!canWrite && ' Processed append needs GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON.'}
+        Columns match the <strong className="text-slate-200">Needs_Review</strong> layout.
+        {source === 'sheets' ? ' Sheet fallback.' : ' Supabase queue.'}{' '}
+        {sheetsWriteMode === 'manual'
+          ? 'Processed Events sheet is edited manually — Approve does not auto-append.'
+          : 'Approve appends to the Processed Events sheet.'}
       </p>
 
       <div className="flex flex-wrap gap-2 items-center justify-between">
@@ -108,6 +117,27 @@ export default function AdminEventReviewPage() {
         <p className="text-sm text-indigo-300 bg-indigo-950/40 border border-indigo-800 rounded px-3 py-2">
           {message}
         </p>
+      )}
+
+      {lastProcessedRow && (
+        <div className="rounded border border-slate-700 bg-slate-900/60 p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm text-slate-300">Last approved row (paste into Processed Events)</p>
+            <button
+              type="button"
+              className="text-xs text-indigo-400"
+              onClick={() => {
+                void navigator.clipboard.writeText(JSON.stringify(lastProcessedRow, null, 2))
+                setMessage('Copied processed row JSON to clipboard')
+              }}
+            >
+              Copy JSON
+            </button>
+          </div>
+          <pre className="text-xs text-slate-400 overflow-auto max-h-40 whitespace-pre-wrap break-all">
+            {JSON.stringify(lastProcessedRow, null, 2)}
+          </pre>
+        </div>
       )}
 
       <p className="text-xs text-slate-500">

@@ -17,7 +17,7 @@ import type {
   WatchlistEntry,
   VerificationLogRow,
 } from '../types'
-import { appendRows, readTab, isSheetsConfigured, getSheetsApi, getSpreadsheetId } from './sheets-client'
+import { appendRows, readTab, isSheetsConfigured, isSheetsWriteEnabled, getSheetsApi, getSpreadsheetId, resolveSpreadsheetId } from './sheets-client'
 import { rowToWatchlistEntry } from './fontes-ig'
 
 export const TAB_EVENTS_RAW = 'Events_Raw'
@@ -96,22 +96,42 @@ async function writeRows(
   dryRun: boolean
 ): Promise<number> {
   if (rows.length === 0) return 0
-  if (dryRun || !isSheetsConfigured()) {
-    writeLocalCsv(tab.replace(/\s+/g, '_'), header, rows)
+  // Always keep a local CSV copy under pipeline/out/ for inspection
+  writeLocalCsv(tab.replace(/\s+/g, '_'), header, rows)
+  if (dryRun || !isSheetsWriteEnabled()) {
     return rows.length
   }
   return appendRows(tab, header, rows)
 }
 
-/** Read a tab's rows; returns [] when the tab is missing or Sheets is unconfigured. */
+/** Public gviz CSV (link-shared sheet) — no service account required. */
+async function readTabViaPublicCsv(tabName: string): Promise<Record<string, string>[]> {
+  const id = resolveSpreadsheetId()
+  if (!id) return []
+  const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`
+  const res = await fetch(url, { cache: 'no-store' })
+  if (!res.ok) return []
+  const text = await res.text()
+  if (text.trimStart().startsWith('<')) return []
+  const parsed = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true })
+  return (parsed.data || []).map((row) => {
+    const out: Record<string, string> = {}
+    for (const [k, v] of Object.entries(row)) out[k] = v == null ? '' : String(v)
+    return out
+  })
+}
+
+/** Read a tab's rows; SA API first, then public CSV fallback. */
 export async function readTabSafe(tabName: string): Promise<Record<string, string>[]> {
-  if (!isSheetsConfigured()) return []
-  try {
-    const { rows } = await readTab(tabName)
-    return rows
-  } catch {
-    return []
+  if (isSheetsConfigured()) {
+    try {
+      const { rows } = await readTab(tabName)
+      if (rows.length > 0) return rows
+    } catch {
+      /* fall through */
+    }
   }
+  return readTabViaPublicCsv(tabName)
 }
 
 // ---- Watchlist (Fontes IG, with Watchlist fallback) ----
@@ -227,8 +247,10 @@ export async function updateVenuePrimaryImages(
   options?: { dryRun?: boolean; force?: boolean }
 ): Promise<{ updated: number; skipped: number }> {
   if (updates.length === 0) return { updated: 0, skipped: 0 }
-  if (options?.dryRun || !isSheetsConfigured()) {
-    console.log(`[venues] dry-run / no sheets: would update ${updates.length} venue image(s)`)
+  if (options?.dryRun || !isSheetsWriteEnabled()) {
+    console.log(
+      `[venues] Sheets write disabled — archived ${updates.length} image URL(s); paste into Venues.primary_image_url manually if needed`
+    )
     return { updated: 0, skipped: updates.length }
   }
 
