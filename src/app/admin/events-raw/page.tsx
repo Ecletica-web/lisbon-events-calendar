@@ -172,7 +172,9 @@ export default function AdminEventsRawPage() {
                 Close
               </button>
             </div>
-            {(detail.post.stored_image_url || detail.post.thumbnail_url || detail.post.displayUrl) && (
+            {Boolean(
+              detail.post.stored_image_url || detail.post.thumbnail_url || detail.post.displayUrl
+            ) && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={String(
