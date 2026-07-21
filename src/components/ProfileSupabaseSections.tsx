@@ -92,9 +92,14 @@ export default function ProfileSupabaseSections({
   const eventsAtFollowed = events.filter((e) => {
     if (new Date(e.start).getTime() < now) return false
     const venueKey = norm(e.extendedProps.venueId || e.extendedProps.venueKey || e.extendedProps.venueName || '')
-    const promoterKey = norm(e.extendedProps.promoterId || e.extendedProps.promoterName || '')
+    const promoterKeys = [
+      e.extendedProps.promoterId,
+      e.extendedProps.promoterName,
+      ...(e.extendedProps.promoterIds || []),
+      ...(e.extendedProps.nightActs || []).flatMap((a) => [a.promoterId, a.promoterName]),
+    ].map(norm)
     const venueMatch = venueKey && followedVenueIds.has(venueKey)
-    const promoterMatch = promoterKey && followedPromoterIds.has(promoterKey)
+    const promoterMatch = promoterKeys.some((k) => k && followedPromoterIds.has(k))
     return venueMatch || promoterMatch
   })
 

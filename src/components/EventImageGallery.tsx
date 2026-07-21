@@ -148,7 +148,7 @@ export function EventImageGallery({
         ))}
       </div>
       <p className="text-[11px] text-slate-400 mt-1.5">
-        {images.length} flyers from this venue night
+        {images.length} flyers · one night at this venue
       </p>
     </div>
   )

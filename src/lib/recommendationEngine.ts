@@ -72,15 +72,25 @@ function energyBoost(event: NormalizedEvent, level: 'high' | 'medium' | 'low'): 
 export function scoreEvent(event: NormalizedEvent, ctx: UserFeedContext): number {
   let score = 0
   const venueId = normId(event.extendedProps.venueId || event.extendedProps.venueKey || '')
-  const promoterId = normId(event.extendedProps.promoterId || event.extendedProps.promoterName || '')
+  const promoterIds = [
+    event.extendedProps.promoterId,
+    event.extendedProps.promoterName,
+    ...(event.extendedProps.promoterIds || []),
+    ...(event.extendedProps.nightActs || []).flatMap((a) => [a.promoterId, a.promoterName]),
+  ]
+    .map(normId)
+    .filter(Boolean)
 
   if (venueId && ctx.followedVenueIds.has(venueId)) score += SCORE.FOLLOW_VENUE
-  if (promoterId && ctx.followedPromoterIds.has(promoterId)) score += SCORE.FOLLOW_PROMOTER
+  if (promoterIds.some((id) => ctx.followedPromoterIds.has(id))) score += SCORE.FOLLOW_PROMOTER
   if (ctx.personaWeights && eventMatchesPersona(event, ctx.personaWeights)) {
     score += SCORE.PERSONA_MATCH
     score += energyBoost(event, ctx.personaWeights.energy_level || 'medium')
   }
-  const friendCount = ctx.friendsGoingByEventId.get(event.id) || 0
+  const friendIds = event.extendedProps.mergedEventIds?.length
+    ? event.extendedProps.mergedEventIds
+    : [event.id]
+  const friendCount = friendIds.reduce((n, id) => n + (ctx.friendsGoingByEventId.get(id) || 0), 0)
   if (friendCount > 0) score += SCORE.FRIEND_GOING
   if (event.extendedProps.tags.some((t) => ctx.savedTagSet.has(toCanonicalTagKey(t)))) score += SCORE.SAVED_TAG
   if (event.extendedProps.category && ctx.likedCategories.has(event.extendedProps.category.toLowerCase())) {

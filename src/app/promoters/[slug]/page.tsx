@@ -49,8 +49,16 @@ export default function PromoterDetailPage() {
   const now = Date.now()
   const upcomingEvents = events
     .filter((e) => {
-      const pid = e.extendedProps.promoterId || e.extendedProps.promoterName
-      const matches = pid === promoter?.promoter_id || pid === promoter?.slug || pid === slug
+      const keys = [
+        e.extendedProps.promoterId,
+        e.extendedProps.promoterName,
+        ...(e.extendedProps.promoterIds || []),
+        ...(e.extendedProps.nightActs || []).flatMap((a) => [a.promoterId, a.promoterName]),
+      ].filter(Boolean)
+      const matches = keys.some(
+        (pid) =>
+          pid === promoter?.promoter_id || pid === promoter?.slug || pid === slug || pid === promoter?.name
+      )
       return matches && new Date(e.start).getTime() >= now
     })
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())

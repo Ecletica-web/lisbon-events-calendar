@@ -143,12 +143,23 @@ export async function GET(request: NextRequest) {
     feed.forEach((event) => {
       const r: string[] = []
       const v = norm(event.extendedProps.venueId || event.extendedProps.venueKey || '')
-      const p = norm(event.extendedProps.promoterId || event.extendedProps.promoterName || '')
+      const promoterIds = [
+        event.extendedProps.promoterId,
+        event.extendedProps.promoterName,
+        ...(event.extendedProps.promoterIds || []),
+        ...(event.extendedProps.nightActs || []).flatMap((a) => [a.promoterId, a.promoterName]),
+      ]
+        .filter((s): s is string => !!s)
+        .map(norm)
+        .filter(Boolean)
       if (v && bulk.followedVenueIds.has(v)) r.push('Followed venue')
-      if (p && bulk.followedPromoterIds.has(p)) r.push('Followed promoter')
+      if (promoterIds.some((p) => bulk.followedPromoterIds.has(p))) r.push('Followed promoter')
       if (personaWeights && personaWeights.includeTags?.length) r.push('Matches your vibe')
-      const fc = friendsGoingByEventId.get(event.id)
-      if (fc && fc > 0) r.push(`${fc} friend${fc !== 1 ? 's' : ''} going`)
+      const friendIds = event.extendedProps.mergedEventIds?.length
+        ? event.extendedProps.mergedEventIds
+        : [event.id]
+      const fc = friendIds.reduce((n, id) => n + (friendsGoingByEventId.get(id) || 0), 0)
+      if (fc > 0) r.push(`${fc} friend${fc !== 1 ? 's' : ''} going`)
       if (event.extendedProps.isFree && personaWeights?.prefer_free) r.push('Free event')
       if (event.extendedProps.category && likedCategories.has(event.extendedProps.category.toLowerCase())) {
         r.push('Because you liked similar events')

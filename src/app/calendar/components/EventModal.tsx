@@ -157,7 +157,65 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
             </div>
           )}
 
-          {props.descriptionLong && (
+          {props.nightActs && props.nightActs.length > 1 && (
+            <div>
+              <strong className="text-slate-100 text-xs">
+                Lineup ({props.nightActs.length} acts):
+              </strong>
+              <ul className="mt-1.5 space-y-2">
+                {props.nightActs.map((act) => (
+                  <li
+                    key={act.id}
+                    className="flex gap-2 items-start rounded-md border border-slate-700/50 bg-slate-900/40 p-2"
+                  >
+                    {act.imageUrl && (
+                      <img
+                        src={act.imageUrl}
+                        alt=""
+                        className="w-10 h-10 rounded object-cover flex-shrink-0 border border-slate-700/50"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-slate-200 text-xs font-medium leading-snug">{act.title}</div>
+                      {act.descriptionShort && (
+                        <p className="text-slate-400 text-[11px] mt-0.5 line-clamp-2">{act.descriptionShort}</p>
+                      )}
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                        {act.promoterName && (
+                          <span className="text-[11px] text-slate-500">{act.promoterName}</span>
+                        )}
+                        {act.sourceUrl && (
+                          <a
+                            href={act.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline"
+                          >
+                            Post
+                          </a>
+                        )}
+                        {act.ticketUrl && (
+                          <a
+                            href={act.ticketUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline"
+                          >
+                            Tickets
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {props.descriptionLong && !props.nightActs?.length && (
             <div>
               <strong className="text-slate-100 text-xs">Full Description:</strong>
               <p className="mt-0.5 whitespace-pre-wrap text-slate-300 text-xs">

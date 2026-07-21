@@ -19,12 +19,19 @@ const norm = (s: string | undefined) => (s || '').toLowerCase().trim()
 export function getEventReasons(event: NormalizedEvent, ctx: EventReasonsContext): string[] {
   const reasons: string[] = []
   const venueId = norm(event.extendedProps.venueId || event.extendedProps.venueKey || '')
-  const promoterId = norm(event.extendedProps.promoterId || event.extendedProps.promoterName || '')
+  const promoterCandidates = [
+    event.extendedProps.promoterId,
+    event.extendedProps.promoterName,
+    ...(event.extendedProps.promoterIds || []),
+    ...(event.extendedProps.nightActs || []).flatMap((a) => [a.promoterId, a.promoterName]),
+  ]
+    .map(norm)
+    .filter(Boolean)
 
   if (venueId && ctx.followedVenueIds.has(venueId)) {
     reasons.push('Followed venue')
   }
-  if (promoterId && ctx.followedPromoterIds.has(promoterId)) {
+  if (promoterCandidates.some((id) => ctx.followedPromoterIds.has(id))) {
     reasons.push('Followed promoter')
   }
   if (ctx.friendsGoingCount != null && ctx.friendsGoingCount > 0) {

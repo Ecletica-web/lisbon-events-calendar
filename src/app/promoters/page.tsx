@@ -40,9 +40,16 @@ export default function PromotersPage() {
   const now = Date.now()
   const eventCountByPromoter = new Map<string, number>()
   for (const ev of events) {
-    const pid = ev.extendedProps.promoterId || ev.extendedProps.promoterName
-    if (!pid) continue
-    if (new Date(ev.start).getTime() >= now) {
+    if (new Date(ev.start).getTime() < now) continue
+    const keys = new Set(
+      [
+        ev.extendedProps.promoterId,
+        ev.extendedProps.promoterName,
+        ...(ev.extendedProps.promoterIds || []),
+        ...(ev.extendedProps.nightActs || []).flatMap((a) => [a.promoterId, a.promoterName]),
+      ].filter(Boolean) as string[]
+    )
+    for (const pid of keys) {
       eventCountByPromoter.set(pid, (eventCountByPromoter.get(pid) || 0) + 1)
     }
   }

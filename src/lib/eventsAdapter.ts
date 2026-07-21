@@ -62,6 +62,19 @@ export interface RawEvent {
 /**
  * Normalized event for FullCalendar
  */
+export interface NightAct {
+  id: string
+  title: string
+  start: string
+  end?: string
+  imageUrl?: string
+  sourceUrl?: string
+  ticketUrl?: string
+  promoterId?: string
+  promoterName?: string
+  descriptionShort?: string
+}
+
 export interface NormalizedEvent {
   id: string
   title: string
@@ -292,59 +305,187 @@ function sameVenueNightKey(event: NormalizedEvent): string | null {
 }
 
 /**
- * When several events share a venue + calendar day, they are usually one night / lineup.
- * Attach every distinct post flyer to each sibling so cards can show a multi-image gallery.
+ * When several events share a venue + calendar day, collapse them into one night entry
+ * with pooled flyers and a lineup of the original acts.
  */
-export function enrichSameVenueDayImages(events: NormalizedEvent[]): NormalizedEvent[] {
+export function collapseSameVenueDayEvents(events: NormalizedEvent[]): NormalizedEvent[] {
   const byNight = new Map<string, NormalizedEvent[]>()
+  const ungrouped: NormalizedEvent[] = []
+
   for (const event of events) {
     const key = sameVenueNightKey(event)
-    if (!key) continue
+    if (!key) {
+      ungrouped.push(event)
+      continue
+    }
     if (!byNight.has(key)) byNight.set(key, [])
     byNight.get(key)!.push(event)
   }
 
-  const extras = new Map<string, { imageUrls: string[]; sameVenueDayCount: number }>()
+  const out: NormalizedEvent[] = [...ungrouped]
 
-  for (const group of byNight.values()) {
-    if (group.length < MIN_SAME_VENUE_DAY_EVENTS) continue
-
-    const sorted = [...group].sort(
-      (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
-    )
-    const urls: string[] = []
-    const seen = new Set<string>()
-    for (const ev of sorted) {
-      const url = ev.extendedProps.imageUrl
-      if (url && !seen.has(url)) {
-        seen.add(url)
-        urls.push(url)
-      }
+  for (const [nightKey, group] of byNight) {
+    if (group.length < MIN_SAME_VENUE_DAY_EVENTS) {
+      out.push(...group)
+      continue
     }
-    if (urls.length < 2) continue
+    out.push(mergeVenueNight(nightKey, group))
+  }
 
-    for (const ev of group) {
-      const own = ev.extendedProps.imageUrl
-      const ordered = own ? [own, ...urls.filter((u) => u !== own)] : urls
-      extras.set(ev.id, { imageUrls: ordered, sameVenueDayCount: group.length })
+  return out
+}
+
+function mergeVenueNight(nightKey: string, group: NormalizedEvent[]): NormalizedEvent {
+  const sorted = [...group].sort(
+    (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
+  )
+  const primary = pickNightPrimary(sorted)
+  const venueName = primary.extendedProps.venueName
+
+  const actTitles: string[] = []
+  const titleSeen = new Set<string>()
+  for (const ev of sorted) {
+    const t = ev.title.trim()
+    const k = t.toLowerCase()
+    if (!t || titleSeen.has(k)) continue
+    titleSeen.add(k)
+    actTitles.push(t)
+  }
+
+  const imageUrls: string[] = []
+  const imageSeen = new Set<string>()
+  for (const ev of sorted) {
+    const url = ev.extendedProps.imageUrl
+    if (url && !imageSeen.has(url)) {
+      imageSeen.add(url)
+      imageUrls.push(url)
     }
   }
 
-  if (extras.size === 0) return events
+  const nightActs: NightAct[] = sorted.map((ev) => ({
+    id: ev.id,
+    title: ev.title,
+    start: ev.start,
+    end: ev.end,
+    imageUrl: ev.extendedProps.imageUrl,
+    sourceUrl: ev.extendedProps.sourceUrl,
+    ticketUrl: ev.extendedProps.ticketUrl,
+    promoterId: ev.extendedProps.promoterId,
+    promoterName: ev.extendedProps.promoterName,
+    descriptionShort: ev.extendedProps.descriptionShort,
+  }))
 
-  return events.map((ev) => {
-    const extra = extras.get(ev.id)
-    if (!extra) return ev
-    return {
-      ...ev,
-      extendedProps: {
-        ...ev.extendedProps,
-        imageUrls: extra.imageUrls,
-        sameVenueDayCount: extra.sameVenueDayCount,
-        imageUrl: extra.imageUrls[0] ?? ev.extendedProps.imageUrl,
-      },
+  const tags = Array.from(
+    new Set(sorted.flatMap((ev) => ev.extendedProps.tags || []))
+  )
+  const promoterIds = Array.from(
+    new Set(
+      sorted
+        .map((ev) => ev.extendedProps.promoterId || ev.extendedProps.promoterName)
+        .filter((x): x is string => Boolean(x))
+    )
+  )
+
+  const priceMins = sorted
+    .map((ev) => ev.extendedProps.priceMin)
+    .filter((n): n is number => n != null)
+  const priceMaxes = sorted
+    .map((ev) => ev.extendedProps.priceMax ?? ev.extendedProps.priceMin)
+    .filter((n): n is number => n != null)
+
+  const ends = sorted
+    .map((ev) => ev.end)
+    .filter((x): x is string => Boolean(x))
+    .sort()
+  const latestEnd = ends.length > 0 ? ends[ends.length - 1] : primary.end
+
+  const ticketUrl =
+    sorted.map((ev) => ev.extendedProps.ticketUrl).find(Boolean) ||
+    primary.extendedProps.ticketUrl
+
+  const lineupShort =
+    actTitles.length > 0 ? `Lineup: ${actTitles.join(' · ')}` : undefined
+  const lineupLong = sorted
+    .map((ev) => {
+      const bit = ev.extendedProps.descriptionShort?.trim()
+      return bit ? `• ${ev.title} — ${bit}` : `• ${ev.title}`
+    })
+    .join('\n')
+
+  const categoryCounts = new Map<string, number>()
+  for (const ev of sorted) {
+    const c = ev.extendedProps.category
+    if (!c) continue
+    categoryCounts.set(c, (categoryCounts.get(c) || 0) + 1)
+  }
+  let category = primary.extendedProps.category
+  let bestCat = 0
+  for (const [c, n] of categoryCounts) {
+    if (n > bestCat) {
+      bestCat = n
+      category = c
     }
-  })
+  }
+
+  return {
+    id: `night:${nightKey}`,
+    title: buildNightTitle(venueName, actTitles),
+    start: sorted[0].start,
+    end: latestEnd,
+    allDay: false,
+    extendedProps: {
+      ...primary.extendedProps,
+      descriptionShort: lineupShort || primary.extendedProps.descriptionShort,
+      descriptionLong: lineupLong || primary.extendedProps.descriptionLong,
+      tags,
+      category,
+      priceMin: priceMins.length ? Math.min(...priceMins) : primary.extendedProps.priceMin,
+      priceMax: priceMaxes.length ? Math.max(...priceMaxes) : primary.extendedProps.priceMax,
+      isFree: sorted.every((ev) => ev.extendedProps.isFree),
+      ticketUrl,
+      imageUrl: imageUrls[0] ?? primary.extendedProps.imageUrl,
+      imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+      sameVenueDayCount: group.length,
+      nightActs,
+      mergedEventIds: sorted.map((ev) => ev.id),
+      promoterIds,
+      promoterId: primary.extendedProps.promoterId || promoterIds[0],
+      promoterName: primary.extendedProps.promoterName,
+      opensAt: sorted[0].extendedProps.opensAt ?? primary.extendedProps.opensAt,
+      confidenceScore: Math.max(
+        ...sorted.map((ev) => ev.extendedProps.confidenceScore ?? 0)
+      ),
+    },
+  }
+}
+
+function pickNightPrimary(sortedByStart: NormalizedEvent[]): NormalizedEvent {
+  return sortedByStart.reduce((best, ev) => {
+    const score = (e: NormalizedEvent) =>
+      (e.extendedProps.imageUrl ? 2 : 0) +
+      (e.extendedProps.ticketUrl ? 1 : 0) +
+      (e.extendedProps.confidenceScore ?? 0)
+    return score(ev) > score(best) ? ev : best
+  }, sortedByStart[0])
+}
+
+function buildNightTitle(venueName: string | undefined, actTitles: string[]): string {
+  const venue = (venueName || '').trim()
+  if (actTitles.length === 0) return venue || 'Venue night'
+  if (actTitles.length === 1) {
+    return venue ? `${venue}: ${actTitles[0]}` : actTitles[0]
+  }
+  if (actTitles.length === 2) {
+    const lineup = actTitles.join(' · ')
+    return venue ? `${venue}: ${lineup}` : lineup
+  }
+  const head = `${actTitles[0]} · ${actTitles[1]} +${actTitles.length - 2}`
+  return venue ? `${venue}: ${head}` : head
+}
+
+/** @deprecated Use collapseSameVenueDayEvents — kept as alias for any external imports. */
+export function enrichSameVenueDayImages(events: NormalizedEvent[]): NormalizedEvent[] {
+  return collapseSameVenueDayEvents(events)
 }
 
 const EVENTS_CACHE_TAG = 'events'
@@ -386,11 +527,11 @@ async function fetchEventsFromSource(): Promise<NormalizedEvent[]> {
   const normalized = listingEvents.map(eventToNormalizedEvent)
   const promoters = await loadPromoters(process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL)
   const withLinks = enrichEventsWithVenuePromoterLinks(normalized, venues, promoters)
-  // Share flyer images across same-venue same-day siblings before capping,
-  // so images from capped-out posts still appear on remaining cards.
-  const withNightImages = enrichSameVenueDayImages(withLinks)
+  // Collapse same-venue same-day posts into one night entry (pooled flyers + lineup)
+  // before capping, so sibling images/acts aren't lost to the per-venue limit.
+  const collapsed = collapseSameVenueDayEvents(withLinks)
 
-  const capped = capEventsPerVenue(withNightImages, MAX_EVENTS_PER_VENUE)
+  const capped = capEventsPerVenue(collapsed, MAX_EVENTS_PER_VENUE)
   return capped.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 }
 
@@ -455,7 +596,7 @@ export async function fetchAllEventsForDetail(): Promise<NormalizedEvent[]> {
   const venueIndex = buildVenueIndex(venues)
   const { events } = await loadEvents(csvUrl, venueIndex, allowedEventTags)
   const visible = events.filter((e) => e.status !== 'draft')
-  return enrichSameVenueDayImages(visible.map(eventToNormalizedEvent)).sort(
+  return collapseSameVenueDayEvents(visible.map(eventToNormalizedEvent)).sort(
     (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
   )
 }
@@ -546,10 +687,14 @@ export function filterEvents(
   } = options
 
   if (collectionEventIds && collectionEventIds.size > 0) {
-    filtered = filtered.filter((e) => collectionEventIds.has(e.id))
+    filtered = filtered.filter(
+      (e) =>
+        collectionEventIds.has(e.id) ||
+        e.extendedProps.mergedEventIds?.some((id) => collectionEventIds.has(id))
+    )
   }
 
-  // Text search (title, venue, tags, category)
+  // Text search (title, venue, tags, category, lineup acts)
   if (searchQuery.trim()) {
     const query = searchQuery.toLowerCase().trim()
     filtered = filtered.filter((event) => {
@@ -559,7 +704,10 @@ export function filterEvents(
         tag.includes(query)
       )
       const categoryMatch = event.extendedProps.category?.includes(query)
-      return titleMatch || venueMatch || tagsMatch || categoryMatch
+      const actMatch = event.extendedProps.nightActs?.some((a) =>
+        a.title.toLowerCase().includes(query)
+      )
+      return titleMatch || venueMatch || tagsMatch || categoryMatch || actMatch
     })
   }
 
@@ -573,11 +721,18 @@ export function filterEvents(
     })
   }
 
-  // Promoter filtering (OR logic)
+  // Promoter filtering (OR logic) — includes promoters on collapsed night acts
   if (selectedPromoters.length > 0) {
     filtered = filtered.filter((event) => {
-      const pid = event.extendedProps.promoterId || event.extendedProps.promoterName
-      return pid && selectedPromoters.includes(pid)
+      const ids = [
+        event.extendedProps.promoterId,
+        event.extendedProps.promoterName,
+        ...(event.extendedProps.promoterIds || []),
+        ...(event.extendedProps.nightActs || []).flatMap((a) =>
+          [a.promoterId, a.promoterName].filter(Boolean)
+        ),
+      ].filter(Boolean) as string[]
+      return ids.some((id) => selectedPromoters.includes(id))
     })
   }
 
@@ -697,8 +852,12 @@ export async function fetchVenues(): Promise<VenueForDisplay[]> {
  * Fetch promoters for /promoters page.
  */
 export async function fetchPromoters(): Promise<Promoter[]> {
-  const promoters = await loadPromoters(process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL)
-  return promoters.map((p) => ({
+  const [promoters, imageByHandle] = await Promise.all([
+    loadPromoters(process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL),
+    loadVenueProfileImageMap(),
+  ])
+  const withImages = mergeVenueProfileImages(promoters, imageByHandle)
+  return withImages.map((p) => ({
     ...p,
     primary_image_url: sanitizeImageUrl(p.primary_image_url),
   }))
@@ -783,9 +942,18 @@ export interface PromoterOption {
 export function getAllPromoters(events: NormalizedEvent[]): PromoterOption[] {
   const seen = new Map<string, string>()
   for (const e of events) {
-    const id = e.extendedProps.promoterId || e.extendedProps.promoterName
-    const name = e.extendedProps.promoterName || id
-    if (id && !seen.has(id)) seen.set(id, name || id)
+    const entries: { id?: string; name?: string }[] = [
+      { id: e.extendedProps.promoterId || e.extendedProps.promoterName, name: e.extendedProps.promoterName },
+      ...(e.extendedProps.nightActs || []).map((a) => ({
+        id: a.promoterId || a.promoterName,
+        name: a.promoterName,
+      })),
+    ]
+    for (const entry of entries) {
+      const id = entry.id
+      if (!id || seen.has(id)) continue
+      seen.set(id, entry.name || id)
+    }
   }
   return Array.from(seen.entries())
     .map(([id, name]) => ({ id, name }))
