@@ -23,6 +23,8 @@ interface SupabaseAuthContextValue {
   signUp: (email: string, password: string, name?: string) => Promise<{ error?: string }>
   signIn: (email: string, password: string) => Promise<{ error?: string }>
   signInWithOAuth: (provider: 'google' | 'facebook') => Promise<{ error?: string }>
+  resetPassword: (email: string) => Promise<{ error?: string }>
+  updatePassword: (password: string) => Promise<{ error?: string }>
   signOut: () => Promise<void>
   isConfigured: boolean
 }
@@ -109,7 +111,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       if (!supabase) return { error: 'Auth not configured' }
       const redirectTo =
         typeof window !== 'undefined'
-          ? `${window.location.origin}/profile`
+          ? `${window.location.origin}/auth/callback?next=/profile`
           : undefined
       const { error } = await supabase.auth.signInWithOAuth({
         provider: provider === 'facebook' ? 'facebook' : 'google',
@@ -120,12 +122,32 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     []
   )
 
+  const resetPassword = useCallback(async (email: string) => {
+    if (!supabase) return { error: 'Auth not configured' }
+    const redirectTo =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/callback?next=/update-password`
+        : undefined
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo,
+    })
+    return { error: error?.message }
+  }, [])
+
+  const updatePassword = useCallback(async (password: string) => {
+    if (!supabase) return { error: 'Auth not configured' }
+    const { error } = await supabase.auth.updateUser({ password })
+    return { error: error?.message }
+  }, [])
+
   const value: SupabaseAuthContextValue = {
     user,
     loading,
     signUp,
     signIn,
     signInWithOAuth,
+    resetPassword,
+    updatePassword,
     signOut,
     isConfigured,
   }
