@@ -69,6 +69,18 @@ function getClient(): ApifyClient {
   return client
 }
 
+/**
+ * Apify onlyPostsNewerThan accepts ISO-8601 ending in optional Z, or relative strings
+ * like "14 days". Postgres often returns "+00:00" which Apify rejects — normalize to Z.
+ */
+export function toApifyOnlyPostsNewerThan(value: string): string {
+  const trimmed = value.trim()
+  if (/^\d+\s*(minute|hour|day|week|month|year)s?$/i.test(trimmed)) return trimmed
+  const ms = Date.parse(trimmed)
+  if (!Number.isFinite(ms)) return trimmed
+  return new Date(ms).toISOString()
+}
+
 export function buildInstagramApifyInput(options: InstagramScrapeOptions): Record<string, unknown> {
   const cfg = getConfig()
   const uniqueHandles = [
@@ -82,7 +94,7 @@ export function buildInstagramApifyInput(options: InstagramScrapeOptions): Recor
     proxy: { useApifyProxy: true },
   }
   if (options.onlyPostsNewerThan) {
-    input.onlyPostsNewerThan = options.onlyPostsNewerThan
+    input.onlyPostsNewerThan = toApifyOnlyPostsNewerThan(options.onlyPostsNewerThan)
   }
   return input
 }

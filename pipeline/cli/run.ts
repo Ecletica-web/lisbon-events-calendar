@@ -110,8 +110,10 @@ export async function resolveOnlyPostsNewerThan(
 
   const candidates = [lastScrapeAt, maxAgeCutoff].filter(Boolean) as string[]
   if (candidates.length === 0) return {}
-  // Later timestamp = stricter (fewer older posts)
-  const cutoff = candidates.sort().at(-1)
+  // Later timestamp = stricter (fewer older posts). Normalize to Z for Apify.
+  const raw = candidates.sort().at(-1)!
+  const ms = Date.parse(raw)
+  const cutoff = Number.isFinite(ms) ? new Date(ms).toISOString() : raw
   return { cutoff, lastScrapeAt, maxAgeCutoff }
 }
 
