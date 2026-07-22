@@ -54,6 +54,7 @@ import {
   readPendingPipelinePosts,
   readVerifiedEventIdsFromStore,
   requeuePipelinePosts,
+  requeuePipelinePostsBySourceEventIds,
   updatePipelineRun,
   upsertPipelinePosts,
   type ProcessingStatus,
@@ -346,8 +347,7 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
     rows = usable
     await logRun(
       flags,
-      `[scrape] analyze-apify-batch ON — upserting ${rows.length} post(s) as status=new` +
-        ` (${alreadyKnown} were already known; will re-run extract/AI)`
+      `[scrape] analyze-apify-batch ON — ${rows.length} post(s) (${alreadyKnown} already known → status reset; ${rows.length - alreadyKnown} new → insert)`
     )
   } else {
     rows = usable.filter((r) => !existingIds.has(r.source_event_id))
@@ -367,7 +367,12 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
     )
   }
 
-  for (const row of rows) {
+  const knownRows = rows.filter((r) => existingIds.has(r.source_event_id))
+  const newRows = rows.filter((r) => !existingIds.has(r.source_event_id))
+
+  // Archive images only for new posts (re-archiving hundreds of known ones is slow)
+  for (let i = 0; i < newRows.length; i++) {
+    const row = newRows[i]
     if (!flags.dryRun && row.displayUrl && cfg.EVENT_IMPORT_API_KEY) {
       const archived = await archiveImage(row.displayUrl, `raw_${row.shortCode || row.id}`)
       if (archived) {
@@ -379,9 +384,25 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
         row.image_error = 'persist_image_failed'
       }
     }
+    if (newRows.length > 40 && (i + 1) % 40 === 0) {
+      await logRun(flags, `[scrape] archived images ${i + 1}/${newRows.length}`)
+    }
   }
 
-  const { written } = await upsertPipelinePosts(rows, flags.dryRun)
+  let written = 0
+  if (knownRows.length > 0) {
+    const n = await requeuePipelinePostsBySourceEventIds(
+      knownRows.map((r) => r.source_event_id),
+      flags.dryRun
+    )
+    written += n
+    await logRun(flags, `[scrape] reset ${n} already-known post(s) to status=new`)
+  }
+  if (newRows.length > 0) {
+    await logRun(flags, `[scrape] upserting ${newRows.length} new post(s) in chunks…`)
+    const result = await upsertPipelinePosts(newRows, flags.dryRun)
+    written += result.written
+  }
   stats.posts_scraped = items.length
   stats.new_rows = written
   stats.already_known = alreadyKnown

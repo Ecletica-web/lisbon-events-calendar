@@ -120,16 +120,63 @@ export async function upsertPipelinePosts(
 
   const sb = getSupabaseStore()
   const payload = rows.map(rawRowToDb)
-  const { data, error } = await sb
-    .from('pipeline_posts')
-    .upsert(payload, { onConflict: 'source_event_id' })
-    .select('id, source_event_id')
+  // Large batches (analyze-apify-batch) time out as one statement — chunk upserts.
+  // Keep chunks small: rows include raw_json and can be multi‑MB total.
+  const CHUNK = 25
+  let written = 0
+  for (let i = 0; i < payload.length; i += CHUNK) {
+    const chunk = payload.slice(i, i + CHUNK)
+    const { data, error } = await sb
+      .from('pipeline_posts')
+      .upsert(chunk, { onConflict: 'source_event_id' })
+      .select('id, source_event_id')
 
-  if (error) throw new Error(`pipeline_posts upsert failed: ${error.message}`)
-  for (const row of data ?? []) {
-    idsBySourceEventId.set(row.source_event_id, row.id)
+    if (error) {
+      throw new Error(
+        `pipeline_posts upsert failed (chunk ${i / CHUNK + 1}/${Math.ceil(payload.length / CHUNK)}, size=${chunk.length}): ${error.message}`
+      )
+    }
+    for (const row of data ?? []) {
+      idsBySourceEventId.set(row.source_event_id, row.id)
+    }
+    written += data?.length ?? chunk.length
+    if (payload.length > CHUNK) {
+      console.log(
+        `[supabase] upserted pipeline_posts ${Math.min(i + CHUNK, payload.length)}/${payload.length}`
+      )
+    }
   }
-  return { written: data?.length ?? 0, idsBySourceEventId }
+  return { written, idsBySourceEventId }
+}
+
+/**
+ * Fast path for analyze-apify-batch: set status=new on existing posts by source_event_id
+ * without rewriting full row payloads (avoids timeouts on large reloads).
+ */
+export async function requeuePipelinePostsBySourceEventIds(
+  sourceEventIds: string[],
+  dryRun = false
+): Promise<number> {
+  if (sourceEventIds.length === 0 || dryRun || !isSupabaseStoreConfigured()) {
+    return dryRun ? sourceEventIds.length : 0
+  }
+  const sb = getSupabaseStore()
+  const unique = [...new Set(sourceEventIds.filter(Boolean))]
+  const CHUNK = 100
+  let updated = 0
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const chunk = unique.slice(i, i + CHUNK)
+    const { data, error } = await sb
+      .from('pipeline_posts')
+      .update({ processing_status: 'new', updated_at: new Date().toISOString() })
+      .in('source_event_id', chunk)
+      .select('id')
+    if (error) {
+      throw new Error(`requeue by source_event_id failed: ${error.message}`)
+    }
+    updated += data?.length ?? 0
+  }
+  return updated
 }
 
 export async function readExistingPipelineSourceIds(): Promise<Set<string>> {
