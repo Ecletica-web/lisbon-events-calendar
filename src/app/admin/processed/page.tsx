@@ -10,8 +10,11 @@ export default function AdminProcessedPage() {
   const [columns, setColumns] = useState<string[]>([...PROCESSED_EVENTS_COLUMNS])
   const [rows, setRows] = useState<Record<string, string>[]>([])
   const [sheetsUrl, setSheetsUrl] = useState<string | null>(null)
+  const [canPublish, setCanPublish] = useState(false)
   const [q, setQ] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [publishing, setPublishing] = useState(false)
 
   const load = useCallback(async () => {
     const headers = await getAuthHeaders()
@@ -21,17 +24,41 @@ export default function AdminProcessedPage() {
       setError(j.error || res.statusText)
       setColumns(Array.isArray(j.columns) ? j.columns : [...PROCESSED_EVENTS_COLUMNS])
       setRows([])
+      setCanPublish(false)
       return
     }
     setColumns(Array.isArray(j.columns) && j.columns.length ? j.columns : [...PROCESSED_EVENTS_COLUMNS])
     setRows(j.rows || [])
     setSheetsUrl(j.sheetsUrl || null)
+    setCanPublish(Boolean(j.canPublish))
     setError(null)
   }, [getAuthHeaders])
 
   useEffect(() => {
     if (isAdmin) void load()
   }, [isAdmin, load])
+
+  const publish = useCallback(async () => {
+    if (publishing) return
+    setPublishing(true)
+    setMessage(null)
+    setError(null)
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/processed', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || res.statusText)
+      setMessage(j.message || `Published ${j.published ?? 0} event(s)`)
+      await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Publish failed')
+    } finally {
+      setPublishing(false)
+    }
+  }, [getAuthHeaders, load, publishing])
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -49,17 +76,30 @@ export default function AdminProcessedPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap gap-3 items-center justify-between">
         <p className="text-sm text-slate-400">
-          Read-only view of the <strong className="text-slate-200">Processed Events</strong> Google
-          Sheet (same columns as Sheets). Edit events directly in Sheets when venues request
-          changes.
+          Staging sheet: <strong className="text-slate-200">Processed Events</strong>. Publish copies
+          novel rows to <strong className="text-slate-200">Events Clean New</strong> (live calendar
+          CSV).
         </p>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           <button
             type="button"
             onClick={() => void load()}
             className="text-sm text-indigo-400 hover:underline"
           >
             Refresh
+          </button>
+          <button
+            type="button"
+            onClick={() => void publish()}
+            disabled={!canPublish || publishing}
+            title={
+              canPublish
+                ? 'Copy novel Processed rows → Events Clean New'
+                : 'Configure GOOGLE_SHEETS_ID + service account on the server'
+            }
+            className="px-4 py-2 rounded bg-emerald-600 text-white text-sm hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {publishing ? 'Publishing…' : 'Publish to calendar'}
           </button>
           {sheetsUrl && (
             <a
@@ -81,7 +121,14 @@ export default function AdminProcessedPage() {
         onChange={(e) => setQ(e.target.value)}
       />
 
+      {message && <p className="text-emerald-400 text-sm">{message}</p>}
       {error && <p className="text-red-400 text-sm">{error}</p>}
+      {!canPublish && !error && (
+        <p className="text-amber-400/90 text-sm">
+          Publish needs Sheets write credentials on the server (GOOGLE_SHEETS_ID +
+          GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON).
+        </p>
+      )}
 
       <AdminSheetTable
         columns={columns}

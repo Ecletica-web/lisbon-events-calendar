@@ -326,6 +326,11 @@ export async function appendEventsCleanToSheets(row: Record<string, string>): Pr
 }
 
 async function appendRowToTab(tabName: string, row: Record<string, string>): Promise<void> {
+  await appendRowsToTab(tabName, [row])
+}
+
+async function appendRowsToTab(tabName: string, rows: Record<string, string>[]): Promise<number> {
+  if (rows.length === 0) return 0
   const api = await getSheets()
   const existing = await api.spreadsheets.values.get({
     spreadsheetId: spreadsheetId(),
@@ -341,7 +346,7 @@ async function appendRowToTab(tabName: string, row: Record<string, string>): Pro
       requestBody: { values: [header] },
     })
   }
-  const values = [header.map((col) => row[col] ?? '')]
+  const values = rows.map((row) => header.map((col) => row[col] ?? ''))
   await api.spreadsheets.values.append({
     spreadsheetId: spreadsheetId(),
     range: `'${tabName}'`,
@@ -349,4 +354,64 @@ async function appendRowToTab(tabName: string, row: Record<string, string>): Pro
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values },
   })
+  return rows.length
+}
+
+export interface PublishProcessedResult {
+  processed: number
+  alreadyPublished: number
+  published: number
+  skippedEmpty: number
+}
+
+/**
+ * Copy novel rows from Processed Events → Events Clean New (live calendar).
+ * Dedupes by event_id, fingerprint, and source_url.
+ */
+export async function publishProcessedToEventsClean(): Promise<PublishProcessedResult> {
+  if (!isAppSheetsWriteConfigured()) {
+    throw new Error('Sheets write not configured — set GOOGLE_SHEETS_ID + GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON')
+  }
+
+  const processed = await readTab(TAB_PROCESSED)
+  const clean = await readTab(TAB_EVENTS_CLEAN)
+
+  const existingIds = new Set(clean.rows.map((r) => (r.event_id ?? '').trim()).filter(Boolean))
+  const existingFingerprints = new Set(
+    clean.rows.map((r) => (r.fingerprint ?? '').trim()).filter(Boolean)
+  )
+  const existingSourceUrls = new Set(
+    clean.rows.map((r) => (r.source_url ?? '').trim()).filter(Boolean)
+  )
+
+  let skippedEmpty = 0
+  const novel: Record<string, string>[] = []
+  for (const row of processed.rows) {
+    const eventId = (row.event_id ?? '').trim()
+    const fingerprint = (row.fingerprint ?? '').trim()
+    const sourceUrl = (row.source_url ?? '').trim()
+    if (!eventId && !fingerprint && !sourceUrl) {
+      skippedEmpty++
+      continue
+    }
+    if (
+      (eventId && existingIds.has(eventId)) ||
+      (fingerprint && existingFingerprints.has(fingerprint)) ||
+      (sourceUrl && existingSourceUrls.has(sourceUrl))
+    ) {
+      continue
+    }
+    novel.push(row)
+    if (eventId) existingIds.add(eventId)
+    if (fingerprint) existingFingerprints.add(fingerprint)
+    if (sourceUrl) existingSourceUrls.add(sourceUrl)
+  }
+
+  const published = await appendRowsToTab(TAB_EVENTS_CLEAN, novel)
+  return {
+    processed: processed.rows.length,
+    alreadyPublished: processed.rows.length - novel.length - skippedEmpty,
+    published,
+    skippedEmpty,
+  }
 }
