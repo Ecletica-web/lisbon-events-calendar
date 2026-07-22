@@ -179,9 +179,10 @@ During **`profile-images`**, the pipeline fetches Instagram profile pics for Fon
 ## Validation reason codes
 
 `missing_title` / `missing_or_invalid_start_datetime` → **fail**;
-`missing_venue_name_raw`, `venue_unresolved`, `low_confidence`,
+`missing_venue_name_raw`, `low_confidence`,
 `program_undersplit`, `online_verification_*` → **review**.
-Past start datetimes are allowed (no longer `past_event` → review).
+Past start datetimes and unresolved venue IDs are allowed (publish with `venue_name_raw` / IG handle).
+Canonical venue match is best-effort and no longer blocks auto-publish.
 
 ## Key modules
 

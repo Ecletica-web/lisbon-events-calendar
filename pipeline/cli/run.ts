@@ -474,7 +474,7 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
   if (keptRows.length === 0 && allNeedsReview.length > 0) {
     await logRun(
       flags,
-      `[extract] WHY 0 Processed: all candidates failed soft checks (e.g. venue_unresolved) → Review queue. Fix Venues sheet handles/names to auto-publish.`
+      `[extract] WHY 0 Processed: candidates failed soft checks (missing venue name, low confidence, program undersplit, …) → Review. Title+datetime+venue string auto-publish even if venue_id unmatched.`
     )
   } else if (keptRows.length === 0 && allNeedsReview.length === 0 && discarded > 0) {
     await logRun(flags, `[extract] WHY 0 Processed: all posts discarded (hard fail / no events).`)

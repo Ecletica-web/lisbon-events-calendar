@@ -250,8 +250,13 @@ export async function processPost(
   for (let i = 0; i < merged.length; i++) {
     const event = merged[i]
     const venue = await resolveEventVenue(event.venue_name_raw, row.location_name, row.owner_username)
-    // Auto-fill venue_name_raw from IG location when the model found none
-    if (!event.venue_name_raw && venue.venue_name_raw) event.venue_name_raw = venue.venue_name_raw
+    // Auto-fill venue_name_raw from IG location / resolution, then owner handle
+    if (!event.venue_name_raw?.trim() && venue.venue_name_raw) {
+      event.venue_name_raw = venue.venue_name_raw
+    }
+    if (!event.venue_name_raw?.trim() && row.owner_username?.trim()) {
+      event.venue_name_raw = row.owner_username.replace(/^@/, '').trim()
+    }
 
     const validation = validateEvent(event, {
       post_pattern: postPattern,
@@ -272,7 +277,16 @@ export async function processPost(
       continue
     }
 
-    const fingerprint = computeFingerprint(event.title, event.start_datetime!, venue.resolved ? venue.venue_id : 'unknown')
+    const displayVenueName =
+      (venue.resolved ? venue.venue_name : '') ||
+      event.venue_name_raw?.trim() ||
+      row.owner_username?.replace(/^@/, '') ||
+      ''
+    const fingerprint = computeFingerprint(
+      event.title,
+      event.start_datetime!,
+      venue.resolved ? venue.venue_id : displayVenueName || 'unknown'
+    )
     const timestamp = nowIso()
     processed.push({
       event_id: makeEventId(row, i),
@@ -292,7 +306,7 @@ export async function processPost(
       is_all_day: 'false',
       status: 'scheduled',
       venue_id: venue.resolved ? venue.venue_id : '',
-      venue_name: venue.resolved ? venue.venue_name : '',
+      venue_name: displayVenueName,
       venue_name_raw: event.venue_name_raw ?? '',
       venue_address: '',
       neighborhood: '',

@@ -1,6 +1,9 @@
 /**
  * Rule validation with pipe-separated reason codes.
  * Routing: pass → Processed Events (status scheduled); review/fail → Needs_Review.
+ *
+ * Venue canonical match is best-effort: unresolved venues still auto-publish when
+ * title + start + a venue string exist (raw name / IG handle shown on the event).
  */
 
 import type { ExtractedEvent, PostPattern, ValidationResult } from '../types'
@@ -13,6 +16,7 @@ export const REASON = {
   LOW_CONFIDENCE: 'low_confidence',
   PAST_EVENT: 'past_event',
   PROGRAM_UNDERSPLIT: 'program_undersplit',
+  /** Informational only — does not block auto-publish */
   VENUE_UNRESOLVED: 'venue_unresolved',
 } as const
 
@@ -42,7 +46,7 @@ export function validateEvent(event: ExtractedEvent, ctx: ValidateContext): Vali
   // Past start datetimes are allowed (do not push REASON.PAST_EVENT).
 
   if (!event.venue_name_raw?.trim()) reasons.push(REASON.MISSING_VENUE)
-  else if (!ctx.venueResolved) reasons.push(REASON.VENUE_UNRESOLVED)
+  // venue_unresolved: do not block — publish with venue_name_raw / owner handle
 
   if (event.confidence_score < cfg.PIPELINE_PUBLISH_CONFIDENCE_THRESHOLD) {
     reasons.push(REASON.LOW_CONFIDENCE)
@@ -57,7 +61,7 @@ export function validateEvent(event: ExtractedEvent, ctx: ValidateContext): Vali
     reasons.includes(REASON.MISSING_START) || reasons.includes(REASON.MISSING_TITLE)
   if (hardFail) return { status: 'fail', reasons }
 
-  // Soft issues → human review; venue_unresolved alone is review (auto-fill may be wrong)
+  // Soft issues → human review
   if (reasons.length > 0) return { status: 'review', reasons }
 
   return { status: 'pass', reasons: [] }
