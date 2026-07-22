@@ -98,13 +98,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const statusesRaw = Array.isArray(body.statuses)
-      ? body.statuses.map(String)
+    const statusesRaw: string[] = Array.isArray(body.statuses)
+      ? body.statuses.map((s: unknown) => String(s))
       : String(body.statuses || 'processed,needs_review,discarded').split(',')
     const allowed = new Set(['processed', 'needs_review', 'discarded'])
     const statuses = statusesRaw
-      .map((s) => s.trim())
-      .filter((s): s is 'processed' | 'needs_review' | 'discarded' => allowed.has(s))
+      .map((s: string) => s.trim())
+      .filter((s: string): s is 'processed' | 'needs_review' | 'discarded' => allowed.has(s))
 
     const postedSinceDays =
       body.postedSinceDays != null && body.postedSinceDays !== ''
