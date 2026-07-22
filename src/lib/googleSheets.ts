@@ -256,6 +256,7 @@ export async function writeWatchlistToSheets(
 export async function readProcessedFromSheets(limit = 200): Promise<{
   columns: string[]
   rows: Record<string, string>[]
+  total: number
 }> {
   return readNamedTab(TAB_PROCESSED, limit)
 }
@@ -264,6 +265,7 @@ export async function readProcessedFromSheets(limit = 200): Promise<{
 export async function readEventsRawFromSheets(limit = 200): Promise<{
   columns: string[]
   rows: Record<string, string>[]
+  total: number
 }> {
   return readNamedTab('Events_Raw', limit)
 }
@@ -271,6 +273,7 @@ export async function readEventsRawFromSheets(limit = 200): Promise<{
 export async function readNeedsReviewFromSheets(limit = 200): Promise<{
   columns: string[]
   rows: Record<string, string>[]
+  total: number
 }> {
   return readNamedTab('Needs_Review', limit)
 }
@@ -278,7 +281,7 @@ export async function readNeedsReviewFromSheets(limit = 200): Promise<{
 async function readNamedTab(
   tabName: string,
   limit: number
-): Promise<{ columns: string[]; rows: Record<string, string>[] }> {
+): Promise<{ columns: string[]; rows: Record<string, string>[]; total: number }> {
   let header: string[] = []
   let rows: Record<string, string>[] = []
   let apiError: string | null = null
@@ -304,6 +307,7 @@ async function readNamedTab(
 
   if (rows.length === 0 && apiError) throw new Error(apiError)
 
+  const total = rows.length
   // Prefer newest last rows (sheet append order), then reverse for UI
   const sliced = rows.slice(-limit).reverse()
   const columns =
@@ -313,7 +317,7 @@ async function readNamedTab(
         ? Object.keys(sliced[0]).filter((h) => h.trim() !== '')
         : []
 
-  return { columns, rows: sliced }
+  return { columns, rows: sliced, total }
 }
 
 export async function appendProcessedToSheets(row: Record<string, string>): Promise<void> {
@@ -366,7 +370,7 @@ export interface PublishProcessedResult {
 
 /**
  * Copy novel rows from Processed Events → Events Clean New (live calendar).
- * Dedupes by event_id, fingerprint, and source_url.
+ * Dedupes by event_id + fingerprint only (not source_url — multi-event posts share a URL).
  */
 export async function publishProcessedToEventsClean(): Promise<PublishProcessedResult> {
   if (!isAppSheetsWriteConfigured()) {
@@ -380,31 +384,25 @@ export async function publishProcessedToEventsClean(): Promise<PublishProcessedR
   const existingFingerprints = new Set(
     clean.rows.map((r) => (r.fingerprint ?? '').trim()).filter(Boolean)
   )
-  const existingSourceUrls = new Set(
-    clean.rows.map((r) => (r.source_url ?? '').trim()).filter(Boolean)
-  )
 
   let skippedEmpty = 0
   const novel: Record<string, string>[] = []
   for (const row of processed.rows) {
     const eventId = (row.event_id ?? '').trim()
     const fingerprint = (row.fingerprint ?? '').trim()
-    const sourceUrl = (row.source_url ?? '').trim()
-    if (!eventId && !fingerprint && !sourceUrl) {
+    if (!eventId && !fingerprint) {
       skippedEmpty++
       continue
     }
     if (
       (eventId && existingIds.has(eventId)) ||
-      (fingerprint && existingFingerprints.has(fingerprint)) ||
-      (sourceUrl && existingSourceUrls.has(sourceUrl))
+      (fingerprint && existingFingerprints.has(fingerprint))
     ) {
       continue
     }
     novel.push(row)
     if (eventId) existingIds.add(eventId)
     if (fingerprint) existingFingerprints.add(fingerprint)
-    if (sourceUrl) existingSourceUrls.add(sourceUrl)
   }
 
   const published = await appendRowsToTab(TAB_EVENTS_CLEAN, novel)

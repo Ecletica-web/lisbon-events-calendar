@@ -253,25 +253,22 @@ export async function readEventsClean(): Promise<Record<string, string>[]> {
 function eventPublishKeys(row: Record<string, string>): {
   eventId: string
   fingerprint: string
-  sourceUrl: string
 } {
   return {
     eventId: (row.event_id ?? '').trim(),
     fingerprint: (row.fingerprint ?? '').trim(),
-    sourceUrl: (row.source_url ?? '').trim(),
   }
 }
 
 function isAlreadyPublished(
   row: Record<string, string>,
   existingIds: Set<string>,
-  existingFingerprints: Set<string>,
-  existingSourceUrls: Set<string>
+  existingFingerprints: Set<string>
 ): boolean {
-  const { eventId, fingerprint, sourceUrl } = eventPublishKeys(row)
+  const { eventId, fingerprint } = eventPublishKeys(row)
   if (eventId && existingIds.has(eventId)) return true
   if (fingerprint && existingFingerprints.has(fingerprint)) return true
-  if (sourceUrl && existingSourceUrls.has(sourceUrl)) return true
+  // Do NOT dedupe by source_url — one IG post can yield many events (_0,_1,_2).
   return false
 }
 
@@ -284,7 +281,8 @@ export interface PublishToCleanResult {
 
 /**
  * Copy novel rows from Processed Events → Events Clean New (site calendar source).
- * Dedupes by event_id, fingerprint, and source_url. Does not delete from Processed.
+ * Dedupes by event_id + fingerprint only (not source_url — multi-event posts share a URL).
+ * Does not delete from Processed.
  */
 export async function publishProcessedToEventsClean(options?: {
   dryRun?: boolean
@@ -299,25 +297,21 @@ export async function publishProcessedToEventsClean(options?: {
   const existingFingerprints = new Set(
     clean.map((r) => (r.fingerprint ?? '').trim()).filter(Boolean)
   )
-  const existingSourceUrls = new Set(
-    clean.map((r) => (r.source_url ?? '').trim()).filter(Boolean)
-  )
 
   let skippedEmpty = 0
   const novel: Record<string, string>[] = []
   for (const row of processed) {
-    const { eventId, fingerprint, sourceUrl } = eventPublishKeys(row)
-    if (!eventId && !fingerprint && !sourceUrl) {
+    const { eventId, fingerprint } = eventPublishKeys(row)
+    if (!eventId && !fingerprint) {
       skippedEmpty++
       continue
     }
-    if (isAlreadyPublished(row, existingIds, existingFingerprints, existingSourceUrls)) {
+    if (isAlreadyPublished(row, existingIds, existingFingerprints)) {
       continue
     }
     novel.push(row)
     if (eventId) existingIds.add(eventId)
     if (fingerprint) existingFingerprints.add(fingerprint)
-    if (sourceUrl) existingSourceUrls.add(sourceUrl)
   }
 
   const alreadyPublished = processed.length - novel.length - skippedEmpty

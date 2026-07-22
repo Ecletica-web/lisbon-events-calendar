@@ -27,6 +27,7 @@ import {
   needsHumanReview,
   toVerificationLogRow,
   verifyProcessedEvent,
+  isVerifyQuotaError,
 } from '../intelligence/event-verification'
 import type { EventsRawRow, NeedsReviewRow, ProcessedEventRow } from '../types'
 import {
@@ -787,6 +788,14 @@ export async function commandVerify(
         flags,
         `  - ${event.event_id}: verify error: ${err instanceof Error ? err.message : err}`
       )
+      if (isVerifyQuotaError(err)) {
+        aborted = true
+        await logRun(
+          flags,
+          `[verify] OpenAI quota/billing exhausted — aborting remaining ${Math.max(0, pending.length - logRows.length)} event(s). Top up billing or use --skip-verify / Brave search.`
+        )
+        break
+      }
     }
   }
 
@@ -797,12 +806,19 @@ export async function commandVerify(
 
   await logRun(
     flags,
-    `[verify] done: clean_verified=${verified} queued_for_human=${queuedForHuman} logged=${logRows.length}`
+    `[verify] done: clean_verified=${verified} queued_for_human=${queuedForHuman} logged=${logRows.length}` +
+      (aborted ? ' (aborted early)' : '')
   )
-  if (aborted && flags.runId) {
+  // Only throw PipelineAbortedError for explicit user abort, not quota stop
+  if (aborted && flags.runId && (await isAbortRequested(flags.runId))) {
     throw new PipelineAbortedError(flags.runId)
   }
-  return { verified, queued_for_human: queuedForHuman, logged: logRows.length }
+  return {
+    verified,
+    queued_for_human: queuedForHuman,
+    logged: logRows.length,
+    aborted: aborted || undefined,
+  }
 }
 
 /** Processed Events (staging) → Events Clean New (live calendar CSV). */

@@ -17,6 +17,20 @@ import { extractJson, textChatJson } from './vision-client'
 
 export type VerificationVerdict = 'verified' | 'disputed' | 'not_found' | 'inconclusive'
 
+/** Thrown when OpenAI (or search) refuses further calls — abort the verify loop. */
+export class VerifyQuotaError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'VerifyQuotaError'
+  }
+}
+
+export function isVerifyQuotaError(err: unknown): boolean {
+  if (err instanceof VerifyQuotaError) return true
+  const msg = err instanceof Error ? err.message : String(err)
+  return /insufficient_quota|exceeded your current quota|billing_not_active|402\b/i.test(msg)
+}
+
 export interface SuggestedCorrections {
   title?: string
   start_datetime?: string
@@ -184,7 +198,14 @@ async function openaiWebReview(event: ProcessedEventRow): Promise<{ text: string
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')
-    throw new Error(`OpenAI web verify failed ${res.status}: ${body.slice(0, 300)}`)
+    const msg = `OpenAI web verify failed ${res.status}: ${body.slice(0, 300)}`
+    if (
+      res.status === 429 &&
+      /insufficient_quota|exceeded your current quota|billing/i.test(body)
+    ) {
+      throw new VerifyQuotaError(msg)
+    }
+    throw new Error(msg)
   }
 
   const data = (await res.json()) as {

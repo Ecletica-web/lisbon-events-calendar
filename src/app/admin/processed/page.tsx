@@ -9,6 +9,7 @@ export default function AdminProcessedPage() {
   const { getAuthHeaders, isAdmin } = useAdminAuthHeaders()
   const [columns, setColumns] = useState<string[]>([...PROCESSED_EVENTS_COLUMNS])
   const [rows, setRows] = useState<Record<string, string>[]>([])
+  const [total, setTotal] = useState(0)
   const [sheetsUrl, setSheetsUrl] = useState<string | null>(null)
   const [canPublish, setCanPublish] = useState(false)
   const [q, setQ] = useState('')
@@ -18,17 +19,19 @@ export default function AdminProcessedPage() {
 
   const load = useCallback(async () => {
     const headers = await getAuthHeaders()
-    const res = await fetch('/api/admin/processed?limit=150', { headers })
+    const res = await fetch('/api/admin/processed?limit=5000', { headers })
     const j = await res.json().catch(() => ({}))
     if (!res.ok) {
       setError(j.error || res.statusText)
       setColumns(Array.isArray(j.columns) ? j.columns : [...PROCESSED_EVENTS_COLUMNS])
       setRows([])
+      setTotal(0)
       setCanPublish(false)
       return
     }
     setColumns(Array.isArray(j.columns) && j.columns.length ? j.columns : [...PROCESSED_EVENTS_COLUMNS])
     setRows(j.rows || [])
+    setTotal(typeof j.total === 'number' ? j.total : (j.rows || []).length)
     setSheetsUrl(j.sheetsUrl || null)
     setCanPublish(Boolean(j.canPublish))
     setError(null)
@@ -136,7 +139,9 @@ export default function AdminProcessedPage() {
         rowKey={(r, i) => r.event_id || String(i)}
       />
       <p className="text-xs text-slate-500">
-        {filtered.length} row(s) · {columns.length} columns
+        {filtered.length === rows.length
+          ? `${total} row(s) in Processed Events · ${columns.length} columns`
+          : `Showing ${filtered.length} of ${total} (search filter) · ${columns.length} columns`}
       </p>
     </div>
   )

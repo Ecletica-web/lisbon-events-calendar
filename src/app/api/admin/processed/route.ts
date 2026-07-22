@@ -28,12 +28,15 @@ export async function GET(request: NextRequest) {
     )
   }
   try {
-    const limit = Number(new URL(request.url).searchParams.get('limit') || 150)
-    const { columns, rows } = await readProcessedFromSheets(limit)
+    // Default high enough for full staging sheet; ?limit= still available if needed.
+    const limit = Number(new URL(request.url).searchParams.get('limit') || 5000)
+    const { columns, rows, total } = await readProcessedFromSheets(limit)
     const cols = columns.length > 0 ? columns : [...PROCESSED_EVENTS_COLUMNS]
     return NextResponse.json({
       columns: cols,
       rows: projectRows(rows, cols),
+      total,
+      shown: rows.length,
       sheetsUrl: getSheetsEditUrl(),
       canPublish: isAppSheetsWriteConfigured(),
     })
