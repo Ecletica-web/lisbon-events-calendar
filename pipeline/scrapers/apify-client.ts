@@ -119,6 +119,15 @@ async function runActor(
   return { apifyRunId: run.id, items: items as ApifyInstagramItem[] }
 }
 
+/** Reload items from an existing Apify actor run (dataset still available). */
+export async function fetchApifyRunItems(apifyRunId: string): Promise<ApifyRunResult> {
+  const run = await getClient().run(apifyRunId).get()
+  if (!run) throw new Error(`Apify run not found: ${apifyRunId}`)
+  if (!run.defaultDatasetId) throw new Error(`Apify run ${apifyRunId} has no dataset`)
+  const { items } = await getClient().dataset(run.defaultDatasetId).listItems()
+  return { apifyRunId: run.id, items: items as ApifyInstagramItem[] }
+}
+
 /**
  * Scrape posts for the given handles. Batch mode = one actor run for all handles;
  * per_account mode = one run per handle (isolates failures, easier recovery).

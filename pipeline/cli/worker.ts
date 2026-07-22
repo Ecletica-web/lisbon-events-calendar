@@ -80,6 +80,14 @@ async function executeRun(run: {
   if (requeueScraped != null && requeueScraped > 0) {
     argv.push(`--requeue-scraped-since-days=${requeueScraped}`)
   }
+  if (params.analyzeApifyBatch === true || params.analyze_apify_batch === true) {
+    argv.push('--analyze-apify-batch')
+  }
+  if (typeof params.fromApifyRun === 'string' && params.fromApifyRun) {
+    argv.push(`--from-apify-run=${params.fromApifyRun}`)
+  } else if (typeof params.from_apify_run === 'string' && params.from_apify_run) {
+    argv.push(`--from-apify-run=${params.from_apify_run}`)
+  }
   argv.push(`--run-id=${run.id}`)
 
   const flags: CliFlags = parseFlags(argv)

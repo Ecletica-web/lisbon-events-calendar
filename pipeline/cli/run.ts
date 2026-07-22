@@ -17,7 +17,7 @@
  */
 
 import { getConfig } from '../config'
-import { scrapeInstagram } from '../scrapers/apify-client'
+import { fetchApifyRunItems, scrapeInstagram } from '../scrapers/apify-client'
 import { transformInstagramApifyPost } from '../scrapers/instagram-transform'
 import { archiveImage } from '../media/media-archive'
 import { syncProfileImages } from '../media/venue-profile-images'
@@ -84,6 +84,13 @@ export interface CliFlags {
   requeuePostedSinceDays?: number
   /** Only requeue posts with scraped_at within N days */
   requeueScrapedSinceDays?: number
+  /**
+   * After scrape (or --from-apify-run): upsert ALL Apify posts in the batch as status=new
+   * (including already_known) so extract runs filter/AI on the full batch.
+   */
+  analyzeApifyBatch: boolean
+  /** Reload items from an existing Apify run id instead of starting a new scrape */
+  fromApifyRun?: string
   /** When set by the worker, status/logs go to this pipeline_runs row */
   runId?: string
 }
@@ -98,6 +105,7 @@ export function parseFlags(argv: string[]): CliFlags {
     forceVenueImages: false,
     sheetsOnly: false,
     requeue: false,
+    analyzeApifyBatch: false,
   }
   for (const arg of argv.slice(1)) {
     if (arg === '--dry-run') flags.dryRun = true
@@ -108,6 +116,11 @@ export function parseFlags(argv: string[]): CliFlags {
     else if (arg === '--force-venue-images') flags.forceVenueImages = true
     else if (arg === '--sheets-only') flags.sheetsOnly = true
     else if (arg === '--requeue') flags.requeue = true
+    else if (arg === '--analyze-apify-batch') flags.analyzeApifyBatch = true
+    else if (arg.startsWith('--from-apify-run=')) {
+      flags.fromApifyRun = arg.slice('--from-apify-run='.length).trim()
+      flags.analyzeApifyBatch = true // reloading a batch implies analyze
+    }
     else if (arg.startsWith('--handle=')) flags.handle = arg.slice('--handle='.length).replace(/^@/, '').toLowerCase()
     else if (arg.startsWith('--limit=')) flags.limit = parseInt(arg.slice('--limit='.length), 10) || undefined
     else if (arg.startsWith('--max-age-days=')) {
@@ -206,7 +219,7 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
   let watchlist = await readWatchlist()
   if (flags.handle) watchlist = watchlist.filter((w) => w.handle === flags.handle)
   const handles = watchlist.filter((w) => w.active).map((w) => w.handle)
-  if (handles.length === 0) {
+  if (handles.length === 0 && !flags.fromApifyRun) {
     await logRun(flags, 'No active handles in Watchlist tab (or --handle not found). Nothing to scrape.')
     return stats
   }
@@ -251,19 +264,31 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
   let droppedByDate = 0
 
   try {
-    const runs = await scrapeInstagram({ handles, onlyPostsNewerThan })
-    apifyRunIds = runs.map((r) => r.apifyRunId)
-    const rawItems = runs.flatMap((r) => r.items)
-    apifyRawCount = rawItems.length
-    await logRun(flags, `[scrape] Apify returned ${rawItems.length} item(s)`)
-    items = rawItems.map((item) => transformInstagramApifyPost(item, runId))
+    if (flags.fromApifyRun) {
+      await logRun(
+        flags,
+        `[scrape] reloading Apify run ${flags.fromApifyRun} (analyze batch — no new actor call)`
+      )
+      const reloaded = await fetchApifyRunItems(flags.fromApifyRun)
+      apifyRunIds = [reloaded.apifyRunId]
+      apifyRawCount = reloaded.items.length
+      await logRun(flags, `[scrape] Apify dataset returned ${reloaded.items.length} item(s)`)
+      items = reloaded.items.map((item) => transformInstagramApifyPost(item, runId))
+    } else {
+      const runs = await scrapeInstagram({ handles, onlyPostsNewerThan })
+      apifyRunIds = runs.map((r) => r.apifyRunId)
+      const rawItems = runs.flatMap((r) => r.items)
+      apifyRawCount = rawItems.length
+      await logRun(flags, `[scrape] Apify returned ${rawItems.length} item(s)`)
+      items = rawItems.map((item) => transformInstagramApifyPost(item, runId))
+    }
   } catch (err) {
     error = err instanceof Error ? err.message : String(err)
     await logRun(flags, `[scrape] failed: ${error}`)
   }
 
   // Safety net if Apify returns older posts than the cutoff
-  if (onlyPostsNewerThan) {
+  if (onlyPostsNewerThan && !flags.fromApifyRun) {
     const before = items.length
     const cutMs = Date.parse(onlyPostsNewerThan)
     if (Number.isFinite(cutMs)) {
@@ -283,8 +308,23 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
   }
 
   const existingIds = await readExistingPipelineSourceIds()
-  let rows = items.filter((r): r is EventsRawRow => r !== null && !existingIds.has(r.source_event_id))
-  const alreadyKnown = items.length - rows.length
+  const usable = items.filter((r): r is EventsRawRow => r !== null)
+  let rows: EventsRawRow[]
+  let alreadyKnown = 0
+
+  if (flags.analyzeApifyBatch) {
+    // Full Apify batch → status=new (including posts we already scraped before)
+    alreadyKnown = usable.filter((r) => existingIds.has(r.source_event_id)).length
+    rows = usable
+    await logRun(
+      flags,
+      `[scrape] analyze-apify-batch ON — upserting ${rows.length} post(s) as status=new` +
+        ` (${alreadyKnown} were already known; will re-run extract/AI)`
+    )
+  } else {
+    rows = usable.filter((r) => !existingIds.has(r.source_event_id))
+    alreadyKnown = usable.length - rows.length
+  }
   if (flags.limit) rows = rows.slice(0, flags.limit)
 
   for (const row of rows) {
@@ -305,33 +345,39 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
   stats.posts_scraped = items.length
   stats.new_rows = written
   stats.already_known = alreadyKnown
+  stats.analyze_apify_batch = flags.analyzeApifyBatch
   stats.apify_raw_items = apifyRawCount
   stats.dropped_by_date = droppedByDate
   stats.apify_run_id = apifyRunIds.join('|')
   stats.only_posts_newer_than = onlyPostsNewerThan ?? null
   stats.post_max_age_days = flags.postMaxAgeDays ?? null
   stats.cutoff_source = window.cutoffSource ?? null
+  if (flags.fromApifyRun) stats.from_apify_run = flags.fromApifyRun
 
   await logRun(
     flags,
-    `[scrape] SUMMARY: apify=${apifyRawCount} → after_date_filter=${items.length} → new=${written} already_known=${alreadyKnown}`
+    `[scrape] SUMMARY: apify=${apifyRawCount} → after_date_filter=${usable.length} → upserted=${written} already_known=${alreadyKnown}` +
+      (flags.analyzeApifyBatch ? ' (batch analyze: known posts reset to new)' : '')
   )
   if (written === 0) {
     const why =
       apifyRawCount === 0
         ? 'Apify returned 0 items (blocks, bad handles, or empty feeds).'
-        : alreadyKnown > 0 && droppedByDate === 0
-          ? 'All returned posts were already in Events Raw (pipeline_posts). Nothing new to extract.'
-          : alreadyKnown > 0
+        : alreadyKnown > 0 && droppedByDate === 0 && !flags.analyzeApifyBatch
+          ? 'All returned posts were already in pipeline_posts. Enable “Analyze Apify batch” (or --analyze-apify-batch) to re-run AI on them.'
+          : alreadyKnown > 0 && !flags.analyzeApifyBatch
             ? 'Remaining posts after date filter were already known.'
             : 'No usable posts after filters.'
     await logRun(flags, `[scrape] WHY 0 new: ${why}`)
     await logRun(
       flags,
-      `[scrape] TIP: set Max age (days) to look back further; leave it empty for incremental-only (since last scrape).`
+      `[scrape] TIP: set Max age (days) to look back further; or check Analyze Apify batch to process the full actor result.`
     )
   } else {
-    await logRun(flags, `[scrape] wrote ${written} new pipeline_posts (status=new) — extract will pick these up`)
+    await logRun(
+      flags,
+      `[scrape] wrote/updated ${written} pipeline_posts (status=new) — extract will pick these up`
+    )
   }
   // Legacy Sheets Run_Log — optional; never abort the scrape if Sheets API is unavailable
   try {
@@ -729,6 +775,8 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
             requeueStatuses: flags.requeueStatuses,
             requeuePostedSinceDays: flags.requeuePostedSinceDays,
             requeueScrapedSinceDays: flags.requeueScrapedSinceDays,
+            analyzeApifyBatch: flags.analyzeApifyBatch,
+            fromApifyRun: flags.fromApifyRun,
             pipelineCommand: flags.command === 'requeue' ? 'requeue' : undefined,
           },
           requestedBy: 'cli',

@@ -69,6 +69,13 @@ export async function POST(request: NextRequest) {
     if (body.forceVenueImages === true || body.forceProfileImages === true) {
       runParams.forceVenueImages = true
     }
+    if (body.analyzeApifyBatch === true) {
+      runParams.analyzeApifyBatch = true
+    }
+    if (body.fromApifyRun) {
+      runParams.fromApifyRun = String(body.fromApifyRun).trim()
+      runParams.analyzeApifyBatch = true
+    }
 
     const run = await enqueuePipelineRun({
       mode: mode as 'scrape' | 'extract' | 'verify' | 'full' | 'profile-images',

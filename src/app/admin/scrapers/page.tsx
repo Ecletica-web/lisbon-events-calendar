@@ -41,6 +41,8 @@ export default function AdminScrapersPage() {
   const [postMaxAgeDays, setPostMaxAgeDays] = useState('14')
   const [forceVision, setForceVision] = useState(false)
   const [forceProfileImages, setForceProfileImages] = useState(false)
+  const [analyzeApifyBatch, setAnalyzeApifyBatch] = useState(false)
+  const [fromApifyRun, setFromApifyRun] = useState('')
   const [requeuePostedDays, setRequeuePostedDays] = useState('14')
   const [requeueIncludeProcessed, setRequeueIncludeProcessed] = useState(true)
   const [requeueIncludeReview, setRequeueIncludeReview] = useState(true)
@@ -161,8 +163,15 @@ export default function AdminScrapersPage() {
       if (mode === 'profile-images' && forceProfileImages) body.forceProfileImages = true
       if (handle.trim()) body.handle = handle.trim()
       if (limit.trim() && mode !== 'profile-images') body.limit = Number(limit)
-      if (postMaxAgeDays.trim() && (mode === 'scrape' || mode === 'full')) {
+      if (postMaxAgeDays.trim() && (mode === 'scrape' || mode === 'full') && !fromApifyRun.trim()) {
         body.postMaxAgeDays = Number(postMaxAgeDays)
+      }
+      if ((mode === 'scrape' || mode === 'full') && analyzeApifyBatch) {
+        body.analyzeApifyBatch = true
+      }
+      if ((mode === 'scrape' || mode === 'full') && fromApifyRun.trim()) {
+        body.fromApifyRun = fromApifyRun.trim()
+        body.analyzeApifyBatch = true
       }
       const res = await fetch('/api/admin/pipeline/runs', {
         method: 'POST',
@@ -311,6 +320,37 @@ export default function AdminScrapersPage() {
                 Overrides last-scrape cutoff. Empty = only posts since last successful scrape.
               </span>
             </label>
+          )}
+          {(mode === 'scrape' || mode === 'full') && (
+            <>
+              <label className="text-sm text-slate-300 flex items-center gap-2 pb-2 max-w-xs">
+                <input
+                  type="checkbox"
+                  checked={analyzeApifyBatch || !!fromApifyRun.trim()}
+                  onChange={(e) => setAnalyzeApifyBatch(e.target.checked)}
+                  disabled={!!fromApifyRun.trim()}
+                />
+                <span>
+                  Analyze Apify batch
+                  <span className="block text-[11px] text-slate-500 leading-snug">
+                    Upsert every post Apify returns as status=new (including already known) so extract runs on the full batch.
+                  </span>
+                </span>
+              </label>
+              <label className="text-sm text-slate-300">
+                From Apify run id (optional)
+                <input
+                  className="block mt-1 w-56 bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white font-mono text-xs"
+                  value={fromApifyRun}
+                  onChange={(e) => setFromApifyRun(e.target.value)}
+                  placeholder="yXuBpOPF5b3YTfVWL"
+                  title="Reload that Apify dataset and analyze it — no new scrape"
+                />
+                <span className="block mt-1 text-[11px] text-slate-500 max-w-[16rem] leading-snug">
+                  Paste a past apify_run_id from the log to re-analyze that batch without scraping again.
+                </span>
+              </label>
+            </>
           )}
           {(mode === 'extract' || mode === 'full') && (
             <label className="text-sm text-slate-300 flex items-center gap-2 pb-2">

@@ -128,7 +128,8 @@ npm run golden              # replay Testing CSVs (report only)
 #   --force-vision         run vision even when caption has all mandatory fields
 #   --requeue              before extract: reset matching posts to status=new
 #   --requeue-posted-since-days=14
-#   --requeue-statuses=processed,needs_review,discarded
+#   --analyze-apify-batch  upsert ALL posts from Apify result as status=new (re-AI known posts)
+#   --from-apify-run=ID    reload that Apify dataset and analyze (implies analyze-apify-batch)
 #   --skip-verify          skip online verify on extract/full
 #   --skip-venue-images    skip IG profile pic → Venues.primary_image_url sync
 #   --force-venue-images   overwrite existing venue-images URLs
