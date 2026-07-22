@@ -296,13 +296,18 @@ export default function AdminScrapersPage() {
           </label>
           {(mode === 'scrape' || mode === 'extract' || mode === 'full' || mode === 'verify') && (
             <label className="text-sm text-slate-300">
-              Limit
+              Limit / handle
               <input
-                className="block mt-1 w-24 bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white"
+                className="block mt-1 w-28 bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white"
                 value={limit}
                 onChange={(e) => setLimit(e.target.value)}
-                placeholder="10"
+                placeholder="20"
+                inputMode="numeric"
+                title="Max posts (or verify events) per Instagram handle — not a global total"
               />
+              <span className="block mt-1 text-[11px] text-slate-500 max-w-[12rem] leading-snug">
+                Per account, not total. Empty = no extra cap (Apify still uses env max/posts).
+              </span>
             </label>
           )}
           {(mode === 'scrape' || mode === 'full') && (
@@ -395,7 +400,7 @@ export default function AdminScrapersPage() {
         <p className="text-sm text-slate-400 max-w-3xl">
           Posts already in Supabase (from Apify scrapes) keep their media/captions. Reset matching rows to{' '}
           <code className="text-amber-200/90">status=new</code>, then run extract (caption → Nemotron vision when
-          needed → Tier 5). Uses Handle / Limit from above when set.
+          needed → Tier 5). Uses Handle / Limit-per-handle from above when set.
         </p>
         <div className="flex flex-wrap gap-4 items-end">
           <label className="text-sm text-slate-300">

@@ -176,6 +176,7 @@ export async function requeuePipelinePosts(opts: {
   statuses?: Array<'processed' | 'needs_review' | 'discarded' | 'new'>
   postedSinceDays?: number
   scrapedSinceDays?: number
+  /** Max posts per Instagram handle (not a global total). */
   limit?: number
 }): Promise<{ matched: number; requeued: number; ids: string[] }> {
   const statuses =
@@ -185,7 +186,7 @@ export async function requeuePipelinePosts(opts: {
 
   let q = sb()
     .from('pipeline_posts')
-    .select('id', { count: 'exact' })
+    .select('id, owner_username, posted_at', { count: 'exact' })
     .in('processing_status', [...statuses])
     .order('posted_at', { ascending: false, nullsFirst: false })
 
@@ -200,21 +201,44 @@ export async function requeuePipelinePosts(opts: {
     d.setUTCDate(d.getUTCDate() - opts.scrapedSinceDays)
     q = q.gte('scraped_at', d.toISOString())
   }
-  if (opts.limit && opts.limit > 0) q = q.limit(opts.limit)
 
   const { data, error, count } = await q
   if (error) throw new Error(error.message)
-  const ids = (data ?? []).map((r) => String(r.id))
-  const matched = count ?? ids.length
+  const matched = count ?? (data?.length ?? 0)
+
+  let selected = data ?? []
+  if (opts.limit && opts.limit > 0) {
+    const counts = new Map<string, number>()
+    const kept: typeof selected = []
+    for (const row of selected) {
+      const h =
+        String(row.owner_username || '')
+          .replace(/^@/, '')
+          .toLowerCase() || '_unknown'
+      const n = counts.get(h) ?? 0
+      if (n >= opts.limit) continue
+      counts.set(h, n + 1)
+      kept.push(row)
+    }
+    selected = kept
+  }
+
+  const ids = selected.map((r) => String(r.id))
   if (ids.length === 0) return { matched, requeued: 0, ids: [] }
 
-  const { data: updated, error: upErr } = await sb()
-    .from('pipeline_posts')
-    .update({ processing_status: 'new', updated_at: new Date().toISOString() })
-    .in('id', ids)
-    .select('id')
-  if (upErr) throw new Error(upErr.message)
-  return { matched, requeued: updated?.length ?? ids.length, ids }
+  let requeued = 0
+  const chunkSize = 200
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize)
+    const { data: updated, error: upErr } = await sb()
+      .from('pipeline_posts')
+      .update({ processing_status: 'new', updated_at: new Date().toISOString() })
+      .in('id', chunk)
+      .select('id')
+    if (upErr) throw new Error(upErr.message)
+    requeued += updated?.length ?? chunk.length
+  }
+  return { matched, requeued, ids }
 }
 
 export async function getPipelinePostDetail(id: string) {

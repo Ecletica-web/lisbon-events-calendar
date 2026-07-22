@@ -259,7 +259,7 @@ export async function requeuePipelinePosts(
 
   let q = sb
     .from('pipeline_posts')
-    .select('id', { count: 'exact' })
+    .select('id, owner_username, posted_at', { count: 'exact' })
     .in('processing_status', statuses)
     .order('posted_at', { ascending: false, nullsFirst: false })
 
@@ -276,23 +276,46 @@ export async function requeuePipelinePosts(
     d.setUTCDate(d.getUTCDate() - options.scrapedSinceDays)
     q = q.gte('scraped_at', d.toISOString())
   }
-  if (options.limit && options.limit > 0) q = q.limit(options.limit)
 
   const { data, error, count } = await q
   if (error) throw new Error(`requeuePipelinePosts select: ${error.message}`)
-  const ids = (data ?? []).map((r) => String(r.id))
-  const matched = count ?? ids.length
+  const matched = count ?? (data?.length ?? 0)
+
+  let selected = data ?? []
+  if (options.limit && options.limit > 0) {
+    const counts = new Map<string, number>()
+    const kept: typeof selected = []
+    for (const row of selected) {
+      const h = String(row.owner_username || '')
+        .replace(/^@/, '')
+        .toLowerCase() || '_unknown'
+      const n = counts.get(h) ?? 0
+      if (n >= options.limit) continue
+      counts.set(h, n + 1)
+      kept.push(row)
+    }
+    selected = kept
+  }
+
+  const ids = selected.map((r) => String(r.id))
   if (ids.length === 0 || options.dryRun) {
     return { matched, requeued: options.dryRun ? ids.length : 0 }
   }
 
-  const { data: updated, error: upErr } = await sb
-    .from('pipeline_posts')
-    .update({ processing_status: 'new', updated_at: new Date().toISOString() })
-    .in('id', ids)
-    .select('id')
-  if (upErr) throw new Error(`requeuePipelinePosts update: ${upErr.message}`)
-  return { matched, requeued: updated?.length ?? ids.length }
+  // Update in chunks (PostgREST URL length)
+  let requeued = 0
+  const chunkSize = 200
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize)
+    const { data: updated, error: upErr } = await sb
+      .from('pipeline_posts')
+      .update({ processing_status: 'new', updated_at: new Date().toISOString() })
+      .in('id', chunk)
+      .select('id')
+    if (upErr) throw new Error(`requeuePipelinePosts update: ${upErr.message}`)
+    requeued += updated?.length ?? chunk.length
+  }
+  return { matched, requeued }
 }
 
 export async function insertExtraction(params: {

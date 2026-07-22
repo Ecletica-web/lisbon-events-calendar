@@ -123,7 +123,7 @@ npm run golden              # replay Testing CSVs (report only)
 # Flags (after --):
 #   --dry-run              skip remote writes where possible
 #   --handle=lux           restrict to one watchlist handle
-#   --limit=10             cap rows processed
+#   --limit=20             max posts/events per Instagram handle (not a global total)
 #   --max-age-days=14      look back N days (overrides last-scrape incremental cutoff)
 #   --force-vision         run vision even when caption has all mandatory fields
 #   --requeue              before extract: reset matching posts to status=new

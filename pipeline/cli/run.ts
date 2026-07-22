@@ -62,6 +62,7 @@ import {
 export interface CliFlags {
   command: string
   handle?: string
+  /** Max posts/events **per Instagram handle** (not a global run total). */
   limit?: number
   dryRun: boolean
   forceVision: boolean
@@ -142,6 +143,25 @@ export function parseFlags(argv: string[]): CliFlags {
     } else if (arg.startsWith('--run-id=')) flags.runId = arg.slice('--run-id='.length)
   }
   return flags
+}
+
+/** Cap rows to N per Instagram handle (not a global total). Keeps newest first when ordered. */
+function limitPerHandle<T>(
+  rows: T[],
+  limit: number | undefined,
+  handleOf: (row: T) => string
+): T[] {
+  if (!limit || limit <= 0 || rows.length === 0) return rows
+  const counts = new Map<string, number>()
+  const out: T[] = []
+  for (const row of rows) {
+    const h = (handleOf(row) || '').replace(/^@/, '').toLowerCase() || '_unknown'
+    const n = counts.get(h) ?? 0
+    if (n >= limit) continue
+    counts.set(h, n + 1)
+    out.push(row)
+  }
+  return out
 }
 
 /** Resolve Apify onlyPostsNewerThan.
@@ -275,11 +295,19 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
       await logRun(flags, `[scrape] Apify dataset returned ${reloaded.items.length} item(s)`)
       items = reloaded.items.map((item) => transformInstagramApifyPost(item, runId))
     } else {
-      const runs = await scrapeInstagram({ handles, onlyPostsNewerThan })
+      const runs = await scrapeInstagram({
+        handles,
+        onlyPostsNewerThan,
+        resultsLimitPerAccount: flags.limit,
+      })
       apifyRunIds = runs.map((r) => r.apifyRunId)
       const rawItems = runs.flatMap((r) => r.items)
       apifyRawCount = rawItems.length
-      await logRun(flags, `[scrape] Apify returned ${rawItems.length} item(s)`)
+      await logRun(
+        flags,
+        `[scrape] Apify returned ${rawItems.length} item(s)` +
+          (flags.limit ? ` (resultsLimit=${flags.limit}/handle)` : '')
+      )
       items = rawItems.map((item) => transformInstagramApifyPost(item, runId))
     }
   } catch (err) {
@@ -325,7 +353,19 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
     rows = usable.filter((r) => !existingIds.has(r.source_event_id))
     alreadyKnown = usable.length - rows.length
   }
-  if (flags.limit) rows = rows.slice(0, flags.limit)
+  const beforeLimit = rows.length
+  rows = [...rows].sort((a, b) => {
+    const tb = Date.parse(b.posted_at || '') || 0
+    const ta = Date.parse(a.posted_at || '') || 0
+    return tb - ta
+  })
+  rows = limitPerHandle(rows, flags.limit, (r) => r.owner_username)
+  if (flags.limit && rows.length < beforeLimit) {
+    await logRun(
+      flags,
+      `[scrape] limit=${flags.limit}/handle → kept ${rows.length}/${beforeLimit} post(s)`
+    )
+  }
 
   for (const row of rows) {
     if (!flags.dryRun && row.displayUrl && cfg.EVENT_IMPORT_API_KEY) {
@@ -417,7 +457,7 @@ export async function commandRequeue(flags: CliFlags): Promise<Record<string, un
   await logRun(
     flags,
     `[requeue] handle=${flags.handle ?? '*'} statuses=${(flags.requeueStatuses ?? ['processed', 'needs_review', 'discarded']).join(',')}` +
-      ` posted_since_days=${postedSince ?? 'any'} scraped_since_days=${flags.requeueScrapedSinceDays ?? 'any'} limit=${flags.limit ?? 'none'}`
+      ` posted_since_days=${postedSince ?? 'any'} scraped_since_days=${flags.requeueScrapedSinceDays ?? 'any'} limit=${flags.limit != null ? `${flags.limit}/handle` : 'none'}`
   )
   const result = await requeuePipelinePosts({
     handle: flags.handle,
@@ -444,10 +484,18 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
 
   const pending = await readPendingPipelinePosts({
     handle: flags.handle,
-    limit: flags.limit,
+    // Fetch all candidates; apply per-handle limit below (DB limit would be global)
   })
 
-  if (pending.length === 0) {
+  const pendingLimited = limitPerHandle(pending, flags.limit, (r) => r.owner_username)
+  if (flags.limit && pendingLimited.length < pending.length) {
+    await logRun(
+      flags,
+      `[extract] limit=${flags.limit}/handle → ${pendingLimited.length}/${pending.length} pending post(s)`
+    )
+  }
+
+  if (pendingLimited.length === 0) {
     await logRun(
       flags,
       '[extract] SUMMARY: pending_new=0 → nothing to extract (no pipeline_posts with status=new).'
@@ -463,14 +511,14 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
     return { ...stats, processed: 0, needs_review: 0, discarded: 0, pending_new: 0 }
   }
 
-  await logRun(flags, `[extract] ${pending.length} pending post(s)`)
+  await logRun(flags, `[extract] ${pendingLimited.length} pending post(s)`)
 
   const allProcessed: ProcessedEventRow[] = []
   const allNeedsReview: NeedsReviewRow[] = []
   let discarded = 0
   let aborted = false
 
-  for (const row of pending) {
+  for (const row of pendingLimited) {
     if (flags.runId && (await isAbortRequested(flags.runId))) {
       aborted = true
       await logRun(
@@ -637,7 +685,14 @@ export async function commandVerify(
 
   const already = flags.dryRun && onlyRows ? new Set<string>() : await readVerifiedEventIdsFromStore()
   let pending = events.filter((e) => e.event_id && !already.has(e.event_id))
-  if (flags.limit) pending = pending.slice(0, flags.limit)
+  const beforeVerifyLimit = pending.length
+  pending = limitPerHandle(pending, flags.limit, (e) => e.source_name || '')
+  if (flags.limit && pending.length < beforeVerifyLimit) {
+    await logRun(
+      flags,
+      `[verify] limit=${flags.limit}/handle → ${pending.length}/${beforeVerifyLimit} event(s)`
+    )
+  }
 
   await logRun(flags, `[verify] ${pending.length} event(s) to verify (Tier 5 → Tier 6)`)
   if (pending.length === 0) return { verified: 0, queued_for_human: 0 }
