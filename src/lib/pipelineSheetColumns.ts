@@ -159,8 +159,8 @@ export const NEEDS_REVIEW_COLUMNS = [
   'promoter_name',
 ] as const
 
-/** Processed Events tab — published calendar feed source. */
-export const PROCESSED_EVENTS_COLUMNS = [
+/** Events Clean New tab — live calendar CSV source (`NEXT_PUBLIC_EVENTS_CSV_URL`). */
+export const EVENTS_CLEAN_COLUMNS = [
   'event_id',
   'source_name',
   'source_event_id',
@@ -212,9 +212,13 @@ export const PROCESSED_EVENTS_COLUMNS = [
   'promoter_name',
 ] as const
 
+/** Processed Events tab — pipeline staging before publish to Events Clean New. */
+export const PROCESSED_EVENTS_COLUMNS = EVENTS_CLEAN_COLUMNS
+
 export const TAB_EVENTS_RAW = 'Events_Raw'
 export const TAB_NEEDS_REVIEW = 'Needs_Review'
 export const TAB_PROCESSED_EVENTS = 'Processed Events'
+export const TAB_EVENTS_CLEAN = 'Events Clean New'
 
 const CAMEL_ALIASES: Record<string, string[]> = {
   shortCode: ['short_code', 'shortcode'],

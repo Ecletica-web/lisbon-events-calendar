@@ -6,6 +6,7 @@ import {
   reviewToProcessedRow,
 } from '@/lib/adminPipeline'
 import {
+  appendEventsCleanToSheets,
   appendProcessedToSheets,
   getSheetsEditUrl,
   isAppSheetsWriteConfigured,
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
     const previous = pending.find((r) => r.review_id === String(body.reviewId))
 
     let processedAppended = false
+    let cleanAppended = false
     let processedRow: Record<string, string> | null = null
 
     if (body.action === 'approved') {
@@ -91,6 +93,9 @@ export async function POST(request: NextRequest) {
       if (isAppSheetsWriteConfigured()) {
         await appendProcessedToSheets(processedRow)
         processedAppended = true
+        // Also land on the live calendar sheet (Events Clean New)
+        await appendEventsCleanToSheets(processedRow)
+        cleanAppended = true
       }
     }
 
@@ -104,11 +109,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       updated,
       processedAppended,
+      cleanAppended,
       processedRow,
       message: processedAppended
-        ? 'Approved and appended to Processed Events sheet'
+        ? cleanAppended
+          ? 'Approved and appended to Processed Events + Events Clean New'
+          : 'Approved and appended to Processed Events sheet'
         : body.action === 'approved'
-          ? 'Approved in Supabase. Paste processedRow into the Processed Events sheet (Sheets auto-write is off).'
+          ? 'Approved in Supabase. Paste processedRow into Processed Events / Events Clean New (Sheets auto-write is off).'
           : 'Rejected',
     })
   } catch (err) {

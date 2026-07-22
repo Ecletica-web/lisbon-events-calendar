@@ -1,9 +1,12 @@
 /**
  * Tab-specific readers/writers for Google Sheets.
- * Watchlist + Processed Events stay here (human-editable).
+ * Watchlist + Processed Events + Events Clean New stay here (human-editable).
  * Raw / review / verify / runs live in Supabase (see supabase-store.ts).
  * Legacy Run_Log append still supported for scrape history in Sheets.
  * In --dry-run mode rows are written to local CSVs under pipeline/out/.
+ *
+ * Publish flow: pipeline writes → Processed Events (staging) →
+ * `publishProcessedToEventsClean` appends novel rows → Events Clean New (site CSV).
  */
 
 import * as fs from 'fs'
@@ -23,8 +26,13 @@ import { rowToWatchlistEntry } from './fontes-ig'
 export const TAB_EVENTS_RAW = 'Events_Raw'
 export const TAB_NEEDS_REVIEW = 'Needs_Review'
 export const TAB_PROCESSED = 'Processed Events'
+/** Live calendar feed — `NEXT_PUBLIC_EVENTS_CSV_URL` should publish this tab. */
+export const TAB_EVENTS_CLEAN = 'Events Clean New'
 /** Primary IG sources tab in the LEC spreadsheet */
 export const TAB_WATCHLIST = 'Fontes IG'
+/** Split source-of-truth tabs (preferred over combined Fontes IG for type + venue resolve) */
+export const TAB_FONTES_VENUES = 'Fontes IG - Venues'
+export const TAB_FONTES_PROMOTERS = 'Fontes IG - Promoters'
 /** Legacy fallback name */
 export const TAB_WATCHLIST_LEGACY = 'Watchlist'
 export const TAB_RUN_LOG = 'Run_Log'
@@ -49,15 +57,17 @@ const NEEDS_REVIEW_HEADER: (keyof NeedsReviewRow)[] = [
   'suggested_corrections',
 ]
 
-const PROCESSED_HEADER: (keyof ProcessedEventRow)[] = [
+/** Matches Events Clean New / Processed Events sheet contract (site loader + pipeline extras). */
+const PROCESSED_HEADER: string[] = [
   'event_id', 'source_name', 'source_event_id', 'sources', 'source_count', 'source_url',
   'dedupe_key', 'fingerprint', 'title', 'description_short', 'description_long',
   'start_datetime', 'end_datetime', 'timezone', 'is_all_day', 'status', 'venue_id',
-  'venue_name', 'venue_name_raw', 'venue_address', 'neighborhood', 'city', 'country',
-  'latitude', 'longitude', 'category', 'tags', 'price_min', 'price_max', 'currency',
-  'is_free', 'age_restriction', 'language', 'ticket_url', 'primary_image_url',
-  'confidence_score', 'first_seen_at', 'last_seen_at', 'changed_at', 'created_at',
-  'updated_at', '_raw_model_text', 'post_pattern', 'extraction_source', 'on_slide_text_evidence',
+  'venue_name', 'venue_name_raw', 'venue_address', 'neighborhood', 'city', 'region',
+  'country', 'postal_code', 'latitude', 'longitude', 'category', 'tags', 'price_min',
+  'price_max', 'currency', 'is_free', 'age_restriction', 'language', 'ticket_url',
+  'primary_image_url', 'image_credit', 'confidence_score', 'first_seen_at', 'last_seen_at',
+  'changed_at', 'change_hash', 'created_at', 'updated_at', '_error', '_raw_model_text',
+  'promoter_id', 'promoter_name', 'post_pattern', 'extraction_source', 'on_slide_text_evidence',
 ]
 
 const VERIFICATION_HEADER: (keyof VerificationLogRow)[] = [
@@ -134,9 +144,33 @@ export async function readTabSafe(tabName: string): Promise<Record<string, strin
   return readTabViaPublicCsv(tabName)
 }
 
-// ---- Watchlist (Fontes IG, with Watchlist fallback) ----
+// ---- Watchlist (Fontes IG - Venues + Promoters preferred; combined Fontes IG fallback) ----
 
 export async function readWatchlist(): Promise<WatchlistEntry[]> {
+  const venueRows = await readTabSafe(TAB_FONTES_VENUES)
+  const promoterRows = await readTabSafe(TAB_FONTES_PROMOTERS)
+
+  if (venueRows.length > 0 || promoterRows.length > 0) {
+    const venues = venueRows
+      .map((r) => rowToWatchlistEntry(r, 'venue'))
+      .filter((e): e is NonNullable<typeof e> => e != null)
+    const promoters = promoterRows
+      .map((r) => rowToWatchlistEntry(r, 'promoter'))
+      .filter((e): e is NonNullable<typeof e> => e != null)
+    const byHandle = new Map<string, WatchlistEntry>()
+    for (const e of [...venues, ...promoters]) {
+      if (!byHandle.has(e.handle)) {
+        byHandle.set(e.handle, {
+          handle: e.handle,
+          type: e.type,
+          active: e.active,
+          notes: e.notes,
+        })
+      }
+    }
+    return [...byHandle.values()]
+  }
+
   let rows = await readTabSafe(TAB_WATCHLIST)
   if (rows.length === 0) rows = await readTabSafe(TAB_WATCHLIST_LEGACY)
   return rows
@@ -145,6 +179,33 @@ export async function readWatchlist(): Promise<WatchlistEntry[]> {
     .map((e) => ({
       handle: e.handle,
       type: e.type,
+      active: e.active,
+      notes: e.notes,
+    }))
+}
+
+/** Fontes IG - Venues rows only (source of truth for venue identity). */
+export async function readFontesVenues(): Promise<
+  Array<{ handle: string; name: string; active: boolean; notes?: string }>
+> {
+  const rows = await readTabSafe(TAB_FONTES_VENUES)
+  if (rows.length === 0) {
+    // Fallback: venues from combined Fontes IG
+    return (await readWatchlist())
+      .filter((w) => w.type === 'venue')
+      .map((w) => ({
+        handle: w.handle,
+        name: (w.notes || '').split('·')[0]?.trim() || w.handle,
+        active: w.active,
+        notes: w.notes,
+      }))
+  }
+  return rows
+    .map((r) => rowToWatchlistEntry(r, 'venue'))
+    .filter((e): e is NonNullable<typeof e> => e != null)
+    .map((e) => ({
+      handle: e.handle,
+      name: e.name || e.handle,
       active: e.active,
       notes: e.notes,
     }))
@@ -172,7 +233,7 @@ export async function appendNeedsReview(rows: NeedsReviewRow[], dryRun = false):
 }
 
 export async function appendProcessed(rows: ProcessedEventRow[], dryRun = false): Promise<number> {
-  return writeRows(TAB_PROCESSED, PROCESSED_HEADER as string[], rows as unknown as Record<string, string>[], dryRun)
+  return writeRows(TAB_PROCESSED, PROCESSED_HEADER, rows as unknown as Record<string, string>[], dryRun)
 }
 
 export async function readProcessedFingerprints(): Promise<Set<string>> {
@@ -183,6 +244,91 @@ export async function readProcessedFingerprints(): Promise<Set<string>> {
 export async function readProcessedEvents(): Promise<ProcessedEventRow[]> {
   const rows = await readTabSafe(TAB_PROCESSED)
   return rows as unknown as ProcessedEventRow[]
+}
+
+export async function readEventsClean(): Promise<Record<string, string>[]> {
+  return readTabSafe(TAB_EVENTS_CLEAN)
+}
+
+function eventPublishKeys(row: Record<string, string>): {
+  eventId: string
+  fingerprint: string
+  sourceUrl: string
+} {
+  return {
+    eventId: (row.event_id ?? '').trim(),
+    fingerprint: (row.fingerprint ?? '').trim(),
+    sourceUrl: (row.source_url ?? '').trim(),
+  }
+}
+
+function isAlreadyPublished(
+  row: Record<string, string>,
+  existingIds: Set<string>,
+  existingFingerprints: Set<string>,
+  existingSourceUrls: Set<string>
+): boolean {
+  const { eventId, fingerprint, sourceUrl } = eventPublishKeys(row)
+  if (eventId && existingIds.has(eventId)) return true
+  if (fingerprint && existingFingerprints.has(fingerprint)) return true
+  if (sourceUrl && existingSourceUrls.has(sourceUrl)) return true
+  return false
+}
+
+export interface PublishToCleanResult {
+  processed: number
+  alreadyPublished: number
+  published: number
+  skippedEmpty: number
+}
+
+/**
+ * Copy novel rows from Processed Events → Events Clean New (site calendar source).
+ * Dedupes by event_id, fingerprint, and source_url. Does not delete from Processed.
+ */
+export async function publishProcessedToEventsClean(options?: {
+  dryRun?: boolean
+}): Promise<PublishToCleanResult> {
+  const dryRun = Boolean(options?.dryRun)
+  const processed = await readTabSafe(TAB_PROCESSED)
+  const clean = await readTabSafe(TAB_EVENTS_CLEAN)
+
+  const existingIds = new Set(
+    clean.map((r) => (r.event_id ?? '').trim()).filter(Boolean)
+  )
+  const existingFingerprints = new Set(
+    clean.map((r) => (r.fingerprint ?? '').trim()).filter(Boolean)
+  )
+  const existingSourceUrls = new Set(
+    clean.map((r) => (r.source_url ?? '').trim()).filter(Boolean)
+  )
+
+  let skippedEmpty = 0
+  const novel: Record<string, string>[] = []
+  for (const row of processed) {
+    const { eventId, fingerprint, sourceUrl } = eventPublishKeys(row)
+    if (!eventId && !fingerprint && !sourceUrl) {
+      skippedEmpty++
+      continue
+    }
+    if (isAlreadyPublished(row, existingIds, existingFingerprints, existingSourceUrls)) {
+      continue
+    }
+    novel.push(row)
+    if (eventId) existingIds.add(eventId)
+    if (fingerprint) existingFingerprints.add(fingerprint)
+    if (sourceUrl) existingSourceUrls.add(sourceUrl)
+  }
+
+  const alreadyPublished = processed.length - novel.length - skippedEmpty
+  const published = await writeRows(TAB_EVENTS_CLEAN, PROCESSED_HEADER, novel, dryRun)
+
+  return {
+    processed: processed.length,
+    alreadyPublished,
+    published,
+    skippedEmpty,
+  }
 }
 
 export async function appendVerificationLog(rows: VerificationLogRow[], dryRun = false): Promise<number> {

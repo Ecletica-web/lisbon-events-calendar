@@ -16,7 +16,7 @@ In **Settings → Environment Variables**, add:
 
 | Name | Value |
 |------|-------|
-| `NEXT_PUBLIC_EVENTS_CSV_URL` | `https://docs.google.com/spreadsheets/d/1kXx0Nw_iJNX73gCnK_byG7o5r5LJVy2SVhpLc8wmUk0/export?format=csv&gid=977896462` |
+| `NEXT_PUBLIC_EVENTS_CSV_URL` | `https://docs.google.com/spreadsheets/d/1kXx0Nw_iJNX73gCnK_byG7o5r5LJVy2SVhpLc8wmUk0/export?format=csv&gid=1422352670` |
 | `NEXT_PUBLIC_VENUES_CSV_URL` | `https://docs.google.com/spreadsheets/d/1kXx0Nw_iJNX73gCnK_byG7o5r5LJVy2SVhpLc8wmUk0/export?format=csv&gid=1135937280` |
 | `NEXT_PUBLIC_EVENT_TAGS_CSV_URL` | `https://docs.google.com/spreadsheets/d/1kXx0Nw_iJNX73gCnK_byG7o5r5LJVy2SVhpLc8wmUk0/export?format=csv&gid=26543790` |
 | `NEXT_PUBLIC_VENUE_TAGS_CSV_URL` | `https://docs.google.com/spreadsheets/d/1kXx0Nw_iJNX73gCnK_byG7o5r5LJVy2SVhpLc8wmUk0/export?format=csv&gid=1823379312` |

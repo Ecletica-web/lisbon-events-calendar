@@ -99,7 +99,7 @@ export default function AdminEventReviewPage() {
       j.source === 'sheets'
         ? 'Showing Needs_Review sheet (Supabase review queue empty). Approve/reject requires Supabase items.'
         : j.sheetsWriteMode === 'manual'
-          ? 'Sheets auto-write is off — Approve marks the item done; paste into Processed Events yourself.'
+          ? 'Sheets auto-write is off — Approve marks the item done; paste into Processed Events / Events Clean New yourself.'
           : null
     )
   }, [getAuthHeaders, filter])
@@ -177,9 +177,9 @@ export default function AdminEventReviewPage() {
       setMessage(
         action === 'approved'
           ? j.processedAppended
-            ? 'Approved and appended to Processed Events sheet'
+            ? 'Approved and appended to Processed Events + Events Clean New'
             : j.message ||
-              'Approved. Copy the processed row into the Processed Events Google Sheet, then republish the CSV.'
+              'Approved. Copy the processed row into Processed Events / Events Clean New, then republish the CSV.'
           : 'Rejected'
       )
       if (action === 'approved' && j.processedRow) {
@@ -207,8 +207,8 @@ export default function AdminEventReviewPage() {
         <code className="text-slate-300">event_review_feedback</code> for later learning.
         {source === 'sheets' ? ' Sheet fallback.' : ' Supabase queue.'}{' '}
         {sheetsWriteMode === 'manual'
-          ? 'Processed Events sheet is edited manually — Approve does not auto-append.'
-          : 'Approve appends to the Processed Events sheet.'}
+          ? 'Processed Events / Events Clean New are edited manually — Approve does not auto-append.'
+          : 'Approve appends to Processed Events and Events Clean New (live calendar).'}
       </p>
 
       <div className="flex flex-wrap gap-2 items-center justify-between">
@@ -240,7 +240,7 @@ export default function AdminEventReviewPage() {
       {lastProcessedRow && (
         <div className="rounded border border-slate-700 bg-slate-900/60 p-3 space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm text-slate-300">Last approved row (paste into Processed Events)</p>
+            <p className="text-sm text-slate-300">Last approved row (paste into Sheets if needed)</p>
             <button
               type="button"
               className="text-xs text-indigo-400"

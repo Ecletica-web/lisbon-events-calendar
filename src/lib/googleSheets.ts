@@ -1,5 +1,5 @@
 /**
- * Google Sheets helpers for the Next.js admin (Fontes IG + Processed Events).
+ * Google Sheets helpers for the Next.js admin (Fontes IG + Processed Events + Events Clean New).
  * Uses the same service-account env vars as the pipeline.
  * googleapis is loaded dynamically so Vercel/webpack does not bundle it at build time.
  *
@@ -18,18 +18,23 @@ import {
 } from '@/lib/fontesIgWatchlist'
 
 const TAB_WATCHLIST = 'Fontes IG'
+/** Preferred source-of-truth tabs (type is forced from the tab name). */
+const TAB_FONTES_VENUES = 'Fontes IG - Venues'
+const TAB_FONTES_PROMOTERS = 'Fontes IG - Promoters'
 const TAB_WATCHLIST_LEGACY = 'Watchlist'
 const TAB_PROCESSED = 'Processed Events'
+const TAB_EVENTS_CLEAN = 'Events Clean New'
 
 const PROCESSED_HEADER = [
   'event_id', 'source_name', 'source_event_id', 'sources', 'source_count', 'source_url',
   'dedupe_key', 'fingerprint', 'title', 'description_short', 'description_long',
   'start_datetime', 'end_datetime', 'timezone', 'is_all_day', 'status', 'venue_id',
-  'venue_name', 'venue_name_raw', 'venue_address', 'neighborhood', 'city', 'country',
-  'latitude', 'longitude', 'category', 'tags', 'price_min', 'price_max', 'currency',
-  'is_free', 'age_restriction', 'language', 'ticket_url', 'primary_image_url',
-  'confidence_score', 'first_seen_at', 'last_seen_at', 'changed_at', 'created_at',
-  'updated_at', '_raw_model_text', 'post_pattern', 'extraction_source', 'on_slide_text_evidence',
+  'venue_name', 'venue_name_raw', 'venue_address', 'neighborhood', 'city', 'region',
+  'country', 'postal_code', 'latitude', 'longitude', 'category', 'tags', 'price_min',
+  'price_max', 'currency', 'is_free', 'age_restriction', 'language', 'ticket_url',
+  'primary_image_url', 'image_credit', 'confidence_score', 'first_seen_at', 'last_seen_at',
+  'changed_at', 'change_hash', 'created_at', 'updated_at', '_error', '_raw_model_text',
+  'promoter_id', 'promoter_name',
 ]
 
 let sheetsApi: sheets_v4.Sheets | null = null
@@ -123,10 +128,13 @@ export interface WatchlistRow {
   rowIndex: number
 }
 
-function mapRowsToWatchlist(rows: Record<string, string>[]): WatchlistRow[] {
+function mapRowsToWatchlist(
+  rows: Record<string, string>[],
+  forceType?: 'venue' | 'promoter'
+): WatchlistRow[] {
   const out: WatchlistRow[] = []
   rows.forEach((r, i) => {
-    const e = rowToWatchlistEntry(r)
+    const e = rowToWatchlistEntry(r, forceType)
     if (!e) return
     out.push({
       handle: e.handle,
@@ -140,6 +148,24 @@ function mapRowsToWatchlist(rows: Record<string, string>[]): WatchlistRow[] {
     })
   })
   return out
+}
+
+async function readTabRows(tabName: string): Promise<{ rows: Record<string, string>[]; error: string | null }> {
+  let error: string | null = null
+  if (isAppSheetsWriteConfigured()) {
+    try {
+      const { rows } = await readTab(tabName)
+      if (rows.length > 0) return { rows, error: null }
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err)
+    }
+  }
+  try {
+    const rows = await readTabViaPublicCsv(tabName)
+    return { rows, error: rows.length === 0 ? error : null }
+  } catch (err) {
+    return { rows: [], error: error || (err instanceof Error ? err.message : String(err)) }
+  }
 }
 
 /** Public gviz CSV export (works when sheet is link-shared, no service account). */
@@ -166,35 +192,31 @@ async function readTabViaPublicCsv(tabName: string): Promise<Record<string, stri
 }
 
 export async function readWatchlistFromSheets(): Promise<WatchlistRow[]> {
-  let rows: Record<string, string>[] = []
-  let apiError: string | null = null
-
-  if (isAppSheetsWriteConfigured()) {
-    try {
-      ;({ rows } = await readTab(TAB_WATCHLIST))
-    } catch (err) {
-      apiError = err instanceof Error ? err.message : String(err)
-      rows = []
+  // Prefer split tabs (source of truth for type + handles)
+  const venues = await readTabRows(TAB_FONTES_VENUES)
+  const promoters = await readTabRows(TAB_FONTES_PROMOTERS)
+  if (venues.rows.length > 0 || promoters.rows.length > 0) {
+    const byHandle = new Map<string, WatchlistRow>()
+    for (const row of mapRowsToWatchlist(venues.rows, 'venue')) {
+      if (!byHandle.has(row.handle)) byHandle.set(row.handle, row)
     }
-    if (rows.length === 0) {
-      try {
-        ;({ rows } = await readTab(TAB_WATCHLIST_LEGACY))
-      } catch (err) {
-        if (!apiError) apiError = err instanceof Error ? err.message : String(err)
-        rows = []
-      }
+    for (const row of mapRowsToWatchlist(promoters.rows, 'promoter')) {
+      if (!byHandle.has(row.handle)) byHandle.set(row.handle, row)
     }
+    return [...byHandle.values()]
   }
 
-  if (rows.length === 0) {
-    for (const tab of [TAB_WATCHLIST, TAB_WATCHLIST_LEGACY]) {
-      try {
-        rows = await readTabViaPublicCsv(tab)
-        if (rows.length > 0) break
-      } catch (err) {
-        if (!apiError) apiError = err instanceof Error ? err.message : String(err)
-      }
+  let rows: Record<string, string>[] = []
+  let apiError: string | null = venues.error || promoters.error
+
+  for (const tab of [TAB_WATCHLIST, TAB_WATCHLIST_LEGACY]) {
+    const got = await readTabRows(tab)
+    if (got.rows.length > 0) {
+      rows = got.rows
+      apiError = null
+      break
     }
+    if (!apiError) apiError = got.error
   }
 
   const mapped = mapRowsToWatchlist(rows)
@@ -295,17 +317,26 @@ async function readNamedTab(
 }
 
 export async function appendProcessedToSheets(row: Record<string, string>): Promise<void> {
+  await appendRowToTab(TAB_PROCESSED, row)
+}
+
+/** Append one approved event to the live calendar sheet (Events Clean New). */
+export async function appendEventsCleanToSheets(row: Record<string, string>): Promise<void> {
+  await appendRowToTab(TAB_EVENTS_CLEAN, row)
+}
+
+async function appendRowToTab(tabName: string, row: Record<string, string>): Promise<void> {
   const api = await getSheets()
   const existing = await api.spreadsheets.values.get({
     spreadsheetId: spreadsheetId(),
-    range: `'${TAB_PROCESSED}'!1:1`,
+    range: `'${tabName}'!1:1`,
   })
   let header = (existing.data.values?.[0] ?? []).map(String)
   if (header.length === 0) {
     header = [...PROCESSED_HEADER]
     await api.spreadsheets.values.update({
       spreadsheetId: spreadsheetId(),
-      range: `'${TAB_PROCESSED}'!A1`,
+      range: `'${tabName}'!A1`,
       valueInputOption: 'RAW',
       requestBody: { values: [header] },
     })
@@ -313,7 +344,7 @@ export async function appendProcessedToSheets(row: Record<string, string>): Prom
   const values = [header.map((col) => row[col] ?? '')]
   await api.spreadsheets.values.append({
     spreadsheetId: spreadsheetId(),
-    range: `'${TAB_PROCESSED}'`,
+    range: `'${tabName}'`,
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values },

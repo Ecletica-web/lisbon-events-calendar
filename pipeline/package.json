@@ -10,6 +10,7 @@
     "extract": "tsx cli/run.ts extract",
     "verify": "tsx cli/run.ts verify",
     "full": "tsx cli/run.ts full",
+    "publish": "tsx cli/run.ts publish",
     "worker": "tsx cli/worker.ts",
     "backfill": "tsx cli/backfill-supabase.ts",
     "golden": "tsx cli/golden-run.ts",

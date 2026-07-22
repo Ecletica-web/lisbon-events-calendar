@@ -6,9 +6,11 @@
  *   npm run extract         [-- --limit=20 --dry-run --force-vision]
  *   npm run verify          [-- --limit=20 --dry-run]
  *   npm run full            [-- ...]   # posts scrape → extract (no profile images)
+ *   npm run publish         [-- --dry-run]  # Processed Events → Events Clean New
  *
  * Storage split:
  *   - Watchlist + Processed Events → Google Sheets (high-confidence auto-appended)
+ *   - Events Clean New → site calendar CSV (publish step copies novel Processed rows)
  *   - Raw posts, extractions, review queue, verifications, runs → Supabase
  *   - extract/full always run Tier 5 unless --skip-verify
  *   - --dry-run skips remote writes (local CSV for Processed only)
@@ -30,6 +32,7 @@ import type { EventsRawRow, NeedsReviewRow, ProcessedEventRow } from '../types'
 import {
   appendProcessed,
   appendRunLog,
+  publishProcessedToEventsClean,
   readLastSuccessfulRunAt,
   readProcessedEvents,
   readProcessedFingerprints,
@@ -622,13 +625,33 @@ export async function commandVerify(
   return { verified, queued_for_human: queuedForHuman, logged: logRows.length }
 }
 
+/** Processed Events (staging) → Events Clean New (live calendar CSV). */
+export async function commandPublish(flags: CliFlags): Promise<Record<string, unknown>> {
+  await logRun(flags, '=== STAGE: publish (start) ===')
+  if (!isSheetsWriteEnabled() && !flags.dryRun) {
+    await logRun(
+      flags,
+      '[publish] Sheets write disabled — set PIPELINE_SHEETS_WRITE=1 + service account, or use --dry-run for a local CSV preview'
+    )
+  }
+  const result = await publishProcessedToEventsClean({ dryRun: flags.dryRun || !isSheetsWriteEnabled() })
+  await logRun(
+    flags,
+    `[publish] processed=${result.processed} already_on_clean=${result.alreadyPublished} appended=${result.published} skipped_empty=${result.skippedEmpty}` +
+      (flags.dryRun || !isSheetsWriteEnabled() ? ' (dry-run / local CSV only)' : '')
+  )
+  await logRun(flags, '=== STAGE: publish (done) ===')
+  return result
+}
+
 export async function runCommand(flags: CliFlags): Promise<Record<string, unknown>> {
   getConfig()
   const combined: Record<string, unknown> = {}
 
   // Record a run row for manual CLI invocations only (worker already owns its row)
   let createdRunId: string | undefined
-  if (!flags.runId && !flags.dryRun && isSupabaseStoreConfigured()) {
+  const skipRunLedger = flags.command === 'publish'
+  if (!flags.runId && !flags.dryRun && !skipRunLedger && isSupabaseStoreConfigured()) {
     const modeForDb =
       flags.command === 'images' ? 'profile-images' : (flags.command as PipelineRunMode)
     try {
@@ -693,9 +716,12 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
         Object.assign(combined, await commandExtract(flags))
         await logRun(flags, '=== STAGE: extract (done) ===')
         break
+      case 'publish':
+        Object.assign(combined, await commandPublish(flags))
+        break
       default:
         throw new Error(
-          `Unknown command "${flags.command}". Use: profile-images | scrape | extract | verify | full`
+          `Unknown command "${flags.command}". Use: profile-images | scrape | extract | verify | full | publish`
         )
     }
 

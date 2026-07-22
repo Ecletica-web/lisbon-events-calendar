@@ -5,22 +5,22 @@ tiered AI → validation. **Storage is split:**
 
 | Store | What lives there |
 |-------|------------------|
-| **Google Sheets** | Fontes IG, Venues, Promoters, **Processed Events** — human-edited / inspected. Pipeline **reads** via public CSV; **writes high-confidence auto-pass events** when `PIPELINE_SHEETS_WRITE=1` + service account (default on). |
+| **Google Sheets** | **Fontes IG - Venues** + **Fontes IG - Promoters** (scrape + venue-resolve source of truth), Venues/Promoters catalog, **Processed Events** (staging), **Events Clean New** (live calendar CSV). Pipeline **writes** high-confidence auto-pass to Processed when `PIPELINE_SHEETS_WRITE=1` + service account (default on). Run `npm run publish` to copy novel Processed rows → Events Clean New. |
 | **Supabase** | Raw posts, every AI tier artifact, review queue, verifications, run queue/log, scraper config, image buckets, **`venue_profile_images`** (IG pics for `/venues` when Sheets write fails) |
 
-The Next.js app consumes the published Processed CSV and hosts `/admin`. Long jobs are
+The Next.js app consumes the published **Events Clean New** CSV and hosts `/admin`. Long jobs are
 **queued** in Supabase and executed by a local **`npm run worker`** (not on Vercel).
 
 ## Architecture
 
 ```
-Watchlist (Sheets CSV) ─→ Apify ─→ pipeline_posts (Supabase)
+Fontes IG - Venues/Promoters ─→ Apify ─→ pipeline_posts (Supabase)
                                       │
                 Tier 0–4 (+ OCR / Whisper) → pipeline_extractions
                                       │
                         merge + validate + venue resolve + dedupe
                                       │
-              pass (high confidence) → Processed sheet (no human review)
+              pass (high confidence) → Processed sheet (staging; no human review)
               review/fail → pipeline_review_queue (Supabase) → Tier 6
                                       │
                         Tier 5 verify (always on extract/full unless --skip-verify)
@@ -28,7 +28,9 @@ Watchlist (Sheets CSV) ─→ Apify ─→ pipeline_posts (Supabase)
               clean verified → stay on Processed (no Tier 6)
               disputed / corrections → pipeline_review_queue → Tier 6
                                       │
-                        Tier 6 → /admin/event-review
+                        Tier 6 → /admin/event-review → Processed
+                                      │
+                        npm run publish → Events Clean New (site CSV)
 ```
 
 A **`full`** run (default in `/admin/scrapers`) does scrape → extract → Tier 5. Only low-confidence
@@ -94,8 +96,12 @@ Admin can also enqueue runs via `/admin/scrapers` → `pipeline_runs` (status=`q
 
 | Tab | Purpose |
 |-----|---------|
-| `Watchlist` / **`Fontes IG`** | IG sources. LEC uses tab **Fontes IG** (`Name`, `Handle / Website`, `Venue Type`, `Event Types`). Falls back to a legacy `Watchlist` tab if present. |
-| `Processed Events` | Publishable events — edit in Sheets; calendar CSV source |
+| **`Fontes IG - Venues`** | Source of truth for venue IG handles + names (scrape list + venue resolve). |
+| **`Fontes IG - Promoters`** | Source of truth for promoter IG handles (scrape list). |
+| `Fontes IG` / `Watchlist` | Combined fallback if the split tabs are empty/missing. |
+| `Venues` / `Promoters` | Catalog enrich (address, images). Handles should match Fontes; resolve prefers Fontes. |
+| `Processed Events` | Staging — pipeline auto-pass + approved review rows |
+| `Events Clean New` | Live calendar feed — publish with `npm run publish`; CSV → `NEXT_PUBLIC_EVENTS_CSV_URL` |
 
 Legacy tabs (`Events_Raw`, `Needs_Review`, `Verification_Log`, `Run_Log`) are no longer
 written by the pipeline; use `npm run backfill` once to migrate old rows into Supabase.
@@ -108,6 +114,7 @@ npm run scrape              # Watchlist → Apify → pipeline_posts (+ archive 
 npm run extract             # status=new posts → tiers → Processed (pass) / review queue + Tier 5
 npm run verify              # Processed sheet → web search + LLM; write pipeline_verifications
 npm run full                # scrape → extract (includes Tier 5 verify)
+npm run publish             # Processed Events → Events Clean New (novel rows only)
 npm run worker              # poll pipeline_runs forever (keep running on a workstation)
 npm run backfill            # one-off: Sheets legacy tabs → Supabase
 npm run golden              # replay Testing CSVs (report only)
@@ -155,7 +162,7 @@ Caption extraction always runs. Vision runs **only** when caption is incomplete
 3. Share the Google Sheet with the service account; set `GOOGLE_SHEETS_ID` (Watchlist + Processed).
 4. Apply Supabase migrations through `020_venue_images_bucket.sql` (or re-run `SETUP_NEW_PROJECT.sql` on a new project).
 5. App `.env.local`: same Sheets + Supabase keys, plus `ADMIN_EMAILS=you@example.com`.
-6. Publish Processed Events as CSV → `NEXT_PUBLIC_EVENTS_CSV_URL`. Publish Venues CSV → `NEXT_PUBLIC_VENUES_CSV_URL`.
+6. Publish **Events Clean New** as CSV → `NEXT_PUBLIC_EVENTS_CSV_URL` (gid for that tab). Publish Venues CSV → `NEXT_PUBLIC_VENUES_CSV_URL`. After extract/approve, run `npm run publish` so Processed rows land on Clean.
 7. Start the worker: `cd pipeline && npm run worker`.
 
 During **`profile-images`**, the pipeline fetches Instagram profile pics for Fontes IG venues + promoters, stores them in the Supabase `venue-images` bucket, and writes public URLs into the Venues/Promoters sheet `primary_image_url` (skips rows that already use `venue-images` unless `--force-venue-images`). Use `--sheets-only` to push already-archived files into Sheets after fixing API access.

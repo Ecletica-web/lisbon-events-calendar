@@ -54,9 +54,10 @@ This document describes the **Event CSV** and **Venue CSV** schemas. Treat these
 
 **Legacy column mapping:** `id` → `event_id`, `image_url` → `primary_image_url`
 
-### Pipeline traceability columns (Processed Events sheet)
+### Pipeline traceability columns (Processed Events / Events Clean New)
 
 Written by the ingestion pipeline (`pipeline/`), ignored by the app loader. See `docs/PIPELINE.md`.
+Live calendar CSV is **Events Clean New** (via `npm run publish` from Processed staging).
 
 | Column | Meaning |
 |--------|---------|

@@ -8,7 +8,7 @@ Single entrypoint for understanding this codebase. Keep this file short; update 
 - **FullCalendar** for calendar views
 - **Supabase** for auth, user profiles, social, and **pipeline store** (raw posts, AI tiers, review queue, runs)
 - **NextAuth** (used alongside Supabase for some flows)
-- **Google Sheets**: Watchlist + Processed Events (human-editable); public calendar reads published Processed CSV via `NEXT_PUBLIC_EVENTS_CSV_URL`
+- **Google Sheets**: **Fontes IG - Venues / Promoters** (scrape + venue SoT), Venues/Promoters catalog, Processed Events (staging), **Events Clean New** (live); public calendar reads Clean CSV via `NEXT_PUBLIC_EVENTS_CSV_URL`
 
 ## Layers
 
@@ -32,7 +32,8 @@ Single entrypoint for understanding this codebase. Keep this file short; update 
 | Venues / promoters pages | `app/venues/`, `app/promoters/`; data from `eventsAdapter` (fetchVenues, fetchPromoters) |
 | Saved views, personas | `lib/savedViews.ts`, `lib/savedViewsSync.ts`; personas API under `app/api/personas/` |
 | For You / recommendations | `app/api/foryou/route.ts`, `lib/recommendationEngine.ts` |
-| Event scraping / AI extraction | `pipeline/` (CLI: scrape, extract, worker, backfill); orchestration in `pipeline/process-post.ts` |
+| Event scraping / AI extraction | `pipeline/` (CLI: scrape, extract, publish, worker, backfill); orchestration in `pipeline/process-post.ts` |
+| IG sources (SoT) | Sheets **Fontes IG - Venues** + **Fontes IG - Promoters** → `readWatchlist` / `venue-resolve.ts` (combined Fontes IG is fallback) |
 | Admin ops (scrapers / raw / review) | `/admin`, `lib/adminPipeline.ts`, `lib/googleSheets.ts`. Modes: `profile-images` (avatars), `scrape` (posts), `extract`, `verify`, `full` |
 | Event review feedback | `lib/adminEventReviewFeedback.ts`, `app/api/admin/event-review/feedback/`, Supabase `event_review_feedback` |
 
