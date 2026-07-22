@@ -8,6 +8,7 @@
     "profile-images": "tsx cli/run.ts profile-images",
     "images": "tsx cli/run.ts profile-images",
     "extract": "tsx cli/run.ts extract",
+    "requeue": "tsx cli/run.ts requeue",
     "verify": "tsx cli/run.ts verify",
     "full": "tsx cli/run.ts full",
     "publish": "tsx cli/run.ts publish",

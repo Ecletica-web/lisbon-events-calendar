@@ -1,12 +1,19 @@
 /**
  * Shared Fontes IG ↔ watchlist mapping for the pipeline package.
  * Mirrors src/lib/fontesIgWatchlist.ts (kept local so pipeline stays standalone).
+ *
+ * Source of truth tabs:
+ *   - Fontes IG - Venues
+ *   - Fontes IG - Promoters
+ * Combined "Fontes IG" is a convenience union for scraping.
  */
 
 export type NormalizedWatchlistEntry = {
   handle: string
   type: 'venue' | 'promoter'
   active: boolean
+  /** Display name from Fontes (column Name) */
+  name?: string
   notes?: string
 }
 
@@ -26,7 +33,7 @@ function col(row: Record<string, string>, index: number): string {
   return String(row[keys[index]] ?? '').trim()
 }
 
-function normalizeHandle(raw: string): string {
+export function normalizeIgHandle(raw: string): string {
   let h = raw.trim()
   if (!h) return ''
   if (/^https?:\/\//i.test(h) && !/instagram\.com/i.test(h)) return ''
@@ -44,9 +51,12 @@ function inferType(venueTypeRaw: string, typeRaw: string): 'venue' | 'promoter' 
   return 'venue'
 }
 
-export function rowToWatchlistEntry(row: Record<string, string>): NormalizedWatchlistEntry | null {
+export function rowToWatchlistEntry(
+  row: Record<string, string>,
+  forceType?: 'venue' | 'promoter'
+): NormalizedWatchlistEntry | null {
   // Fontes IG: column C = handles (@luxfragil, …)
-  const handle = normalizeHandle(
+  const handle = normalizeIgHandle(
     col(row, 2) ||
       pick(row, 'Handle / Website', 'handle', 'Handle', 'instagram', 'instagram_handle')
   )
@@ -55,7 +65,7 @@ export function rowToWatchlistEntry(row: Record<string, string>): NormalizedWatc
   const name = pick(row, 'Name', 'name') || col(row, 1)
   const venueType = pick(row, 'Venue Type', 'venue_type', 'type') || col(row, 3)
   const eventTypes = pick(row, 'Event Types', 'event_types', 'notes') || col(row, 4)
-  const type = inferType(venueType, pick(row, 'type'))
+  const type = forceType ?? inferType(venueType, pick(row, 'type'))
   const activeRaw = pick(row, 'Active', 'active', 'enabled') || col(row, 5)
   const active =
     activeRaw === ''
@@ -66,6 +76,16 @@ export function rowToWatchlistEntry(row: Record<string, string>): NormalizedWatc
     handle,
     type,
     active,
+    name: name || undefined,
     notes: [name, eventTypes].filter(Boolean).join(' · ') || undefined,
   }
+}
+
+export function slugifyName(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
 }

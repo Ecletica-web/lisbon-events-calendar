@@ -62,14 +62,46 @@ const suggestedCorrectionsSchema = z
   })
   .default({})
 
+/** Models often return "0.8" / "true" / null-as-string — coerce before strict checks. */
+const looseConfidence = z.preprocess((v) => {
+  if (typeof v === 'string') {
+    const n = Number(v.trim())
+    return Number.isFinite(n) ? n : v
+  }
+  return v
+}, z.number())
+  .transform((n) => {
+    // Allow 0–100 percentages from the model
+    const scaled = n > 1 && n <= 100 ? n / 100 : n
+    return Math.min(1, Math.max(0, scaled))
+  })
+
+const looseBoolNull = z.preprocess((v) => {
+  if (v === null || v === undefined || v === '') return null
+  if (typeof v === 'boolean') return v
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase()
+    if (['true', 'yes', '1', 'ok'].includes(s)) return true
+    if (['false', 'no', '0'].includes(s)) return false
+    if (['null', 'unknown', 'n/a', 'na'].includes(s)) return null
+  }
+  return v
+}, z.boolean().nullable())
+
 const verificationSchema = z.object({
   verdict: z.enum(['verified', 'disputed', 'not_found', 'inconclusive']),
-  confidence: z.number().min(0).max(1),
-  title_ok: z.boolean().nullable(),
-  datetime_ok: z.boolean().nullable(),
-  venue_ok: z.boolean().nullable(),
-  notes: z.string(),
-  source_urls: z.array(z.string()).default([]),
+  confidence: looseConfidence,
+  title_ok: looseBoolNull,
+  datetime_ok: looseBoolNull,
+  venue_ok: looseBoolNull,
+  notes: z.preprocess((v) => (v == null ? '' : String(v)), z.string()),
+  source_urls: z
+    .preprocess((v) => {
+      if (v == null) return []
+      if (typeof v === 'string') return v.split(/[\s|,]+/).filter(Boolean)
+      return v
+    }, z.array(z.string()))
+    .default([]),
   suggested_corrections: suggestedCorrectionsSchema,
 })
 
@@ -92,7 +124,7 @@ Rules:
 - status suggestions: only "cancelled" or "postponed" when sources clearly say so.
 - Datetimes: ISO 8601 with Europe/Lisbon offset when suggesting a new start/end.
 
-Respond with JSON only:
+Respond with JSON only (confidence must be a JSON number 0–1, not a string; booleans true/false/null):
 {"verdict","confidence","title_ok","datetime_ok","venue_ok","notes","source_urls":["..."],
 "suggested_corrections":{"title?","start_datetime?","end_datetime?","venue_name_raw?","status?","ticket_url?"}}`
 

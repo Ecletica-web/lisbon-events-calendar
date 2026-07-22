@@ -171,6 +171,52 @@ export async function listPipelinePosts(opts: {
   return { rows: data ?? [], total: count ?? 0 }
 }
 
+export async function requeuePipelinePosts(opts: {
+  handle?: string
+  statuses?: Array<'processed' | 'needs_review' | 'discarded' | 'new'>
+  postedSinceDays?: number
+  scrapedSinceDays?: number
+  limit?: number
+}): Promise<{ matched: number; requeued: number; ids: string[] }> {
+  const statuses =
+    opts.statuses && opts.statuses.length > 0
+      ? opts.statuses
+      : (['processed', 'needs_review', 'discarded'] as const)
+
+  let q = sb()
+    .from('pipeline_posts')
+    .select('id', { count: 'exact' })
+    .in('processing_status', [...statuses])
+    .order('posted_at', { ascending: false, nullsFirst: false })
+
+  if (opts.handle) q = q.ilike('owner_username', opts.handle.replace(/^@/, ''))
+  if (opts.postedSinceDays != null && opts.postedSinceDays > 0) {
+    const d = new Date()
+    d.setUTCDate(d.getUTCDate() - opts.postedSinceDays)
+    q = q.gte('posted_at', d.toISOString())
+  }
+  if (opts.scrapedSinceDays != null && opts.scrapedSinceDays > 0) {
+    const d = new Date()
+    d.setUTCDate(d.getUTCDate() - opts.scrapedSinceDays)
+    q = q.gte('scraped_at', d.toISOString())
+  }
+  if (opts.limit && opts.limit > 0) q = q.limit(opts.limit)
+
+  const { data, error, count } = await q
+  if (error) throw new Error(error.message)
+  const ids = (data ?? []).map((r) => String(r.id))
+  const matched = count ?? ids.length
+  if (ids.length === 0) return { matched, requeued: 0, ids: [] }
+
+  const { data: updated, error: upErr } = await sb()
+    .from('pipeline_posts')
+    .update({ processing_status: 'new', updated_at: new Date().toISOString() })
+    .in('id', ids)
+    .select('id')
+  if (upErr) throw new Error(upErr.message)
+  return { matched, requeued: updated?.length ?? ids.length, ids }
+}
+
 export async function getPipelinePostDetail(id: string) {
   const client = sb()
   const { data: post, error } = await client.from('pipeline_posts').select('*').eq('id', id).single()

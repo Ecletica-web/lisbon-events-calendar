@@ -41,6 +41,10 @@ export default function AdminScrapersPage() {
   const [postMaxAgeDays, setPostMaxAgeDays] = useState('14')
   const [forceVision, setForceVision] = useState(false)
   const [forceProfileImages, setForceProfileImages] = useState(false)
+  const [requeuePostedDays, setRequeuePostedDays] = useState('14')
+  const [requeueIncludeProcessed, setRequeueIncludeProcessed] = useState(true)
+  const [requeueIncludeReview, setRequeueIncludeReview] = useState(true)
+  const [requeueIncludeDiscarded, setRequeueIncludeDiscarded] = useState(true)
   const [message, setMessage] = useState<string | null>(null)
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -177,6 +181,45 @@ export default function AdminScrapersPage() {
     }
   }
 
+  async function requeuePosts(enqueueExtract: boolean) {
+    setBusy(true)
+    setMessage(null)
+    try {
+      const headers = await getAuthHeaders()
+      const statuses: string[] = []
+      if (requeueIncludeProcessed) statuses.push('processed')
+      if (requeueIncludeReview) statuses.push('needs_review')
+      if (requeueIncludeDiscarded) statuses.push('discarded')
+      if (statuses.length === 0) throw new Error('Pick at least one status to re-queue')
+
+      const body: Record<string, unknown> = {
+        action: 'requeue',
+        statuses,
+        enqueueExtract,
+        forceVision: enqueueExtract ? forceVision : false,
+      }
+      if (handle.trim()) body.handle = handle.trim()
+      if (limit.trim()) body.limit = Number(limit)
+      if (requeuePostedDays.trim()) body.postedSinceDays = Number(requeuePostedDays)
+
+      const res = await fetch('/api/admin/pipeline/posts', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error || 'Re-queue failed')
+      const runPart = j.run?.id ? ` · queued extract ${j.run.id}` : ''
+      setMessage(`Re-queued ${j.requeued ?? 0} post(s) (matched ${j.matched ?? 0})${runPart}`)
+      if (j.run?.id) setSelectedRunId(j.run.id)
+      await load()
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function abortRun(runId: string) {
     setAborting(true)
     setMessage('Stop requested — extract will halt after the current post finishes.')
@@ -303,6 +346,78 @@ export default function AdminScrapersPage() {
             className="px-3 py-2 rounded bg-slate-700 text-slate-200 text-sm"
           >
             Refresh
+          </button>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-amber-800/50 bg-amber-950/20 p-4 space-y-3">
+        <h2 className="text-lg font-medium text-amber-100">Re-queue stored posts for intelligence</h2>
+        <p className="text-sm text-slate-400 max-w-3xl">
+          Posts already in Supabase (from Apify scrapes) keep their media/captions. Reset matching rows to{' '}
+          <code className="text-amber-200/90">status=new</code>, then run extract (caption → Nemotron vision when
+          needed → Tier 5). Uses Handle / Limit from above when set.
+        </p>
+        <div className="flex flex-wrap gap-4 items-end">
+          <label className="text-sm text-slate-300">
+            Posted within (days)
+            <input
+              className="block mt-1 w-28 bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white"
+              value={requeuePostedDays}
+              onChange={(e) => setRequeuePostedDays(e.target.value)}
+              placeholder="14"
+              inputMode="numeric"
+            />
+          </label>
+          <div className="text-sm text-slate-300 space-y-1 pb-1">
+            <span className="block text-slate-400 mb-1">Include statuses</span>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={requeueIncludeProcessed}
+                onChange={(e) => setRequeueIncludeProcessed(e.target.checked)}
+              />
+              processed
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={requeueIncludeReview}
+                onChange={(e) => setRequeueIncludeReview(e.target.checked)}
+              />
+              needs_review
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={requeueIncludeDiscarded}
+                onChange={(e) => setRequeueIncludeDiscarded(e.target.checked)}
+              />
+              discarded
+            </label>
+          </div>
+          <label className="text-sm text-slate-300 flex items-center gap-2 pb-2">
+            <input
+              type="checkbox"
+              checked={forceVision}
+              onChange={(e) => setForceVision(e.target.checked)}
+            />
+            Force Nemotron vision on extract
+          </label>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void requeuePosts(false)}
+            className="px-4 py-2 rounded bg-slate-700 text-white text-sm hover:bg-slate-600 disabled:opacity-50"
+          >
+            Re-queue only
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void requeuePosts(true)}
+            className="px-4 py-2 rounded bg-amber-600 text-white text-sm hover:bg-amber-500 disabled:opacity-50"
+          >
+            Re-queue + Extract
           </button>
         </div>
       </section>

@@ -112,6 +112,7 @@ written by the pipeline; use `npm run backfill` once to migrate old rows into Su
 npm install                 # once
 npm run scrape              # Watchlist → Apify → pipeline_posts (+ archive images)
 npm run extract             # status=new posts → tiers → Processed (pass) / review queue + Tier 5
+npm run requeue             # set matching posts back to status=new (then run extract)
 npm run verify              # Processed sheet → web search + LLM; write pipeline_verifications
 npm run full                # scrape → extract (includes Tier 5 verify)
 npm run publish             # Processed Events → Events Clean New (novel rows only)
@@ -125,6 +126,9 @@ npm run golden              # replay Testing CSVs (report only)
 #   --limit=10             cap rows processed
 #   --max-age-days=14      look back N days (overrides last-scrape incremental cutoff)
 #   --force-vision         run vision even when caption has all mandatory fields
+#   --requeue              before extract: reset matching posts to status=new
+#   --requeue-posted-since-days=14
+#   --requeue-statuses=processed,needs_review,discarded
 #   --skip-verify          skip online verify on extract/full
 #   --skip-venue-images    skip IG profile pic → Venues.primary_image_url sync
 #   --force-venue-images   overwrite existing venue-images URLs

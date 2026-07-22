@@ -56,6 +56,30 @@ async function executeRun(run: {
   if (params.forceVenueImages === true || params.force_venue_images === true) {
     argv.push('--force-venue-images')
   }
+  if (params.requeue === true) argv.push('--requeue')
+  if (typeof params.requeueStatuses === 'string' && params.requeueStatuses) {
+    argv.push(`--requeue-statuses=${params.requeueStatuses}`)
+  } else if (Array.isArray(params.requeueStatuses) && params.requeueStatuses.length) {
+    argv.push(`--requeue-statuses=${params.requeueStatuses.join(',')}`)
+  }
+  const requeuePosted =
+    typeof params.requeuePostedSinceDays === 'number'
+      ? params.requeuePostedSinceDays
+      : typeof params.requeue_posted_since_days === 'number'
+        ? params.requeue_posted_since_days
+        : null
+  if (requeuePosted != null && requeuePosted > 0) {
+    argv.push(`--requeue-posted-since-days=${requeuePosted}`)
+  }
+  const requeueScraped =
+    typeof params.requeueScrapedSinceDays === 'number'
+      ? params.requeueScrapedSinceDays
+      : typeof params.requeue_scraped_since_days === 'number'
+        ? params.requeue_scraped_since_days
+        : null
+  if (requeueScraped != null && requeueScraped > 0) {
+    argv.push(`--requeue-scraped-since-days=${requeueScraped}`)
+  }
   argv.push(`--run-id=${run.id}`)
 
   const flags: CliFlags = parseFlags(argv)

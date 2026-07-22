@@ -2,7 +2,10 @@
  * Normalize a Sheets row into pipeline watchlist fields.
  * Supports:
  *   - legacy "Watchlist" tab: handle, type, active, notes
- *   - LEC "Fontes IG" tab: Name, Handle / Website, Venue Type, Event Types [, Active]
+ *   - LEC "Fontes IG" / "Fontes IG - Venues" / "Fontes IG - Promoters":
+ *     Name, Handle / Website, Venue Type, Event Types [, Active]
+ *
+ * Split Venues/Promoters tabs are the source of truth; pass forceType when reading them.
  */
 
 export type NormalizedWatchlistEntry = {
@@ -50,7 +53,10 @@ function inferType(venueTypeRaw: string, typeRaw: string): 'venue' | 'promoter' 
   return 'venue'
 }
 
-export function rowToWatchlistEntry(row: Record<string, string>): NormalizedWatchlistEntry | null {
+export function rowToWatchlistEntry(
+  row: Record<string, string>,
+  forceType?: 'venue' | 'promoter'
+): NormalizedWatchlistEntry | null {
   // Fontes IG: column C = Handle / Website (prefer positional, then named headers)
   const handle = normalizeHandle(
     col(row, 2) ||
@@ -61,7 +67,7 @@ export function rowToWatchlistEntry(row: Record<string, string>): NormalizedWatc
   const name = pick(row, 'Name', 'name') || col(row, 1)
   const venueType = pick(row, 'Venue Type', 'venue_type', 'type') || col(row, 3)
   const eventTypes = pick(row, 'Event Types', 'event_types', 'notes') || col(row, 4)
-  const type = inferType(venueType, pick(row, 'type'))
+  const type = forceType ?? inferType(venueType, pick(row, 'type'))
   const activeRaw = pick(row, 'Active', 'active', 'enabled') || col(row, 5)
   const active =
     activeRaw === ''

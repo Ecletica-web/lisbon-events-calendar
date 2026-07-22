@@ -1,12 +1,14 @@
 /**
- * Venue resolution — reuses the app's deterministic VenueIndex
- * (id → instagram handle → exact name → alias) against the same Venues CSV.
+ * Venue resolution — Fontes IG - Venues is the source of truth (name + IG handle).
+ * Optional Venues CSV enriches address / venue_id when the handle matches.
  */
 
 import Papa from 'papaparse'
 import type { Venue } from '@/models/Venue'
 import { buildVenueIndex, resolveVenue, type VenueIndex, type VenueResolution } from '@/data/venueIndex'
 import { getConfig } from '../config'
+import { normalizeIgHandle, slugifyName } from '../sinks/fontes-ig'
+import { readFontesVenues, readTabSafe, TAB_VENUES } from '../sinks/sheets-writer'
 
 let cachedIndex: VenueIndex | null = null
 
@@ -30,22 +32,94 @@ function rowToVenue(row: Record<string, string>): Venue | null {
   }
 }
 
-export async function loadVenueIndex(): Promise<VenueIndex | null> {
-  if (cachedIndex) return cachedIndex
-  const url = getConfig().NEXT_PUBLIC_VENUES_CSV_URL
-  if (!url) return null
+async function loadVenuesSheetRows(): Promise<Venue[]> {
+  const cfg = getConfig()
+  // Prefer live Sheets Venues tab (same spreadsheet as Fontes)
+  try {
+    const rows = await readTabSafe(TAB_VENUES)
+    if (rows.length > 0) {
+      return rows.map(rowToVenue).filter((v): v is Venue => v !== null)
+    }
+  } catch {
+    /* fall through to CSV */
+  }
+  const url = cfg.NEXT_PUBLIC_VENUES_CSV_URL
+  if (!url) return []
   try {
     const res = await fetch(url, { headers: { 'User-Agent': 'LisbonEventsPipeline/1.0' } })
-    if (!res.ok) return null
+    if (!res.ok) return []
     const csvText = await res.text()
     const rows = Papa.parse<Record<string, string>>(csvText, { header: true, skipEmptyLines: true }).data ?? []
-    const venues = rows.map(rowToVenue).filter((v): v is Venue => v !== null)
-    cachedIndex = buildVenueIndex(venues)
-    return cachedIndex
+    return rows.map(rowToVenue).filter((v): v is Venue => v !== null)
   } catch (err) {
-    console.error('[venue-resolve] failed to load venues CSV:', err instanceof Error ? err.message : err)
+    console.error('[venue-resolve] Venues CSV failed:', err instanceof Error ? err.message : err)
+    return []
+  }
+}
+
+/**
+ * Build index: Fontes IG - Venues first (correct handles), then merge Venues sheet
+ * metadata when handles match. Sheet-only venues (no Fontes handle) are still indexed
+ * by name for leftover catalog rows.
+ */
+export async function loadVenueIndex(): Promise<VenueIndex | null> {
+  if (cachedIndex) return cachedIndex
+
+  const fontes = await readFontesVenues()
+  const sheetVenues = await loadVenuesSheetRows()
+  const byHandle = new Map<string, Venue>()
+
+  for (const s of sheetVenues) {
+    const h = normalizeIgHandle(s.instagram_handle || '')
+    if (h) byHandle.set(h, s)
+  }
+
+  const venues: Venue[] = []
+  const seenHandles = new Set<string>()
+
+  for (const f of fontes) {
+    if (!f.active || !f.handle) continue
+    seenHandles.add(f.handle)
+    const sheet = byHandle.get(f.handle)
+    const slug = slugifyName(f.name) || f.handle
+    venues.push({
+      venue_id: sheet?.venue_id || `fontes_${f.handle}`,
+      name: f.name || sheet?.name || f.handle,
+      slug: sheet?.slug || slug,
+      aliases: [
+        ...(sheet?.aliases || []),
+        f.handle,
+        f.name,
+      ].filter(Boolean) as string[],
+      instagram_handle: f.handle,
+      instagram_url: `https://www.instagram.com/${f.handle}/`,
+      venue_address: sheet?.venue_address,
+      neighborhood: sheet?.neighborhood,
+      city: sheet?.city || 'Lisbon',
+      latitude: sheet?.latitude,
+      longitude: sheet?.longitude,
+      tags: sheet?.tags || [],
+    })
+  }
+
+  // Keep sheet venues that aren't in Fontes (name-only matches still useful)
+  for (const s of sheetVenues) {
+    const h = normalizeIgHandle(s.instagram_handle || '')
+    if (h && seenHandles.has(h)) continue
+    venues.push(s)
+  }
+
+  if (venues.length === 0) {
+    console.warn('[venue-resolve] no venues from Fontes IG - Venues or Venues sheet')
     return null
   }
+
+  console.log(
+    `[venue-resolve] index: ${fontes.filter((f) => f.active).length} Fontes venues` +
+      ` + ${sheetVenues.length} sheet rows → ${venues.length} indexed`
+  )
+  cachedIndex = buildVenueIndex(venues)
+  return cachedIndex
 }
 
 export interface PipelineVenueResolution {
@@ -58,7 +132,7 @@ export interface PipelineVenueResolution {
 /**
  * Resolve a venue for an extracted event.
  * Tries the extracted venue name, then the post's IG location name, then the owner handle
- * (venue accounts post their own events).
+ * (venue accounts post their own events) — against Fontes IG - Venues handles/names.
  */
 export async function resolveEventVenue(
   venueNameRaw: string | undefined,
@@ -82,7 +156,12 @@ export async function resolveEventVenue(
     if (!name && !source) continue
     const res: VenueResolution = resolveVenue(index, id, name, source)
     if (res.resolved) {
-      return { venue_id: res.venue_id, venue_name: res.venue_name, venue_name_raw: effectiveName, resolved: true }
+      return {
+        venue_id: res.venue_id,
+        venue_name: res.venue_name,
+        venue_name_raw: effectiveName,
+        resolved: true,
+      }
     }
   }
 

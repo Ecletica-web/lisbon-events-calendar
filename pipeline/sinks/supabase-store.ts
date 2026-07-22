@@ -232,6 +232,69 @@ export async function updatePostProcessingStatus(
   if (error) throw new Error(`updatePostProcessingStatus: ${error.message}`)
 }
 
+export type RequeuePostOptions = {
+  handle?: string
+  /** Statuses to reset (default: processed, needs_review, discarded) */
+  statuses?: ProcessingStatus[]
+  /** Only posts with posted_at >= now − N days */
+  postedSinceDays?: number
+  /** Only posts with scraped_at >= now − N days */
+  scrapedSinceDays?: number
+  limit?: number
+  dryRun?: boolean
+}
+
+/**
+ * Set matching pipeline_posts back to status=new so extract / Nemotron / Tier 5 can run again.
+ */
+export async function requeuePipelinePosts(
+  options: RequeuePostOptions = {}
+): Promise<{ matched: number; requeued: number }> {
+  if (!isSupabaseStoreConfigured()) return { matched: 0, requeued: 0 }
+  const sb = getSupabaseStore()
+  const statuses: ProcessingStatus[] =
+    options.statuses && options.statuses.length > 0
+      ? options.statuses
+      : ['processed', 'needs_review', 'discarded']
+
+  let q = sb
+    .from('pipeline_posts')
+    .select('id', { count: 'exact' })
+    .in('processing_status', statuses)
+    .order('posted_at', { ascending: false, nullsFirst: false })
+
+  if (options.handle) {
+    q = q.ilike('owner_username', options.handle.replace(/^@/, ''))
+  }
+  if (options.postedSinceDays != null && options.postedSinceDays > 0) {
+    const d = new Date()
+    d.setUTCDate(d.getUTCDate() - options.postedSinceDays)
+    q = q.gte('posted_at', d.toISOString())
+  }
+  if (options.scrapedSinceDays != null && options.scrapedSinceDays > 0) {
+    const d = new Date()
+    d.setUTCDate(d.getUTCDate() - options.scrapedSinceDays)
+    q = q.gte('scraped_at', d.toISOString())
+  }
+  if (options.limit && options.limit > 0) q = q.limit(options.limit)
+
+  const { data, error, count } = await q
+  if (error) throw new Error(`requeuePipelinePosts select: ${error.message}`)
+  const ids = (data ?? []).map((r) => String(r.id))
+  const matched = count ?? ids.length
+  if (ids.length === 0 || options.dryRun) {
+    return { matched, requeued: options.dryRun ? ids.length : 0 }
+  }
+
+  const { data: updated, error: upErr } = await sb
+    .from('pipeline_posts')
+    .update({ processing_status: 'new', updated_at: new Date().toISOString() })
+    .in('id', ids)
+    .select('id')
+  if (upErr) throw new Error(`requeuePipelinePosts update: ${upErr.message}`)
+  return { matched, requeued: updated?.length ?? ids.length }
+}
+
 export async function insertExtraction(params: {
   postId: string
   tier: ExtractionTier

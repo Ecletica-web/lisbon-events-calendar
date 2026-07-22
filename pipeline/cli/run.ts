@@ -53,8 +53,10 @@ import {
   readLastSuccessfulScrapeAt,
   readPendingPipelinePosts,
   readVerifiedEventIdsFromStore,
+  requeuePipelinePosts,
   updatePipelineRun,
   upsertPipelinePosts,
+  type ProcessingStatus,
 } from '../sinks/supabase-store'
 
 export interface CliFlags {
@@ -74,6 +76,14 @@ export interface CliFlags {
    * Combined with last successful scrape: Apify cutoff = max(lastScrape, now − N days).
    */
   postMaxAgeDays?: number
+  /** Reset matching posts to status=new before extract (or as standalone requeue). */
+  requeue: boolean
+  /** Statuses to requeue (comma list). Default processed,needs_review,discarded */
+  requeueStatuses?: ProcessingStatus[]
+  /** Only requeue posts with posted_at within N days */
+  requeuePostedSinceDays?: number
+  /** Only requeue posts with scraped_at within N days */
+  requeueScrapedSinceDays?: number
   /** When set by the worker, status/logs go to this pipeline_runs row */
   runId?: string
 }
@@ -87,6 +97,7 @@ export function parseFlags(argv: string[]): CliFlags {
     syncVenueImages: false,
     forceVenueImages: false,
     sheetsOnly: false,
+    requeue: false,
   }
   for (const arg of argv.slice(1)) {
     if (arg === '--dry-run') flags.dryRun = true
@@ -96,11 +107,25 @@ export function parseFlags(argv: string[]): CliFlags {
     else if (arg === '--sync-venue-images') flags.syncVenueImages = true
     else if (arg === '--force-venue-images') flags.forceVenueImages = true
     else if (arg === '--sheets-only') flags.sheetsOnly = true
+    else if (arg === '--requeue') flags.requeue = true
     else if (arg.startsWith('--handle=')) flags.handle = arg.slice('--handle='.length).replace(/^@/, '').toLowerCase()
     else if (arg.startsWith('--limit=')) flags.limit = parseInt(arg.slice('--limit='.length), 10) || undefined
     else if (arg.startsWith('--max-age-days=')) {
       const n = parseInt(arg.slice('--max-age-days='.length), 10)
       if (Number.isFinite(n) && n > 0) flags.postMaxAgeDays = Math.min(n, 365)
+    } else if (arg.startsWith('--requeue-statuses=')) {
+      const raw = arg.slice('--requeue-statuses='.length)
+      const allowed = new Set<ProcessingStatus>(['new', 'discarded', 'needs_review', 'processed'])
+      flags.requeueStatuses = raw
+        .split(',')
+        .map((s) => s.trim() as ProcessingStatus)
+        .filter((s) => allowed.has(s))
+    } else if (arg.startsWith('--requeue-posted-since-days=')) {
+      const n = parseInt(arg.slice('--requeue-posted-since-days='.length), 10)
+      if (Number.isFinite(n) && n > 0) flags.requeuePostedSinceDays = Math.min(n, 365)
+    } else if (arg.startsWith('--requeue-scraped-since-days=')) {
+      const n = parseInt(arg.slice('--requeue-scraped-since-days='.length), 10)
+      if (Number.isFinite(n) && n > 0) flags.requeueScrapedSinceDays = Math.min(n, 365)
     } else if (arg.startsWith('--run-id=')) flags.runId = arg.slice('--run-id='.length)
   }
   return flags
@@ -338,7 +363,39 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
   return stats
 }
 
+export async function commandRequeue(flags: CliFlags): Promise<Record<string, unknown>> {
+  const postedSince =
+    flags.requeuePostedSinceDays ??
+    flags.postMaxAgeDays ??
+    undefined
+  await logRun(
+    flags,
+    `[requeue] handle=${flags.handle ?? '*'} statuses=${(flags.requeueStatuses ?? ['processed', 'needs_review', 'discarded']).join(',')}` +
+      ` posted_since_days=${postedSince ?? 'any'} scraped_since_days=${flags.requeueScrapedSinceDays ?? 'any'} limit=${flags.limit ?? 'none'}`
+  )
+  const result = await requeuePipelinePosts({
+    handle: flags.handle,
+    statuses: flags.requeueStatuses,
+    postedSinceDays: postedSince,
+    scrapedSinceDays: flags.requeueScrapedSinceDays,
+    limit: flags.limit,
+    dryRun: flags.dryRun,
+  })
+  await logRun(
+    flags,
+    `[requeue] matched=${result.matched} requeued=${result.requeued}` +
+      (flags.dryRun ? ' (dry-run)' : ' → status=new (extract will pick these up)')
+  )
+  return { requeue_matched: result.matched, requeued: result.requeued }
+}
+
 export async function commandExtract(flags: CliFlags): Promise<Record<string, unknown>> {
+  const stats: Record<string, unknown> = {}
+  if (flags.requeue || flags.command === 'requeue') {
+    Object.assign(stats, await commandRequeue(flags))
+    if (flags.command === 'requeue') return stats
+  }
+
   const pending = await readPendingPipelinePosts({
     handle: flags.handle,
     limit: flags.limit,
@@ -355,9 +412,9 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
     )
     await logRun(
       flags,
-      '[extract] TIP: queue scrape/full with Max age (days)=30 to pull older posts not yet in Events Raw, then extract runs on status=new.'
+      '[extract] TIP: npm run requeue -- --posted-since-days=14 (or Queue “Re-queue + Extract” in admin), then extract runs on status=new.'
     )
-    return { processed: 0, needs_review: 0, discarded: 0, pending_new: 0 }
+    return { ...stats, processed: 0, needs_review: 0, discarded: 0, pending_new: 0 }
   }
 
   await logRun(flags, `[extract] ${pending.length} pending post(s)`)
@@ -512,6 +569,7 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
   }
 
   return {
+    ...stats,
     processed: keptRows.length,
     needs_review: allNeedsReview.length,
     discarded,
@@ -653,7 +711,11 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
   const skipRunLedger = flags.command === 'publish'
   if (!flags.runId && !flags.dryRun && !skipRunLedger && isSupabaseStoreConfigured()) {
     const modeForDb =
-      flags.command === 'images' ? 'profile-images' : (flags.command as PipelineRunMode)
+      flags.command === 'images'
+        ? 'profile-images'
+        : flags.command === 'requeue'
+          ? 'extract'
+          : (flags.command as PipelineRunMode)
     try {
       createdRunId =
         (await createPipelineRun({
@@ -663,6 +725,11 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
             limit: flags.limit,
             forceVision: flags.forceVision,
             sheetsOnly: flags.sheetsOnly,
+            requeue: flags.requeue || flags.command === 'requeue',
+            requeueStatuses: flags.requeueStatuses,
+            requeuePostedSinceDays: flags.requeuePostedSinceDays,
+            requeueScrapedSinceDays: flags.requeueScrapedSinceDays,
+            pipelineCommand: flags.command === 'requeue' ? 'requeue' : undefined,
           },
           requestedBy: 'cli',
           status: 'running',
@@ -701,6 +768,11 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
         Object.assign(combined, await commandExtract(flags))
         await logRun(flags, '=== STAGE: extract (done) ===')
         break
+      case 'requeue':
+        await logRun(flags, '=== STAGE: requeue (start) ===')
+        Object.assign(combined, await commandRequeue(flags))
+        await logRun(flags, '=== STAGE: requeue (done) ===')
+        break
       case 'verify':
         await logRun(flags, '=== STAGE: verify (start) ===')
         Object.assign(combined, await commandVerify(flags))
@@ -721,7 +793,7 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
         break
       default:
         throw new Error(
-          `Unknown command "${flags.command}". Use: profile-images | scrape | extract | verify | full | publish`
+          `Unknown command "${flags.command}". Use: profile-images | scrape | extract | requeue | verify | full | publish`
         )
     }
 

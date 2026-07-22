@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
-import { getPipelinePostDetail, listPipelinePosts } from '@/lib/adminPipeline'
+import {
+  enqueuePipelineRun,
+  getPipelinePostDetail,
+  listPipelinePosts,
+  requeuePipelinePosts,
+} from '@/lib/adminPipeline'
 import { getSheetsEditUrl, readEventsRawFromSheets } from '@/lib/googleSheets'
 import { EVENTS_RAW_COLUMNS, projectRows } from '@/lib/pipelineSheetColumns'
 
@@ -71,6 +76,79 @@ export async function GET(request: NextRequest) {
       source,
       sheetsUrl: getSheetsEditUrl(),
     })
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Failed' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const auth = await requireAdmin(request)
+  if (!auth.ok) return auth.response
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
+  }
+
+  const action = String(body.action || '')
+  if (action !== 'requeue') {
+    return NextResponse.json({ error: 'action must be requeue' }, { status: 400 })
+  }
+
+  try {
+    const statusesRaw = Array.isArray(body.statuses)
+      ? body.statuses.map(String)
+      : String(body.statuses || 'processed,needs_review,discarded').split(',')
+    const allowed = new Set(['processed', 'needs_review', 'discarded'])
+    const statuses = statusesRaw
+      .map((s) => s.trim())
+      .filter((s): s is 'processed' | 'needs_review' | 'discarded' => allowed.has(s))
+
+    const postedSinceDays =
+      body.postedSinceDays != null && body.postedSinceDays !== ''
+        ? Number(body.postedSinceDays)
+        : undefined
+    const scrapedSinceDays =
+      body.scrapedSinceDays != null && body.scrapedSinceDays !== ''
+        ? Number(body.scrapedSinceDays)
+        : undefined
+    const limit = body.limit != null && body.limit !== '' ? Number(body.limit) : undefined
+
+    if (postedSinceDays != null && (!Number.isFinite(postedSinceDays) || postedSinceDays < 1)) {
+      return NextResponse.json({ error: 'postedSinceDays must be >= 1' }, { status: 400 })
+    }
+    if (scrapedSinceDays != null && (!Number.isFinite(scrapedSinceDays) || scrapedSinceDays < 1)) {
+      return NextResponse.json({ error: 'scrapedSinceDays must be >= 1' }, { status: 400 })
+    }
+    if (limit != null && (!Number.isFinite(limit) || limit < 1)) {
+      return NextResponse.json({ error: 'limit must be >= 1' }, { status: 400 })
+    }
+
+    const result = await requeuePipelinePosts({
+      handle: body.handle ? String(body.handle).replace(/^@/, '').toLowerCase() : undefined,
+      statuses,
+      postedSinceDays: postedSinceDays != null ? Math.floor(postedSinceDays) : undefined,
+      scrapedSinceDays: scrapedSinceDays != null ? Math.floor(scrapedSinceDays) : undefined,
+      limit: limit != null ? Math.floor(limit) : undefined,
+    })
+
+    let run = null
+    if (body.enqueueExtract) {
+      const runParams: Record<string, unknown> = {}
+      if (body.handle) runParams.handle = String(body.handle).replace(/^@/, '').toLowerCase()
+      if (limit != null) runParams.limit = Math.floor(limit)
+      if (body.forceVision) runParams.forceVision = true
+      if (body.skipVerify) runParams.skipVerify = true
+      run = await enqueuePipelineRun({
+        mode: 'extract',
+        runParams,
+        requestedBy: auth.email,
+      })
+    }
+
+    return NextResponse.json({ ...result, run })
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed' },
