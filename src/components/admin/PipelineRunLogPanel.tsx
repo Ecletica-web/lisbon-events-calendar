@@ -128,6 +128,7 @@ export function deriveRunStages(run: PipelineRunForLog): {
   brokeAt: string | null
   summary: string
   softNotes: string[]
+  outcomeLines: string[]
 } {
   const expected = expectedStages(
     typeof run.params?.pipelineCommand === 'string' && run.params.pipelineCommand
@@ -200,12 +201,72 @@ export function deriveRunStages(run: PipelineRunForLog): {
       [...stages].reverse().find((s) => s.state === 'running') ||
       stages.find((s) => s.state === 'pending')
     summary = current ? `Running: ${current.label}` : 'Running…'
-  } else if (run.status === 'success') summary = 'Completed successfully'
-  else if (run.status === 'aborted') summary = 'Stopped'
+  } else if (run.status === 'success') {
+    summary = humanSuccessSummary(run, log) || 'Completed successfully'
+  } else if (run.status === 'aborted') summary = 'Stopped'
   else if (brokeAt) summary = `Broke at ${brokeAt}${err ? ` — ${err}` : ''}`
   else summary = `Status: ${run.status}`
 
-  return { stages, brokeAt, summary, softNotes }
+  return { stages, brokeAt, summary, softNotes, outcomeLines: outcomeFromLog(log, run.stats) }
+}
+
+/** Plain-English outcome from SUMMARY / WHY log lines + stats. */
+function outcomeFromLog(log: string, stats: Record<string, unknown>): string[] {
+  const lines: string[] = []
+  const summaryRe = /\[(scrape|extract|verify)\] SUMMARY: .+/gi
+  const whyRe = /\[(scrape|extract)\] WHY[^:]*: .+/gi
+  for (const m of log.matchAll(summaryRe)) lines.push(m[0].replace(/^\[[^\]]+\]\s*/, ''))
+  for (const m of log.matchAll(whyRe)) lines.push(m[0].replace(/^\[[^\]]+\]\s*/, ''))
+
+  if (lines.length === 0 && stats && Object.keys(stats).length > 0) {
+    const newRows = num(stats.new_rows)
+    const pending = num(stats.pending_new)
+    const processed = num(stats.processed)
+    const review = num(stats.needs_review)
+    if (newRows != null) {
+      lines.push(
+        newRows === 0
+          ? 'Scrape: 0 new posts added to Events Raw (already known or empty).'
+          : `Scrape: ${newRows} new post(s) added to Events Raw.`
+      )
+    }
+    if (pending === 0 && processed === 0 && review === 0) {
+      lines.push('Extract: nothing to do (no status=new posts).')
+    } else if (processed != null || review != null) {
+      lines.push(
+        `Extract: ${processed ?? 0} → Processed, ${review ?? 0} → Review.`
+      )
+    }
+  }
+  return [...new Set(lines)].slice(0, 8)
+}
+
+function humanSuccessSummary(run: PipelineRunForLog, log: string): string {
+  const why = log.match(/\[scrape\] WHY 0 new: ([^\n]+)/i)?.[1]
+  const extractEmpty = /pending_new=0|no pending pipeline_posts/i.test(log)
+  const newRows = num(run.stats?.new_rows)
+  const processed = num(run.stats?.processed)
+  const review = num(run.stats?.needs_review)
+
+  if (extractEmpty && (newRows === 0 || newRows == null)) {
+    return 'Finished — 0 new posts scraped, so extract had nothing to do'
+  }
+  if (why && newRows === 0) {
+    return `Finished — 0 new posts (${why.slice(0, 80)}${why.length > 80 ? '…' : ''})`
+  }
+  if (processed === 0 && (review ?? 0) > 0) {
+    return `Finished — ${review} sent to Review, 0 auto-Published`
+  }
+  if ((processed ?? 0) > 0) {
+    return `Finished — ${processed} Published` + ((review ?? 0) > 0 ? `, ${review} Review` : '')
+  }
+  return ''
+}
+
+function num(v: unknown): number | null {
+  if (typeof v === 'number' && Number.isFinite(v)) return v
+  if (typeof v === 'string' && v.trim() && Number.isFinite(Number(v))) return Number(v)
+  return null
 }
 
 function stateClass(state: StageState): string {
@@ -335,6 +396,17 @@ export function PipelineRunLogPanel({
               Broke at <strong>{derived.brokeAt}</strong>
               {lastErrorLine(run.log) ? `: ${lastErrorLine(run.log)}` : ''}
             </p>
+          )}
+
+          {derived.outcomeLines.length > 0 && (
+            <div className="rounded border border-sky-900/50 bg-sky-950/30 px-3 py-2 space-y-1">
+              <p className="text-xs font-medium text-sky-300/90 uppercase tracking-wide">What this run did</p>
+              <ul className="text-sm text-sky-100/90 space-y-1 list-disc list-inside">
+                {derived.outcomeLines.map((line) => (
+                  <li key={line}>{line.replace(/^\[(scrape|extract|verify)\]\s*/i, '')}</li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {derived.softNotes.length > 0 && (

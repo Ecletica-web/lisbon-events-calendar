@@ -116,7 +116,7 @@ npm run golden              # replay Testing CSVs (report only)
 #   --dry-run              skip remote writes where possible
 #   --handle=lux           restrict to one watchlist handle
 #   --limit=10             cap rows processed
-#   --max-age-days=14      only posts newer than now−N days (combined with last scrape)
+#   --max-age-days=14      look back N days (overrides last-scrape incremental cutoff)
 #   --force-vision         run vision even when caption has all mandatory fields
 #   --skip-verify          skip online verify on extract/full
 #   --skip-venue-images    skip IG profile pic → Venues.primary_image_url sync

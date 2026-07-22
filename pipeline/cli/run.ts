@@ -103,10 +103,18 @@ export function parseFlags(argv: string[]): CliFlags {
   return flags
 }
 
-/** Resolve Apify onlyPostsNewerThan from last scrape + optional max-age window. */
+/** Resolve Apify onlyPostsNewerThan.
+ * - With maxAgeDays: look back N days (overrides incremental last-scrape — this is what admins expect).
+ * - Without: incremental from last successful scrape only.
+ */
 export async function resolveOnlyPostsNewerThan(
   postMaxAgeDays?: number
-): Promise<{ cutoff?: string; lastScrapeAt?: string; maxAgeCutoff?: string }> {
+): Promise<{
+  cutoff?: string
+  lastScrapeAt?: string
+  maxAgeCutoff?: string
+  cutoffSource?: 'max_age_days' | 'last_scrape' | 'none'
+}> {
   const lastScrapeAt =
     (await readLastSuccessfulScrapeAt()) ?? (await readLastSuccessfulRunAt()) ?? undefined
 
@@ -117,13 +125,22 @@ export async function resolveOnlyPostsNewerThan(
     maxAgeCutoff = d.toISOString()
   }
 
-  const candidates = [lastScrapeAt, maxAgeCutoff].filter(Boolean) as string[]
-  if (candidates.length === 0) return {}
-  // Later timestamp = stricter (fewer older posts). Normalize to Z for Apify.
-  const raw = candidates.sort().at(-1)!
-  const ms = Date.parse(raw)
-  const cutoff = Number.isFinite(ms) ? new Date(ms).toISOString() : raw
-  return { cutoff, lastScrapeAt, maxAgeCutoff }
+  // Explicit lookback wins — otherwise max(lastScrape, maxAge) made maxAgeDays useless
+  // whenever a recent scrape existed (e.g. 30 days requested but cutoff = 4 minutes ago).
+  if (maxAgeCutoff) {
+    return {
+      cutoff: maxAgeCutoff,
+      lastScrapeAt,
+      maxAgeCutoff,
+      cutoffSource: 'max_age_days',
+    }
+  }
+  if (lastScrapeAt) {
+    const ms = Date.parse(lastScrapeAt)
+    const cutoff = Number.isFinite(ms) ? new Date(ms).toISOString() : lastScrapeAt
+    return { cutoff, lastScrapeAt, cutoffSource: 'last_scrape' }
+  }
+  return { cutoffSource: 'none' }
 }
 
 async function logRun(flags: CliFlags, line: string): Promise<void> {
@@ -187,23 +204,29 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
 
   const window = await resolveOnlyPostsNewerThan(flags.postMaxAgeDays)
   const onlyPostsNewerThan = window.cutoff
+  const cutoffExplain =
+    window.cutoffSource === 'max_age_days'
+      ? `lookback=${flags.postMaxAgeDays}d → ${window.maxAgeCutoff}` +
+        (window.lastScrapeAt ? ` (lastScrape=${window.lastScrapeAt} ignored — lookback widens window)` : '')
+      : window.cutoffSource === 'last_scrape'
+        ? `incremental lastScrape=${window.lastScrapeAt}`
+        : 'no date cutoff (full history up to resultsLimit)'
   await logRun(
     flags,
-    `[scrape] ${handles.length} handle(s), mode=${cfg.PIPELINE_RUN_MODE}, newerThan=${onlyPostsNewerThan ?? 'none'}` +
-      (window.lastScrapeAt ? ` (lastScrape=${window.lastScrapeAt})` : '') +
-      (window.maxAgeCutoff
-        ? ` (maxAgeDays=${flags.postMaxAgeDays} → ${window.maxAgeCutoff})`
-        : '')
+    `[scrape] ${handles.length} handle(s), mode=${cfg.PIPELINE_RUN_MODE}, newerThan=${onlyPostsNewerThan ?? 'none'} — ${cutoffExplain}`
   )
 
   let apifyRunIds: string[] = []
   let items: ReturnType<typeof transformInstagramApifyPost>[] = []
   let error = ''
+  let apifyRawCount = 0
+  let droppedByDate = 0
 
   try {
     const runs = await scrapeInstagram({ handles, onlyPostsNewerThan })
     apifyRunIds = runs.map((r) => r.apifyRunId)
     const rawItems = runs.flatMap((r) => r.items)
+    apifyRawCount = rawItems.length
     await logRun(flags, `[scrape] Apify returned ${rawItems.length} item(s)`)
     items = rawItems.map((item) => transformInstagramApifyPost(item, runId))
   } catch (err) {
@@ -221,10 +244,11 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
         const t = Date.parse(row.posted_at)
         return !Number.isFinite(t) || t >= cutMs
       })
-      if (items.length < before) {
+      droppedByDate = before - items.length
+      if (droppedByDate > 0) {
         await logRun(
           flags,
-          `[scrape] dropped ${before - items.length} post(s) older than ${onlyPostsNewerThan}`
+          `[scrape] dropped ${droppedByDate} post(s) older than ${onlyPostsNewerThan}`
         )
       }
     }
@@ -232,6 +256,7 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
 
   const existingIds = await readExistingPipelineSourceIds()
   let rows = items.filter((r): r is EventsRawRow => r !== null && !existingIds.has(r.source_event_id))
+  const alreadyKnown = items.length - rows.length
   if (flags.limit) rows = rows.slice(0, flags.limit)
 
   for (const row of rows) {
@@ -251,11 +276,35 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
   const { written } = await upsertPipelinePosts(rows, flags.dryRun)
   stats.posts_scraped = items.length
   stats.new_rows = written
+  stats.already_known = alreadyKnown
+  stats.apify_raw_items = apifyRawCount
+  stats.dropped_by_date = droppedByDate
   stats.apify_run_id = apifyRunIds.join('|')
   stats.only_posts_newer_than = onlyPostsNewerThan ?? null
   stats.post_max_age_days = flags.postMaxAgeDays ?? null
-  await logRun(flags, `[scrape] wrote ${written} new pipeline_posts (${items.length - rows.length} already known)`)
+  stats.cutoff_source = window.cutoffSource ?? null
 
+  await logRun(
+    flags,
+    `[scrape] SUMMARY: apify=${apifyRawCount} → after_date_filter=${items.length} → new=${written} already_known=${alreadyKnown}`
+  )
+  if (written === 0) {
+    const why =
+      apifyRawCount === 0
+        ? 'Apify returned 0 items (blocks, bad handles, or empty feeds).'
+        : alreadyKnown > 0 && droppedByDate === 0
+          ? 'All returned posts were already in Events Raw (pipeline_posts). Nothing new to extract.'
+          : alreadyKnown > 0
+            ? 'Remaining posts after date filter were already known.'
+            : 'No usable posts after filters.'
+    await logRun(flags, `[scrape] WHY 0 new: ${why}`)
+    await logRun(
+      flags,
+      `[scrape] TIP: set Max age (days) to look back further; leave it empty for incremental-only (since last scrape).`
+    )
+  } else {
+    await logRun(flags, `[scrape] wrote ${written} new pipeline_posts (status=new) — extract will pick these up`)
+  }
   // Legacy Sheets Run_Log — optional; never abort the scrape if Sheets API is unavailable
   try {
     await appendRunLog(
@@ -293,8 +342,19 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
   })
 
   if (pending.length === 0) {
-    await logRun(flags, '[extract] no pending pipeline_posts with status=new — run scrape first.')
-    return { processed: 0, needs_review: 0, discarded: 0 }
+    await logRun(
+      flags,
+      '[extract] SUMMARY: pending_new=0 → nothing to extract (no pipeline_posts with status=new).'
+    )
+    await logRun(
+      flags,
+      '[extract] WHY: scrape found 0 new posts, or earlier extract already processed them. Processed Events only gets auto-pass from NEW extracts — Review queue is separate.'
+    )
+    await logRun(
+      flags,
+      '[extract] TIP: queue scrape/full with Max age (days)=30 to pull older posts not yet in Events Raw, then extract runs on status=new.'
+    )
+    return { processed: 0, needs_review: 0, discarded: 0, pending_new: 0 }
   }
 
   await logRun(flags, `[extract] ${pending.length} pending post(s)`)
@@ -407,6 +467,18 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
     )
   }
 
+  await logRun(
+    flags,
+    `[extract] SUMMARY: processed→Processed=${keptRows.length} review_queue=${allNeedsReview.length} discarded=${discarded} dupes_in_batch=${droppedAsDuplicate} already_on_Processed=${droppedAsExisting}`
+  )
+  if (keptRows.length === 0 && allNeedsReview.length > 0) {
+    await logRun(
+      flags,
+      `[extract] WHY 0 Processed: all candidates failed soft checks (e.g. venue_unresolved) → Review queue. Fix Venues sheet handles/names to auto-publish.`
+    )
+  } else if (keptRows.length === 0 && allNeedsReview.length === 0 && discarded > 0) {
+    await logRun(flags, `[extract] WHY 0 Processed: all posts discarded (hard fail / no events).`)
+  }
   await logRun(
     flags,
     `[extract] done: ${keptRows.length} processed, ${allNeedsReview.length} needs-review, ${discarded} discarded, ${droppedAsDuplicate} in-batch dupes, ${droppedAsExisting} already published`

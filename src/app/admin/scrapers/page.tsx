@@ -255,15 +255,18 @@ export default function AdminScrapersPage() {
           )}
           {(mode === 'scrape' || mode === 'full') && (
             <label className="text-sm text-slate-300">
-              Max age (days)
+              Look back (days)
               <input
                 className="block mt-1 w-28 bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white"
                 value={postMaxAgeDays}
                 onChange={(e) => setPostMaxAgeDays(e.target.value)}
                 placeholder="14"
                 inputMode="numeric"
-                title="Only scrape posts newer than this many days (also respects last successful scrape)"
+                title="Fetch posts from the last N days (overrides incremental last-scrape). Leave empty for incremental-only."
               />
+              <span className="block mt-1 text-[11px] text-slate-500 max-w-[14rem] leading-snug">
+                Overrides last-scrape cutoff. Empty = only posts since last successful scrape.
+              </span>
             </label>
           )}
           {(mode === 'extract' || mode === 'full') && (
