@@ -20,14 +20,14 @@ const SWIPE_EXIT_MS = 250
 
 function SkeletonCard() {
   return (
-    <div className="rounded-2xl bg-slate-800/40 border border-slate-700/50 overflow-hidden animate-pulse">
-      <div className="aspect-[4/3] bg-slate-700/60" />
+    <div className="rounded-none bg-pager-elevated border border-pager-border overflow-hidden animate-pulse">
+      <div className="aspect-[4/3] bg-pager-muted" />
       <div className="p-5 space-y-3">
-        <div className="h-6 bg-slate-700/60 rounded w-3/4" />
-        <div className="h-4 bg-slate-700/40 rounded w-1/2" />
+        <div className="h-6 bg-pager-muted rounded w-3/4" />
+        <div className="h-4 bg-pager-muted rounded w-1/2" />
         <div className="flex gap-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-6 w-16 bg-slate-700/40 rounded-full" />
+            <div key={i} className="h-6 w-16 bg-pager-muted rounded-none" />
           ))}
         </div>
       </div>
@@ -89,24 +89,13 @@ export default function ForYouPage() {
   }, [fetchFeed])
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900/95 to-slate-900 pb-28">
-      {/* Ambient background */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
-        <div className="absolute top-40 right-1/4 w-80 h-80 bg-purple-500/8 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/3 left-1/2 w-72 h-72 bg-pink-500/5 rounded-full blur-3xl" />
-      </div>
-
+    <div className="min-h-screen bg-pager-bg pb-28">
       <div className="max-w-2xl mx-auto px-4 pt-16 sm:pt-20">
         {/* Hero */}
         <header className="mb-10 sm:mb-12">
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">
-            <span className="bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">
-              For You
-            </span>
-          </h1>
-          <p className="text-slate-400 text-base sm:text-lg max-w-md leading-relaxed">
-            Your personal event feed — powered by venues you follow, promoters, personas, and what your friends are going to. Swipe or use the buttons to like or pass; tap a card for details or to share with a friend.
+          <h1 className="pager-heading mb-3">FOR YOU</h1>
+          <p className="text-pager-fg-muted text-sm sm:text-base max-w-md leading-relaxed">
+            Your personal event feed — venues you follow, promoters, personas, and friends. Swipe to like or pass.
           </p>
         </header>
 
@@ -147,13 +136,13 @@ export default function ForYouPage() {
               />
             )}
             {!loading && currentCardIndex >= events.length && events.length > 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl border border-slate-700/50 bg-slate-800/30 backdrop-blur-sm py-12">
-                <p className="text-slate-400 text-lg font-medium">You&apos;re all caught up</p>
-                <p className="text-slate-500 text-sm mt-1">Come back later for more events</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-none border border-pager-border bg-pager-elevated/30 backdrop-blur-sm py-12">
+                <p className="text-pager-fg-muted text-lg font-medium">You&apos;re all caught up</p>
+                <p className="text-pager-fg-faint text-sm mt-1">Come back later for more events</p>
                 <button
                   type="button"
                   onClick={() => setCurrentCardIndex(0)}
-                  className="mt-6 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors"
+                  className="mt-6 px-5 py-2.5 rounded-none bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors"
                 >
                   Browse again
                 </button>
@@ -178,26 +167,26 @@ export default function ForYouPage() {
 
 function EmptyState() {
   return (
-    <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 backdrop-blur-sm p-8 sm:p-12 text-center">
-      <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 mb-6">
+    <div className="rounded-none border border-pager-border bg-pager-elevated/30 backdrop-blur-sm p-8 sm:p-12 text-center">
+      <div className="inline-flex items-center justify-center w-16 h-16 rounded-none bg-gradient-to-br from-indigo-500/20 to-purple-500/20 mb-6">
         <svg className="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
         </svg>
       </div>
-      <h2 className="text-xl font-semibold text-slate-200 mb-2">Your feed is waiting</h2>
-      <p className="text-slate-400 text-sm sm:text-base max-w-sm mx-auto mb-6 leading-relaxed">
+      <h2 className="text-xl font-semibold text-pager-fg mb-2">Your feed is waiting</h2>
+      <p className="text-pager-fg-muted text-sm sm:text-base max-w-sm mx-auto mb-6 leading-relaxed">
         Follow venues and promoters, create personas, and we&apos;ll surface events you&apos;ll love. Your friends&apos; picks will show up too.
       </p>
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
         <Link
           href="/calendar"
-          className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-500/20"
+          className="inline-flex items-center justify-center px-5 py-2.5 pager-btn pager-btn-primary text-xs uppercase tracking-wider"
         >
           Browse calendar
         </Link>
         <Link
           href="/profile"
-          className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl border border-slate-600/50 text-slate-300 font-medium hover:bg-slate-800/50 hover:border-slate-500 transition-all"
+          className="inline-flex items-center justify-center px-5 py-2.5 rounded-none border border-pager-border text-pager-fg-muted font-medium hover:bg-pager-elevated/50 hover:border-slate-500 transition-all"
         >
           Follow venues & create personas
         </Link>
@@ -302,12 +291,12 @@ function SwipeableFeedCard({
         {!isExiting && isDragging && (
           <>
             {dragOffset > 30 && (
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-end pr-6 rounded-2xl border-4 border-emerald-500/80 bg-emerald-500/10">
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-end pr-6 rounded-none border-4 border-emerald-500/80 bg-emerald-500/10">
                 <span className="text-emerald-400 font-bold text-2xl">LIKE</span>
               </div>
             )}
             {dragOffset < -30 && (
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-start pl-6 rounded-2xl border-4 border-red-500/80 bg-red-500/10">
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-start pl-6 rounded-none border-4 border-red-500/80 bg-red-500/10">
                 <span className="text-red-400 font-bold text-2xl">PASS</span>
               </div>
             )}
@@ -352,13 +341,13 @@ function FeedCard({
 
   return (
     <article
-      className="group rounded-2xl bg-slate-800 border border-slate-700 overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-indigo-500/5 hover:border-slate-600 transition-all duration-300 cursor-pointer"
+      className="group rounded-none bg-pager-elevated border border-pager-border overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-indigo-500/5 hover:border-pager-border transition-all duration-300 cursor-pointer"
       onClick={onOpen}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onOpen()}
     >
-      <div className="aspect-[4/3] relative bg-slate-800 overflow-hidden">
+      <div className="aspect-[4/3] relative bg-pager-elevated overflow-hidden">
         <EventImageThumb
           imageUrl={p.imageUrl}
           imageUrls={p.imageUrls}
@@ -370,37 +359,37 @@ function FeedCard({
           {reasons.slice(0, 3).map((r) => (
             <span
               key={r}
-              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/15 text-white backdrop-blur-md border border-white/10"
+              className="px-2.5 py-1 rounded-none text-xs font-medium bg-white/15 text-white backdrop-blur-md border border-white/10"
             >
               {r}
             </span>
           ))}
           {p.isFree && (
-            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/90 text-white">
+            <span className="px-2.5 py-1 rounded-none text-xs font-semibold bg-emerald-500/90 text-white">
               Free
             </span>
           )}
         </div>
         {priceLabel && !p.isFree && (
-          <div className="absolute top-3 right-3 px-2.5 py-1 rounded-lg text-xs font-medium bg-black/50 text-slate-200 backdrop-blur-sm">
+          <div className="absolute top-3 right-3 px-2.5 py-1 rounded-none text-xs font-medium bg-black/50 text-pager-fg backdrop-blur-sm">
             {priceLabel}
           </div>
         )}
         <div className="absolute bottom-3 left-3 right-3">
           <h2 className="font-bold text-white text-lg sm:text-xl line-clamp-2 drop-shadow-lg">{event.title}</h2>
-          <p className="text-slate-200/90 text-sm sm:text-base mt-0.5 truncate">{p.venueName || 'TBA'}</p>
+          <p className="text-pager-fg/90 text-sm sm:text-base mt-0.5 truncate">{p.venueName || 'TBA'}</p>
         </div>
       </div>
       <div className="p-4 sm:p-5 min-w-0">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-base sm:text-sm mb-3">
-          <time dateTime={event.start} className="text-slate-400 font-medium tabular-nums">
+          <time dateTime={event.start} className="text-pager-fg-muted font-medium tabular-nums">
             {start.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
           </time>
           <div className="flex flex-wrap gap-1.5">
             {p.tags.slice(0, 4).map((tag) => (
               <span
                 key={tag}
-                className="px-2.5 py-1 rounded-lg text-xs sm:text-xs font-medium border"
+                className="px-2.5 py-1 rounded-none text-xs sm:text-xs font-medium border"
                 style={{ borderColor: categoryColor, color: categoryColor }}
               >
                 {tag}
@@ -409,7 +398,7 @@ function FeedCard({
           </div>
         </div>
         {descriptionText && (
-          <p className="text-slate-300 text-base sm:text-sm leading-relaxed line-clamp-4 mb-4">
+          <p className="text-pager-fg-muted text-base sm:text-sm leading-relaxed line-clamp-4 mb-4">
             {descriptionText}
           </p>
         )}
@@ -418,7 +407,7 @@ function FeedCard({
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onPass?.() }}
-              className="w-14 h-14 sm:w-14 sm:h-14 rounded-full border-2 border-slate-500 bg-slate-800/80 text-slate-400 hover:border-red-400 hover:bg-red-500/20 hover:text-red-400 flex items-center justify-center transition-colors shadow-lg flex-shrink-0"
+              className="w-14 h-14 sm:w-14 sm:h-14 rounded-none border-2 border-slate-500 bg-pager-elevated/80 text-pager-fg-muted hover:border-red-400 hover:bg-red-500/20 hover:text-red-400 flex items-center justify-center transition-colors shadow-lg flex-shrink-0"
               aria-label="Pass"
               title="Pass"
             >
@@ -429,7 +418,7 @@ function FeedCard({
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onLike?.() }}
-              className="w-14 h-14 sm:w-14 sm:h-14 rounded-full border-2 border-slate-500 bg-slate-800/80 text-slate-400 hover:border-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-400 flex items-center justify-center transition-colors shadow-lg flex-shrink-0"
+              className="w-14 h-14 sm:w-14 sm:h-14 rounded-none border-2 border-slate-500 bg-pager-elevated/80 text-pager-fg-muted hover:border-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-400 flex items-center justify-center transition-colors shadow-lg flex-shrink-0"
               aria-label="Like"
               title="Like"
             >

@@ -18,6 +18,7 @@ export default function PromotersPage() {
   const [promoters, setPromoters] = useState<Awaited<ReturnType<typeof fetchPromoters>>>([])
   const [events, setEvents] = useState<Awaited<ReturnType<typeof fetchEvents>>>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -54,50 +55,79 @@ export default function PromotersPage() {
     }
   }
 
+  const q = searchQuery.trim().toLowerCase()
+  const filtered = q
+    ? promoters.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          (p.instagram_handle || '').toLowerCase().includes(q) ||
+          (p.description_short || '').toLowerCase().includes(q)
+      )
+    : promoters
+
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-slate-900 text-slate-100">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pt-20 sm:pt-24 pb-[env(safe-area-inset-bottom)]">
-        <Link
-          href="/calendar"
-          className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
-        >
-          ← Back to Calendar
+    <div className="min-h-screen min-h-[100dvh] bg-pager-bg text-pager-fg">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pt-14 sm:pt-16 pb-[env(safe-area-inset-bottom)]">
+        <Link href="/calendar" className="pager-link text-xs uppercase tracking-wider mb-6 inline-block">
+          ← Calendar
         </Link>
 
-        <h1 className="text-xl sm:text-2xl font-bold mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-          Promoters
-        </h1>
-        <p className="text-slate-400 text-sm mb-4 sm:mb-6 max-w-xl">
-          Discover event promoters and organisers. Follow promoters to see their events in your For You feed.
+        <div className="flex items-end justify-between gap-4 mb-2 flex-wrap">
+          <h1 className="pager-heading">PROMOTERS</h1>
+          <Link href="/venues" className="text-[10px] uppercase tracking-wider text-pager-fg-muted hover:text-pager-fg underline">
+            ← See venues
+          </Link>
+        </div>
+        <p className="text-pager-fg-muted text-sm mb-4 sm:mb-6 max-w-xl">
+          Organisers and collectives — not venues. Sourced from Fontes IG - Promoters + the promoters catalog.
         </p>
 
+        <input
+          type="text"
+          placeholder="Search promoters..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pager-input mb-6"
+        />
+
         {loading ? (
-          <div className="text-slate-400">Loading...</div>
-        ) : promoters.length === 0 ? (
-          <p className="text-slate-400">No promoters found.</p>
+          <div className="text-pager-fg-muted text-sm">Loading...</div>
+        ) : filtered.length === 0 ? (
+          <p className="text-pager-fg-muted text-sm">
+            {promoters.length === 0
+              ? 'No promoters found. Check Fontes IG - Promoters and NEXT_PUBLIC_PROMOTERS_CSV_URL.'
+              : 'No promoters match your search.'}
+          </p>
         ) : (
           <ul className="space-y-2">
-            {promoters.map((p) => {
-              const count = eventCountByPromoter.get(p.promoter_id) || eventCountByPromoter.get(p.slug) || 0
+            {filtered.map((p) => {
+              const count =
+                eventCountByPromoter.get(p.promoter_id) ||
+                eventCountByPromoter.get(p.slug) ||
+                eventCountByPromoter.get(p.name) ||
+                0
               return (
                 <li key={p.promoter_id}>
                   <Link
                     href={`/promoters/${encodeURIComponent(p.slug)}`}
-                    className="flex items-center gap-3 sm:gap-4 py-3 px-3 sm:px-4 rounded-lg bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/50 transition-colors"
+                    className="pager-panel flex items-center gap-3 sm:gap-4 py-3 px-3 sm:px-4 hover:bg-pager-muted transition-colors"
                   >
                     <img
                       src={sanitize(p.primary_image_url) || p.primary_image_url || '/lisboa.png'}
                       alt=""
-                      className="w-12 h-12 rounded object-cover flex-shrink-0"
-                      onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
+                      className="w-12 h-12 object-cover flex-shrink-0 border-2 border-pager-strong grayscale contrast-125"
+                      onError={(e) => {
+                        e.currentTarget.src = '/lisboa.png'
+                      }}
                     />
                     <div className="flex-1 min-w-0">
+                      <div className="text-[9px] uppercase tracking-widest text-pager-fg-faint">Promoter</div>
                       <span className="font-medium">{p.name}</span>
                       {p.description_short && (
-                        <p className="text-slate-400 text-sm truncate">{p.description_short}</p>
+                        <p className="text-pager-fg-muted text-sm truncate">{p.description_short}</p>
                       )}
                     </div>
-                    <span className="text-slate-400 text-sm flex-shrink-0">
+                    <span className="text-pager-fg-faint text-xs flex-shrink-0">
                       {count} upcoming
                     </span>
                   </Link>

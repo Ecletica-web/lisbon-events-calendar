@@ -9,6 +9,7 @@ import listPlugin from '@fullcalendar/list'
 import {
   fetchEvents,
   fetchVenues,
+  fetchPromoters,
   filterEvents,
   getAllTags,
   getAllCategories,
@@ -17,6 +18,8 @@ import {
   type VenueOption,
   type VenueForDisplay,
 } from '@/lib/eventsAdapter'
+import type { Promoter } from '@/models/Promoter'
+import TagFamilyFilter from '@/components/TagFamilyFilter'
 import { getCategoryColor, generateColorFromString } from '@/lib/categoryColors'
 import { generateColorShade } from '@/lib/colorShades'
 import { useDebounce } from '@/lib/useDebounce'
@@ -56,12 +59,14 @@ function CalendarPageContent() {
   const [events, setEvents] = useState<NormalizedEvent[]>([])
   const [venues, setVenues] = useState<VenueOption[]>([])
   const [venuesWithCoords, setVenuesWithCoords] = useState<VenueForDisplay[]>([])
+  const [promoters, setPromoters] = useState<Promoter[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [tagSearchQuery, setTagSearchQuery] = useState('')
   const [venueSearchQuery, setVenueSearchQuery] = useState('')
+  const [promoterSearchQuery, setPromoterSearchQuery] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedVenues, setSelectedVenues] = useState<string[]>([])
+  const [selectedPromoters, setSelectedPromoters] = useState<string[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [freeOnly, setFreeOnly] = useState(false)
   const [excludeExhibitions, setExcludeExhibitions] = useState(false)
@@ -121,15 +126,17 @@ function CalendarPageContent() {
     async function load() {
       setLoading(true)
       try {
-        const [fetchedEvents, fetchedVenues] = await Promise.all([
+        const [fetchedEvents, fetchedVenues, fetchedPromoters] = await Promise.all([
           fetchEvents(),
           fetchVenues(),
+          fetchPromoters(),
         ])
         if (fetchedEvents.length === 0) {
           console.warn('No events found. Check CSV URL and data structure.')
         }
         setEvents(fetchedEvents)
         setVenuesWithCoords(fetchedVenues)
+        setPromoters(fetchedPromoters)
         // Use CSV venues for filter when available; map to VenueOption { key, name }
         const venueOptions: VenueOption[] = fetchedVenues.length > 0
           ? fetchedVenues
@@ -141,6 +148,7 @@ function CalendarPageContent() {
         console.error('Error loading data:', error)
         setEvents([])
         setVenues([])
+        setPromoters([])
       } finally {
         setLoading(false)
       }
@@ -354,19 +362,18 @@ function CalendarPageContent() {
     return max
   }, [events])
 
-  // Filter tags based on search
-  const filteredTags = useMemo(() => {
-    if (!tagSearchQuery.trim()) return allTags
-    const query = tagSearchQuery.toLowerCase()
-    return allTags.filter((tag) => tag.toLowerCase().includes(query))
-  }, [allTags, tagSearchQuery])
-
-  // Filter venues based on search
+  // Filter venues / promoters based on search
   const filteredVenues = useMemo(() => {
     if (!venueSearchQuery.trim()) return allVenues
     const query = venueSearchQuery.toLowerCase()
     return allVenues.filter((v) => v.name.toLowerCase().includes(query))
   }, [allVenues, venueSearchQuery])
+
+  const filteredPromoters = useMemo(() => {
+    if (!promoterSearchQuery.trim()) return promoters
+    const query = promoterSearchQuery.toLowerCase()
+    return promoters.filter((p) => p.name.toLowerCase().includes(query))
+  }, [promoters, promoterSearchQuery])
 
   // Apply category colors to events with shades for same-day, same-category events
   const eventsWithColors = useMemo(() => {
@@ -498,6 +505,7 @@ function CalendarPageContent() {
         searchQuery: debouncedSearchQuery,
         selectedTags,
         selectedVenues: selectedVenues.length > 0 ? selectedVenues : undefined,
+        selectedPromoters: selectedPromoters.length > 0 ? selectedPromoters : undefined,
         categories: selectedCategories.length > 0 ? selectedCategories : undefined,
         freeOnly,
       })
@@ -524,7 +532,7 @@ function CalendarPageContent() {
       
       return filtered
     },
-    [adjustedEvents, debouncedSearchQuery, selectedTags, selectedVenues, selectedCategories, freeOnly, excludeExhibitions, excludeContinuous]
+    [adjustedEvents, debouncedSearchQuery, selectedTags, selectedVenues, selectedPromoters, selectedCategories, freeOnly, excludeExhibitions, excludeContinuous]
   )
 
   // Mobile list: date focus and calendar view from time range
@@ -693,6 +701,15 @@ function CalendarPageContent() {
     )
   }
 
+  const handlePromoterToggle = (p: Promoter) => {
+    const keys = [p.promoter_id, p.slug, p.name].filter(Boolean) as string[]
+    setSelectedPromoters((prev) => {
+      const isSelected = keys.some((k) => prev.includes(k))
+      if (isSelected) return prev.filter((k) => !keys.includes(k))
+      return [...prev, p.promoter_id || p.slug || p.name]
+    })
+  }
+
   const handleCategoryToggle = (category: string) => {
     setSelectedCategories((prev) =>
       prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
@@ -705,9 +722,11 @@ function CalendarPageContent() {
 
   const handleClearFilters = () => {
     setSearchQuery('')
-    setTagSearchQuery('')
     setSelectedTags([])
     setSelectedVenues([])
+    setSelectedPromoters([])
+    setPromoterSearchQuery('')
+    setVenueSearchQuery('')
     setSelectedCategories([])
     setFreeOnly(false)
     setExcludeExhibitions(false)
@@ -939,15 +958,16 @@ function CalendarPageContent() {
     if (debouncedSearchQuery) count++
     if (selectedTags.length > 0) count++
     if (selectedVenues.length > 0) count++
+    if (selectedPromoters.length > 0) count++
     if (selectedCategories.length > 0) count++
     if (freeOnly) count++
     if (excludeExhibitions) count++
     if (excludeContinuous) count++
     return count
-  }, [debouncedSearchQuery, selectedTags.length, selectedVenues.length, selectedCategories.length, freeOnly, excludeExhibitions, excludeContinuous])
+  }, [debouncedSearchQuery, selectedTags.length, selectedVenues.length, selectedPromoters.length, selectedCategories.length, freeOnly, excludeExhibitions, excludeContinuous])
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-slate-900/95 backdrop-blur-sm">
+    <div className="min-h-screen min-h-[100dvh] bg-pager-bg text-pager-fg">
 
       {/* Shared view/persona banner */}
       {FEATURE_FLAGS.SHARED_VIEWS && sharedContext && (
@@ -1140,10 +1160,10 @@ function CalendarPageContent() {
 
           {allVenues.length > 0 && (
             <div className="mb-6">
-              <div className="text-xs font-semibold mb-2 text-slate-200">
-                Venue / Location ({filteredVenues.length} of {allVenues.length})
+              <div className="text-xs font-semibold mb-2 text-pager-fg uppercase tracking-wider">
+                Venues ({filteredVenues.length} of {allVenues.length})
                 {selectedVenues.length > 0 && (
-                  <span className="ml-1.5 text-slate-400">
+                  <span className="ml-1.5 text-pager-fg-muted normal-case">
                     ({selectedVenues.length} selected)
                   </span>
                 )}
@@ -1153,11 +1173,11 @@ function CalendarPageContent() {
                 placeholder="Search venues..."
                 value={venueSearchQuery}
                 onChange={(e) => setVenueSearchQuery(e.target.value)}
-                className="w-full mb-2 border border-slate-600/50 rounded-lg px-3 py-1.5 text-xs bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                className="pager-input text-xs mb-2 py-1.5"
               />
               <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
                 {filteredVenues.length === 0 ? (
-                  <p className="text-xs text-slate-500 py-2">
+                  <p className="text-xs text-pager-fg-faint py-2">
                     {venueSearchQuery.trim() ? 'No venues match your search' : 'No venues'}
                   </p>
                 ) : filteredVenues.map((venue) => {
@@ -1165,12 +1185,9 @@ function CalendarPageContent() {
                   return (
                     <button
                       key={venue.key}
+                      type="button"
                       onClick={() => handleVenueToggle(venue.key)}
-                      className={`px-3 py-1.5 rounded-lg text-xs border transition-all ${
-                        isSelected
-                          ? 'bg-emerald-600/90 text-white border-emerald-500'
-                          : 'bg-slate-800/80 border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:border-slate-500'
-                      }`}
+                      className={`pager-pill ${isSelected ? 'pager-pill-active' : ''}`}
                       title={venue.name}
                     >
                       <span className="line-clamp-1 max-w-[140px] md:max-w-[180px]">{venue.name}</span>
@@ -1180,8 +1197,9 @@ function CalendarPageContent() {
               </div>
               {selectedVenues.length > 0 && (
                 <button
+                  type="button"
                   onClick={() => setSelectedVenues([])}
-                  className="mt-2 text-xs text-emerald-400 hover:text-emerald-300 font-medium"
+                  className="mt-2 text-[10px] uppercase tracking-wider text-pager-fg-muted hover:text-pager-fg underline"
                 >
                   Clear venues
                 </button>
@@ -1189,167 +1207,101 @@ function CalendarPageContent() {
             </div>
           )}
 
-          <div>
-            <div className="text-sm font-semibold mb-2 text-slate-200">
-              Filter by Tags ({allTags.length} total)
-              {selectedTags.length > 0 && (
-                <span className="ml-2 text-xs text-slate-400">
-                  ({selectedTags.length} selected)
-                </span>
+          {promoters.length > 0 && (
+            <div className="mb-6">
+              <div className="text-xs font-semibold mb-2 text-pager-fg uppercase tracking-wider">
+                Promoters ({filteredPromoters.length} of {promoters.length})
+                {selectedPromoters.length > 0 && (
+                  <span className="ml-1.5 text-pager-fg-muted normal-case">
+                    ({selectedPromoters.length} selected)
+                  </span>
+                )}
+              </div>
+              <input
+                type="text"
+                placeholder="Search promoters..."
+                value={promoterSearchQuery}
+                onChange={(e) => setPromoterSearchQuery(e.target.value)}
+                className="pager-input text-xs mb-2 py-1.5"
+              />
+              <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                {filteredPromoters.length === 0 ? (
+                  <p className="text-xs text-pager-fg-faint py-2">
+                    {promoterSearchQuery.trim() ? 'No promoters match' : 'No promoters'}
+                  </p>
+                ) : (
+                  filteredPromoters.map((p) => {
+                    const key = p.promoter_id || p.slug || p.name
+                    const isSelected =
+                      selectedPromoters.includes(p.promoter_id) ||
+                      selectedPromoters.includes(p.slug) ||
+                      selectedPromoters.includes(p.name)
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => handlePromoterToggle(p)}
+                        className={`pager-pill ${isSelected ? 'pager-pill-active' : ''}`}
+                        title={p.name}
+                      >
+                        <span className="line-clamp-1 max-w-[140px] md:max-w-[180px]">{p.name}</span>
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+              {selectedPromoters.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPromoters([])}
+                  className="mt-2 text-[10px] uppercase tracking-wider text-pager-fg-muted hover:text-pager-fg underline"
+                >
+                  Clear promoters
+                </button>
               )}
             </div>
-            {loading ? (
-              <div className="text-sm text-slate-400">Loading tags...</div>
-            ) : allTags.length === 0 ? (
-              <div className="text-sm text-slate-400">No tags available</div>
-            ) : (
-              <>
-                {/* Popular Tags Quick Select */}
-                {allTags.length > 0 && (
-                  <div className="mb-3">
-                    <div className="text-xs text-slate-400 mb-2 font-medium">Popular tags:</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {allTags.slice(0, 8).map((tag) => {
-                        const isSelected = selectedTags.includes(tag)
-                        return (
-                          <button
-                            key={tag}
-                            onClick={() => handleTagToggle(tag)}
-                            className={`px-3 py-1.5 rounded-lg text-xs border transition-all shadow-lg hover:shadow-xl ${
-                              isSelected
-                                ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white border-transparent shadow-xl hover:shadow-2xl scale-105'
-                                : 'bg-slate-800/80 border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:border-slate-500'
-                            }`}
-                          >
-                            {tag}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-                
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search and select tags..."
-                    value={tagSearchQuery}
-                    onChange={(e) => setTagSearchQuery(e.target.value)}
-                    onFocus={(e) => {
-                      // Keep dropdown open when clicking input
-                      e.stopPropagation()
-                    }}
-                    className="w-full border border-slate-600/50 rounded-lg px-3 py-2 text-sm bg-slate-900/80 backdrop-blur-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all shadow-lg"
-                  />
-                
-                {/* Dropdown */}
-                {tagSearchQuery.trim() && (
-                  <div className="absolute z-10 w-full mt-1 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
-                    {filteredTags.length === 0 ? (
-                      <div className="px-4 py-3 text-sm text-slate-400">No tags match your search</div>
-                    ) : (
-                      filteredTags.map((tag) => {
-                        const isSelected = selectedTags.includes(tag)
-                        return (
-                          <label
-                            key={tag}
-                            className={`flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-slate-700/80 transition-colors ${
-                              isSelected ? 'bg-indigo-900/50' : ''
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => handleTagToggle(tag)}
-                              className="rounded border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-4 h-4 cursor-pointer bg-slate-900"
-                            />
-                            <span className="text-sm flex-1 text-slate-300">{tag}</span>
-                          </label>
-                        )
-                      })
-                    )}
-                  </div>
-                )}
-                
-                {/* Selected Tags Display */}
-                {selectedTags.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {selectedTags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-gradient-to-r from-indigo-600/80 to-purple-600/80 text-white border border-indigo-500/50"
-                      >
-                        {tag}
-                        <button
-                          onClick={() => handleTagToggle(tag)}
-                          className="hover:bg-indigo-500/50 rounded-full p-0.5 transition-colors"
-                          aria-label={`Remove ${tag}`}
-                        >
-                          <svg
-                            className="w-3 h-3"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
-                        </button>
-                      </span>
-                    ))}
-                    <button
-                      onClick={() => setSelectedTags([])}
-                      className="text-xs text-indigo-400 hover:text-indigo-300 font-medium px-2 py-1 rounded hover:bg-indigo-900/50 transition-colors"
-                    >
-                      Clear all
-                    </button>
-                  </div>
-                )}
-                </div>
-              </>
-            )}
+          )}
+
+          <div className="mb-6">
+            <TagFamilyFilter
+              allTags={allTags}
+              selectedTags={selectedTags}
+              onToggle={handleTagToggle}
+              onClear={() => setSelectedTags([])}
+              loading={loading}
+            />
           </div>
 
           {/* Predefined Lisbon Personas — one-click vibe filters */}
           {FEATURE_FLAGS.PERSONAS && (
-            <div className="mb-4 border-t border-slate-700/50 pt-4">
-              <div className="text-xs md:text-sm font-semibold text-slate-200 mb-2">Lisbon vibes</div>
+            <div className="mb-4 border-t-2 border-pager-border pt-4">
+              <div className="text-xs font-semibold text-pager-fg mb-2 uppercase tracking-wider">Lisbon vibes</div>
               <div className="space-y-1.5 max-h-48 overflow-y-auto">
                 {PREDEFINED_PERSONAS.map((p) => {
                   const isActive = activePredefinedPersonaId === p.id
-                  const accent = p.accentColor || '#6366f1'
-                  const bg = p.bgStyle || `rgba(99,102,241,0.15)`
                   return (
                     <button
                       key={p.id}
-                      onClick={() => isActive ? handleClearPersona() : handleApplyPredefinedPersona(p)}
+                      type="button"
+                      onClick={() => (isActive ? handleClearPersona() : handleApplyPredefinedPersona(p))}
                       title={p.description}
-                      className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-medium transition-all border ${
+                      className={`w-full text-left px-2 py-2 text-xs border-2 ${
                         isActive
-                          ? 'ring-1 ring-offset-1 ring-offset-slate-900'
-                          : 'border-slate-600/30 hover:border-slate-500/50'
+                          ? 'bg-pager-accent text-pager-accent-fg border-pager-strong'
+                          : 'border-pager-border bg-pager-elevated text-pager-fg hover:border-pager-strong'
                       }`}
-                      style={
-                        isActive
-                          ? { borderColor: accent, background: `${accent}25` }
-                          : { background: bg }
-                      }
                     >
-                      <span className={isActive ? 'font-semibold' : ''} style={isActive ? { color: accent } : {}}>
-                        {p.emoji ? `${p.emoji} ` : ''}{p.name}
-                      </span>
+                      {p.emoji ? `${p.emoji} ` : ''}
+                      {p.name}
                     </button>
                   )
                 })}
               </div>
               {(activePredefinedPersonaId || activePersonaId) && (
                 <button
+                  type="button"
                   onClick={handleClearPersona}
-                  className="mt-2 text-xs text-indigo-400 hover:text-indigo-300"
+                  className="mt-2 text-[10px] uppercase tracking-wider text-pager-fg-muted hover:text-pager-fg underline"
                 >
                   Clear vibe
                 </button>
@@ -1359,11 +1311,12 @@ function CalendarPageContent() {
 
           {/* User-created Personas */}
           {FEATURE_FLAGS.PERSONAS && session?.user && (
-            <div className="mb-4 border-t border-slate-700/50 pt-4">
-              <div className="text-xs md:text-sm font-semibold text-slate-200 mb-2">My Personas</div>
+            <div className="mb-4 border-t-2 border-pager-border pt-4">
+              <div className="text-xs font-semibold text-pager-fg mb-2 uppercase tracking-wider">My Personas</div>
               <button
+                type="button"
                 onClick={handleCreatePersona}
-                className="w-full mb-2 px-3 py-2 text-xs border border-slate-600/50 rounded-lg hover:bg-slate-700/80 font-medium text-slate-300 transition-colors"
+                className="pager-btn w-full mb-2 px-3 py-2 text-xs uppercase tracking-wider"
               >
                 Create from current filters
               </button>

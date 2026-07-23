@@ -1,7 +1,8 @@
 /**
- * Tag groups for onboarding — used for the multi-select step.
- * Groups are derived from predefined personas and event data.
+ * Tag groups for onboarding — mirrors TAG_FAMILIES with Title Case labels for display.
  */
+
+import { TAG_FAMILIES, type TagFamily } from '@/data/tagFamilies'
 
 export interface OnboardingTagGroup {
   id: string
@@ -9,12 +10,15 @@ export interface OnboardingTagGroup {
   tags: string[]
 }
 
-export const ONBOARDING_TAG_GROUPS: OnboardingTagGroup[] = [
-  { id: 'nightlife', label: 'Nightlife & Clubs', tags: ['Techno', 'House', 'Electronic', 'Club Night', 'DJ Set', 'After Hours', 'Warehouse', 'Underground'] },
-  { id: 'arts', label: 'Arts & Culture', tags: ['Art Exhibition', 'Museum', 'Theatre', 'Film Screening', 'Performance Art', 'Experimental', 'Cultural Event', 'Art Collective'] },
-  { id: 'music', label: 'Live Music', tags: ['Live Concert', 'Jazz', 'Indie Rock', 'Acoustic', 'Classical Music', 'Post-Punk', 'Alternative', 'Indie'] },
-  { id: 'food', label: 'Food & Drink', tags: ['Rooftop', 'Cocktail Bar', 'Wine Tasting', 'Natural Wine', 'Brunch', 'Craft Beer', 'Fine Dining'] },
-  { id: 'wellness', label: 'Wellness & Sport', tags: ['Yoga', 'Running', 'Fitness', 'Wellness', 'Outdoor Event', 'Surf', 'Sports'] },
-  { id: 'creativity', label: 'Creative & Social', tags: ['Workshop', 'Creative Meetup', 'Photography', 'Poetry', 'Literature', 'Book Launch', 'Market', 'Pop-Up'] },
-  { id: 'trendy', label: 'Trendy & Insta-worthy', tags: ['Fashion', 'Sunset', 'Beach', 'Chill', 'Trendy', 'Art Installation'] },
-]
+function toTitle(tag: string): string {
+  return tag
+    .split(/[\s-]+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+export const ONBOARDING_TAG_GROUPS: OnboardingTagGroup[] = TAG_FAMILIES.map((f: TagFamily) => ({
+  id: f.id,
+  label: f.label,
+  tags: f.tags.slice(0, 10).map(toTitle),
+}))

@@ -80,20 +80,20 @@ export default function VenuesPage() {
     eventCountByVenue.get(v.venue_id) || eventCountByVenue.get(v.slug) || 0
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-slate-900 text-slate-100">
+    <div className="min-h-screen min-h-[100dvh] bg-pager-bg text-pager-fg">
       <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6 pt-14 sm:pt-16 pb-[env(safe-area-inset-bottom)]">
-        <Link
-          href="/calendar"
-          className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
-        >
-          ← Back to Calendar
+        <Link href="/calendar" className="pager-link text-xs uppercase tracking-wider mb-6 inline-block">
+          ← Calendar
         </Link>
 
-        <h1 className="text-xl sm:text-2xl font-bold mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-          Venues
-        </h1>
-        <p className="text-slate-400 text-sm mb-4 sm:mb-6 max-w-xl">
-          Explore venues in Lisbon and see their upcoming events. Follow a venue to get it in your For You feed.
+        <div className="flex items-end justify-between gap-4 mb-2 flex-wrap">
+          <h1 className="pager-heading">VENUES</h1>
+          <Link href="/promoters" className="text-[10px] uppercase tracking-wider text-pager-fg-muted hover:text-pager-fg underline">
+            See promoters →
+          </Link>
+        </div>
+        <p className="text-pager-fg-muted text-sm mb-4 sm:mb-6 max-w-xl">
+          Physical places — clubs, museums, theatres. Follow a venue for your For You feed.
         </p>
 
         <div className="mb-6 space-y-3">
@@ -102,19 +102,16 @@ export default function VenuesPage() {
             placeholder="Search venues (name, neighborhood, tags)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full border border-slate-600/50 rounded-lg px-4 py-2 bg-slate-800/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            className="pager-input"
           />
           {allTags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
               {allTags.map((tag) => (
                 <button
                   key={tag}
+                  type="button"
                   onClick={() => toggleTag(tag)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors touch-manipulation ${
-                    selectedTags.includes(tag)
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-700/60 text-slate-300 hover:bg-slate-600/60'
-                  }`}
+                  className={`pager-pill ${selectedTags.includes(tag) ? 'pager-pill-active' : ''}`}
                 >
                   {tag}
                 </button>
@@ -124,48 +121,48 @@ export default function VenuesPage() {
         </div>
 
         {loading ? (
-          <div className="text-slate-400">Loading venues...</div>
+          <div className="text-pager-fg-muted text-sm">Loading venues...</div>
         ) : (
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {filteredVenues.map((v) => {
               const count = getEventCount(v)
               return (
                 <Link
                   key={v.venue_id}
                   href={`/venues/${encodeURIComponent(v.slug)}`}
-                  className="block rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden hover:bg-slate-700/50 transition-colors"
+                  className="pager-panel block overflow-hidden hover:bg-pager-muted transition-colors"
                 >
-                  <div className="aspect-[16/10] bg-slate-700/50 flex-shrink-0">
+                  <div className="aspect-[16/10] bg-pager-muted flex-shrink-0 border-b-2 border-pager-strong">
                     <img
                       src={v.primary_image_url || '/lisboa.png'}
                       alt=""
-                      className="w-full h-full object-cover"
-                      onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
+                      className="w-full h-full object-cover grayscale contrast-125"
+                      onError={(e) => {
+                        e.currentTarget.src = '/lisboa.png'
+                      }}
                     />
                   </div>
-                  <div className="p-4">
-                    <h2 className="font-semibold text-lg text-white">{v.name}</h2>
+                  <div className="p-3">
+                    <div className="text-[9px] uppercase tracking-widest text-pager-fg-faint mb-1">Venue</div>
+                    <h2 className="font-semibold text-base text-pager-fg">{v.name}</h2>
                     {(v.neighborhood || v.venue_address) && (
-                      <p className="text-slate-400 text-sm mt-0.5">
+                      <p className="text-pager-fg-muted text-xs mt-0.5">
                         {[v.neighborhood, v.venue_address].filter(Boolean).join(' · ')}
                       </p>
                     )}
                     {v.description_short && (
-                      <p className="text-slate-300 text-sm mt-2 line-clamp-2">{v.description_short}</p>
+                      <p className="text-pager-fg-muted text-xs mt-2 line-clamp-2">{v.description_short}</p>
                     )}
                     {v.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
+                      <div className="flex flex-wrap gap-1 mt-2">
                         {v.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-2 py-0.5 rounded text-xs bg-slate-700/60 text-slate-200"
-                          >
+                          <span key={tag} className="pager-pill">
                             {tag}
                           </span>
                         ))}
                       </div>
                     )}
-                    <p className="text-slate-400 text-sm mt-2">
+                    <p className="text-pager-fg-faint text-xs mt-2">
                       {count} upcoming {count === 1 ? 'event' : 'events'}
                     </p>
                   </div>
@@ -176,7 +173,7 @@ export default function VenuesPage() {
         )}
 
         {!loading && filteredVenues.length === 0 && (
-          <p className="text-slate-400">No venues match your filters.</p>
+          <p className="text-pager-fg-muted text-sm">No venues match your filters.</p>
         )}
       </div>
     </div>

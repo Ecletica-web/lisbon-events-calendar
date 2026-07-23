@@ -36,7 +36,7 @@ export default function InviteToAppButton({
     try {
       if (supportsShare()) {
         await navigator.share({
-          title: 'Lisbon Events Calendar',
+          title: 'Pager',
           text: profileUserId ? getFullProfileInviteText(url) : getFullInviteText(),
           url,
         })

@@ -18,6 +18,7 @@ In **Settings → Environment Variables**, add:
 |------|-------|
 | `NEXT_PUBLIC_EVENTS_CSV_URL` | `https://docs.google.com/spreadsheets/d/1kXx0Nw_iJNX73gCnK_byG7o5r5LJVy2SVhpLc8wmUk0/export?format=csv&gid=1422352670` |
 | `NEXT_PUBLIC_VENUES_CSV_URL` | `https://docs.google.com/spreadsheets/d/1kXx0Nw_iJNX73gCnK_byG7o5r5LJVy2SVhpLc8wmUk0/export?format=csv&gid=1135937280` |
+| `NEXT_PUBLIC_PROMOTERS_CSV_URL` | *(Promoters sheet CSV export — set this so /promoters is not empty)* |
 | `NEXT_PUBLIC_EVENT_TAGS_CSV_URL` | `https://docs.google.com/spreadsheets/d/1kXx0Nw_iJNX73gCnK_byG7o5r5LJVy2SVhpLc8wmUk0/export?format=csv&gid=26543790` |
 | `NEXT_PUBLIC_VENUE_TAGS_CSV_URL` | `https://docs.google.com/spreadsheets/d/1kXx0Nw_iJNX73gCnK_byG7o5r5LJVy2SVhpLc8wmUk0/export?format=csv&gid=1823379312` |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://fytnwjhlinmusfrxtxaz.supabase.co` |

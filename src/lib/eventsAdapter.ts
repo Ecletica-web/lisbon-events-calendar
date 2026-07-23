@@ -809,8 +809,8 @@ export interface VenueForDisplay {
 }
 
 /**
- * Fetch venues for /venues page and calendar filter. From CSV only (NEXT_PUBLIC_VENUES_CSV_URL).
- * Client-side: fetches from /api/venues. Server-side: loads from CSV. Returns [] if no CSV or fetch fails.
+ * Fetch venues for /venues page and calendar filter.
+ * Catalog CSV + Fontes IG type split (promoters excluded). Client → /api/venues.
  */
 export async function fetchVenues(): Promise<VenueForDisplay[]> {
   if (typeof window !== 'undefined') {
@@ -824,15 +824,17 @@ export async function fetchVenues(): Promise<VenueForDisplay[]> {
     }
   }
 
+  const { filterVenuesByFontes, loadFontesHandleSets } = await import('@/lib/catalogFontesSplit')
   const venueTagsUrl = process.env.NEXT_PUBLIC_VENUE_TAGS_CSV_URL
   const venueTags = venueTagsUrl ? await loadVenueTags(venueTagsUrl) : []
   const allowedVenueTags = venueTags.length > 0 ? venueTags : null
-  const [{ venues }, imageByHandle] = await Promise.all([
+  const [{ venues }, imageByHandle, fontes] = await Promise.all([
     loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags),
     loadVenueProfileImageMap(),
+    loadFontesHandleSets(),
   ])
   const withImages = mergeVenueProfileImages(venues, imageByHandle)
-  return withImages.map((v) => ({
+  const mapped = withImages.map((v) => ({
     venue_id: v.venue_id,
     name: v.name,
     slug: v.slug,
@@ -846,17 +848,50 @@ export async function fetchVenues(): Promise<VenueForDisplay[]> {
     latitude: v.latitude,
     longitude: v.longitude,
   }))
+  return filterVenuesByFontes(mapped, fontes)
 }
 
 /**
  * Fetch promoters for /promoters page.
+ * Catalog CSV + Fontes IG (pulls misfiled venue rows). Client → /api/promoters.
  */
 export async function fetchPromoters(): Promise<Promoter[]> {
-  const [promoters, imageByHandle] = await Promise.all([
+  if (typeof window !== 'undefined') {
+    try {
+      const res = await fetch('/api/promoters')
+      if (!res.ok) throw new Error('Failed to fetch promoters')
+      return res.json()
+    } catch (error) {
+      console.error('Error fetching promoters:', error)
+      return []
+    }
+  }
+
+  const { loadFontesHandleSets, resolvePromotersCatalog } = await import('@/lib/catalogFontesSplit')
+  const venueTagsUrl = process.env.NEXT_PUBLIC_VENUE_TAGS_CSV_URL
+  const venueTags = venueTagsUrl ? await loadVenueTags(venueTagsUrl) : []
+  const allowedVenueTags = venueTags.length > 0 ? venueTags : null
+
+  const [csvPromoters, { venues }, imageByHandle, fontes] = await Promise.all([
     loadPromoters(process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL),
+    loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags),
     loadVenueProfileImageMap(),
+    loadFontesHandleSets(),
   ])
-  const withImages = mergeVenueProfileImages(promoters, imageByHandle)
+
+  const venueLike = venues.map((v) => ({
+    venue_id: v.venue_id,
+    name: v.name,
+    slug: v.slug,
+    description_short: v.description_short,
+    primary_image_url: v.primary_image_url,
+    website_url: v.website_url,
+    instagram_handle: v.instagram_handle,
+    tags: v.tags ?? [],
+  }))
+
+  const resolved = resolvePromotersCatalog(csvPromoters, venueLike, fontes)
+  const withImages = mergeVenueProfileImages(resolved, imageByHandle)
   return withImages.map((p) => ({
     ...p,
     primary_image_url: sanitizeImageUrl(p.primary_image_url),

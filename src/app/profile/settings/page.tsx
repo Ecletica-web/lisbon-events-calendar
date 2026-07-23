@@ -172,8 +172,8 @@ export default function ProfileSettingsPage() {
 
   if ((!supabaseConfigured && status === 'loading') || loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center pt-24">
-        <div className="text-slate-400">Loading...</div>
+      <div className="min-h-screen bg-pager-bg flex items-center justify-center pt-24">
+        <div className="text-pager-fg-muted">Loading...</div>
       </div>
     )
   }
@@ -181,12 +181,12 @@ export default function ProfileSettingsPage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-slate-900/95 text-slate-100">
+    <div className="min-h-screen min-h-[100dvh] bg-pager-bg text-pager-fg">
       <div className="max-w-2xl mx-auto p-4 sm:p-6 md:p-8 pt-20 md:pt-28 pb-[calc(2rem+env(safe-area-inset-bottom))]">
         <div className="mb-8 flex items-center gap-4">
           <Link
             href="/profile"
-            className="p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            className="p-2 rounded-none text-pager-fg-muted hover:bg-pager-elevated hover:text-white transition-colors"
             aria-label="Back to profile"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,42 +199,42 @@ export default function ProfileSettingsPage() {
         {/* Privacy (Supabase only) */}
         {isSupabaseUser && settings && (
           <section className="mb-10">
-            <h2 className="text-xl font-semibold mb-4 text-slate-200">Privacy</h2>
-            <div className="p-4 sm:p-6 rounded-xl bg-slate-800/60 border border-slate-700/50 mb-6">
-              <label className="flex items-center justify-between gap-4 cursor-pointer p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
-                <span className="text-slate-200">Private profile</span>
+            <h2 className="text-xl font-semibold mb-4 text-pager-fg">Privacy</h2>
+            <div className="p-4 sm:p-6 rounded-none bg-pager-elevated border border-pager-border mb-6">
+              <label className="flex items-center justify-between gap-4 cursor-pointer p-3 rounded-none hover:bg-pager-muted transition-colors">
+                <span className="text-pager-fg">Private profile</span>
                 <input
                   type="checkbox"
                   checked={settings.privateProfile === true}
                   onChange={(e) => handleUpdateSettings({ privateProfile: e.target.checked })}
-                  className="rounded border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50"
+                  className="rounded border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50"
                 />
               </label>
-              <p className="text-slate-500 text-sm mt-2 px-3">When on, only you can see your profile info (name, bio, photo). Others will see &quot;This profile is private&quot;.</p>
+              <p className="text-pager-fg-faint text-sm mt-2 px-3">When on, only you can see your profile info (name, bio, photo). Others will see &quot;This profile is private&quot;.</p>
             </div>
-            <h3 className="text-lg font-medium mb-3 text-slate-300">Event visibility</h3>
-            <div className="p-4 sm:p-6 rounded-xl bg-slate-800/60 border border-slate-700/50">
-              <p className="text-slate-400 mb-4">Who can see your Going, Saved, and Liked events on your profile?</p>
+            <h3 className="text-lg font-medium mb-3 text-pager-fg-muted">Event visibility</h3>
+            <div className="p-4 sm:p-6 rounded-none bg-pager-elevated border border-pager-border">
+              <p className="text-pager-fg-muted mb-4">Who can see your Going, Saved, and Liked events on your profile?</p>
               <div className="space-y-2">
-                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-none hover:bg-pager-muted transition-colors">
                   <input
                     type="radio"
                     name="eventVisibility"
                     checked={settings.eventVisibility === 'public'}
                     onChange={() => handleUpdateSettings({ eventVisibility: 'public' })}
-                    className="border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50"
+                    className="border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50"
                   />
-                  <span className="text-slate-200">Public — anyone can see</span>
+                  <span className="text-pager-fg">Public — anyone can see</span>
                 </label>
-                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-none hover:bg-pager-muted transition-colors">
                   <input
                     type="radio"
                     name="eventVisibility"
                     checked={settings.eventVisibility === 'friends_only'}
                     onChange={() => handleUpdateSettings({ eventVisibility: 'friends_only' })}
-                    className="border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50"
+                    className="border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50"
                   />
-                  <span className="text-slate-200">Friends only — only accepted friends can see</span>
+                  <span className="text-pager-fg">Friends only — only accepted friends can see</span>
                 </label>
               </div>
             </div>
@@ -243,14 +243,14 @@ export default function ProfileSettingsPage() {
 
         {/* Preferences */}
         <section className="mb-10">
-          <h2 className="text-xl font-semibold mb-4 text-slate-200">Event preferences</h2>
-          <div className="p-4 sm:p-6 rounded-xl bg-slate-800/60 border border-slate-700/50">
-            <p className="text-slate-400 mb-4">
+          <h2 className="text-xl font-semibold mb-4 text-pager-fg">Event preferences</h2>
+          <div className="p-4 sm:p-6 rounded-none bg-pager-elevated border border-pager-border">
+            <p className="text-pager-fg-muted mb-4">
               Customize what events you see — tags, vibe, free-only, and more.
             </p>
             <Link
               href="/onboarding?edit=1"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-none bg-indigo-600 text-white hover:bg-indigo-500 transition-colors"
             >
               Edit preferences
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -262,25 +262,25 @@ export default function ProfileSettingsPage() {
 
         {/* Notifications */}
         <section className="mb-10">
-          <h2 className="text-xl font-semibold mb-4 text-slate-200">Notifications</h2>
-          <div className="space-y-5 p-4 sm:p-6 rounded-xl bg-slate-800/60 border border-slate-700/50">
+          <h2 className="text-xl font-semibold mb-4 text-pager-fg">Notifications</h2>
+          <div className="space-y-5 p-4 sm:p-6 rounded-none bg-pager-elevated border border-pager-border">
             {settings && (
               <>
-                <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
+                <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-none hover:bg-pager-muted transition-colors">
                   <input
                     type="checkbox"
                     checked={settings.emailEnabled}
                     onChange={(e) => handleUpdateSettings({ emailEnabled: e.target.checked })}
-                    className="rounded border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-slate-900"
+                    className="rounded border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-pager-bg"
                   />
-                  <span className="text-slate-200 group-hover:text-white font-medium">Email notifications</span>
+                  <span className="text-pager-fg group-hover:text-white font-medium">Email notifications</span>
                 </label>
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-slate-300">Digest frequency</label>
+                  <label className="block mb-2 text-sm font-medium text-pager-fg-muted">Digest frequency</label>
                   <select
                     value={settings.digestFrequency}
                     onChange={(e) => handleUpdateSettings({ digestFrequency: e.target.value as 'daily' | 'weekly' | 'never' })}
-                    className="border border-slate-600/50 rounded-lg px-4 py-2.5 bg-slate-900/80 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-full"
+                    className="border border-pager-border rounded-none px-4 py-2.5 bg-pager-bg/80 text-pager-fg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-full"
                   >
                     <option value="daily">Daily</option>
                     <option value="weekly">Weekly</option>
@@ -289,45 +289,45 @@ export default function ProfileSettingsPage() {
                 </div>
                 {isSupabaseUser && (
                   <>
-                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
+                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-none hover:bg-pager-muted transition-colors">
                       <input
                         type="checkbox"
                         checked={settings.notifyVenues ?? false}
                         onChange={(e) => handleUpdateSettings({ notifyVenues: e.target.checked })}
-                        className="rounded border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-slate-900"
+                        className="rounded border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-pager-bg"
                       />
-                      <span className="text-slate-200 group-hover:text-white font-medium">Events at venues I follow</span>
+                      <span className="text-pager-fg group-hover:text-white font-medium">Events at venues I follow</span>
                     </label>
-                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
+                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-none hover:bg-pager-muted transition-colors">
                       <input
                         type="checkbox"
                         checked={settings.notifyPersonas ?? false}
                         onChange={(e) => handleUpdateSettings({ notifyPersonas: e.target.checked })}
-                        className="rounded border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-slate-900"
+                        className="rounded border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-pager-bg"
                       />
-                      <span className="text-slate-200 group-hover:text-white font-medium">Events matching my personas</span>
+                      <span className="text-pager-fg group-hover:text-white font-medium">Events matching my personas</span>
                     </label>
-                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
+                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-none hover:bg-pager-muted transition-colors">
                       <input
                         type="checkbox"
                         checked={settings.notifyPromoters ?? false}
                         onChange={(e) => handleUpdateSettings({ notifyPromoters: e.target.checked })}
-                        className="rounded border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-slate-900"
+                        className="rounded border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-pager-bg"
                       />
-                      <span className="text-slate-200 group-hover:text-white font-medium">Events from promoters I follow</span>
+                      <span className="text-pager-fg group-hover:text-white font-medium">Events from promoters I follow</span>
                     </label>
                   </>
                 )}
-                <label className="flex items-center gap-3 cursor-not-allowed p-3 rounded-lg opacity-60">
-                  <input type="checkbox" checked={settings.instantEnabled} disabled className="rounded border-slate-600 w-5 h-5" />
-                  <span className="text-slate-500">Instant notifications (coming soon)</span>
+                <label className="flex items-center gap-3 cursor-not-allowed p-3 rounded-none opacity-60">
+                  <input type="checkbox" checked={settings.instantEnabled} disabled className="rounded border-pager-border w-5 h-5" />
+                  <span className="text-pager-fg-faint">Instant notifications (coming soon)</span>
                 </label>
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-slate-300">Timezone</label>
+                  <label className="block mb-2 text-sm font-medium text-pager-fg-muted">Timezone</label>
                   <select
                     value={settings.timezone}
                     onChange={(e) => handleUpdateSettings({ timezone: e.target.value })}
-                    className="border border-slate-600/50 rounded-lg px-4 py-2.5 bg-slate-900/80 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-full"
+                    className="border border-pager-border rounded-none px-4 py-2.5 bg-pager-bg/80 text-pager-fg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-full"
                   >
                     <option value="Europe/Lisbon">Europe/Lisbon</option>
                     <option value="UTC">UTC</option>
@@ -336,53 +336,53 @@ export default function ProfileSettingsPage() {
               </>
             )}
             {!settings && !isGuest && (
-              <p className="text-slate-400">Loading notification settings...</p>
+              <p className="text-pager-fg-muted">Loading notification settings...</p>
             )}
             {isGuest && (
-              <p className="text-slate-500">Sign in to manage notifications.</p>
+              <p className="text-pager-fg-faint">Sign in to manage notifications.</p>
             )}
           </div>
         </section>
 
         {/* Connected accounts */}
         <section>
-          <h2 className="text-xl font-semibold mb-4 text-slate-200">Connected accounts</h2>
-          <div className="space-y-3 p-4 sm:p-6 rounded-xl bg-slate-800/60 border border-slate-700/50">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-700/50">
+          <h2 className="text-xl font-semibold mb-4 text-pager-fg">Connected accounts</h2>
+          <div className="space-y-3 p-4 sm:p-6 rounded-none bg-pager-elevated border border-pager-border">
+            <div className="flex items-center justify-between p-3 rounded-none bg-pager-bg/50 border border-pager-border">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[#1DB954]/20 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-none bg-[#1DB954]/20 flex items-center justify-center">
                   <svg className="w-6 h-6 text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                   </svg>
                 </div>
                 <div>
-                  <div className="font-medium text-slate-200">Spotify</div>
-                  <div className="text-sm text-slate-500">Link your Spotify for music preferences</div>
+                  <div className="font-medium text-pager-fg">Spotify</div>
+                  <div className="text-sm text-pager-fg-faint">Link your Spotify for music preferences</div>
                 </div>
               </div>
-              <button disabled className="px-4 py-2 rounded-lg bg-slate-700 text-slate-500 text-sm font-medium cursor-not-allowed">
+              <button disabled className="px-4 py-2 rounded-none bg-pager-muted text-pager-fg-faint text-sm font-medium cursor-not-allowed">
                 Coming soon
               </button>
             </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-700/50">
+            <div className="flex items-center justify-between p-3 rounded-none bg-pager-bg/50 border border-pager-border">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-none bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
                   <svg className="w-6 h-6 text-pink-400" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073z"/>
                   </svg>
                 </div>
                 <div>
-                  <div className="font-medium text-slate-200">Instagram</div>
-                  <div className="text-sm text-slate-500">Connect your Instagram account</div>
+                  <div className="font-medium text-pager-fg">Instagram</div>
+                  <div className="text-sm text-pager-fg-faint">Connect your Instagram account</div>
                 </div>
               </div>
-              <button disabled className="px-4 py-2 rounded-lg bg-slate-700 text-slate-500 text-sm font-medium cursor-not-allowed">
+              <button disabled className="px-4 py-2 rounded-none bg-pager-muted text-pager-fg-faint text-sm font-medium cursor-not-allowed">
                 Coming soon
               </button>
             </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-700/50">
+            <div className="flex items-center justify-between p-3 rounded-none bg-pager-bg/50 border border-pager-border">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[#4285F4]/20 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-none bg-[#4285F4]/20 flex items-center justify-center">
                   <svg className="w-6 h-6 text-[#4285F4]" viewBox="0 0 24 24">
                     <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                     <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -391,11 +391,11 @@ export default function ProfileSettingsPage() {
                   </svg>
                 </div>
                 <div>
-                  <div className="font-medium text-slate-200">Google</div>
-                  <div className="text-sm text-slate-500">Link Google Calendar & account</div>
+                  <div className="font-medium text-pager-fg">Google</div>
+                  <div className="text-sm text-pager-fg-faint">Link Google Calendar & account</div>
                 </div>
               </div>
-              <button disabled className="px-4 py-2 rounded-lg bg-slate-700 text-slate-500 text-sm font-medium cursor-not-allowed">
+              <button disabled className="px-4 py-2 rounded-none bg-pager-muted text-pager-fg-faint text-sm font-medium cursor-not-allowed">
                 Coming soon
               </button>
             </div>

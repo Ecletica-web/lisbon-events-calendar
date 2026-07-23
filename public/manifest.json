@@ -1,11 +1,11 @@
 {
-  "name": "Lisbon Events Calendar",
-  "short_name": "LEC",
-  "description": "Cultural events calendar for Lisbon",
+  "name": "Pager",
+  "short_name": "Pager",
+  "description": "Lisbon events — venues, promoters, and what’s on.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#4f46e5",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
   "orientation": "portrait-primary",
   "icons": [
     {

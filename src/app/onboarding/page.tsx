@@ -26,7 +26,7 @@ const DEFAULT_PREFS: OnboardingPrefs = {
 
 const INTRO_PHASES: { text: string; displayMs: number; isFinal?: boolean }[] = [
   { text: 'Hey', displayMs: 1000 },
-  { text: 'Welcome to Lisbon Events Calendar.', displayMs: 1500 },
+  { text: 'Welcome to Pager.', displayMs: 1500 },
   { text: "We're happy you're here!", displayMs: 1200 },
   { text: 'We collect a lot of Lisbon events.', displayMs: 1500 },
   { text: 'Like...', displayMs: 1200 },
@@ -70,7 +70,7 @@ function IntroSequence({ onComplete }: { onComplete: () => void }) {
     <div className="text-center px-4 sm:px-6 md:px-8 w-full min-h-[50vh] flex flex-col items-center justify-center">
       <img
         src="/lisboa.png"
-        alt="Lisbon Events Calendar"
+        alt="Pager"
         className="w-full max-w-md sm:max-w-lg mx-auto rounded-xl object-contain mb-8 sm:mb-10 shadow-xl"
       />
       <p
