@@ -1,3 +1,4 @@
+import 'server-only'
 /**
  * Split Venues/Promoters catalog rows using Fontes IG type as source of truth.
  * Catalog CSVs remain the data source; Fontes IG decides venue vs promoter.
