@@ -82,7 +82,7 @@ export default function EventCardsSlider({
   dateFocus,
   venuesWithCoords = [],
 }: EventCardsSliderProps) {
-  const [timeRange, setTimeRange] = useState<TimeRange>('all')
+  const [timeRange, setTimeRange] = useState<TimeRange>('today')
   const [localCategories, setLocalCategories] = useState<string[]>(selectedCategories)
   const [localTags, setLocalTags] = useState<string[]>(selectedTags)
   const [nearMeEnabled, setNearMeEnabled] = useState(false)

@@ -84,7 +84,7 @@ function CalendarPageContent() {
   const [selectedEvent, setSelectedEvent] = useState<NormalizedEvent | null>(null)
   
   // View state
-  const [calendarView, setCalendarView] = useState<ViewState['viewMode']>('dayGridMonth')
+  const [calendarView, setCalendarView] = useState<ViewState['viewMode']>('timeGridDay')
   const [dateFocus, setDateFocus] = useState<string>(DEFAULT_VIEW_STATE.dateFocus)
   const [showListView, setShowListView] = useState(false)
   const [savedViews, setSavedViews] = useState<SavedView[]>([])
@@ -95,7 +95,7 @@ function CalendarPageContent() {
   const [personas, setPersonas] = useState<{ id: string; title: string; rules_json: string }[]>([])
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null)
   const [activePredefinedPersonaId, setActivePredefinedPersonaId] = useState<string | null>(null)
-  const [mobileListTimeRange, setMobileListTimeRange] = useState<MobileListTimeRange>('all')
+  const [mobileListTimeRange, setMobileListTimeRange] = useState<MobileListTimeRange>('today')
   const [desktopListTimeRange, setDesktopListTimeRange] = useState<'all' | 'week' | 'month' | 'nextMonth'>('all')
   const [mobileNearMeEnabled, setMobileNearMeEnabled] = useState(false)
   const [mobileRadiusKm, setMobileRadiusKm] = useState(2)
@@ -742,7 +742,7 @@ function CalendarPageContent() {
     setExcludeExhibitions(false)
     setExcludeContinuous(false)
     setMobileNearMeEnabled(false)
-    setMobileListTimeRange('all')
+    setMobileListTimeRange('today')
     setDesktopListTimeRange('all')
   }
 

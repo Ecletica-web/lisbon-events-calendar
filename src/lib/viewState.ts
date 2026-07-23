@@ -19,7 +19,7 @@ export interface ViewState {
  * Default view state
  */
 export const DEFAULT_VIEW_STATE: ViewState = {
-  viewMode: 'dayGridMonth',
+  viewMode: 'timeGridDay',
   dateFocus: new Date().toISOString().split('T')[0], // Today
   searchQuery: '',
   selectedCategories: [],
