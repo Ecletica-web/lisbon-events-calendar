@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { groupTagsByFamily } from '@/data/tagFamilies'
 import { toCanonicalTagKey } from '@/lib/eventsAdapter'
+import { getCategoryColor } from '@/lib/categoryColors'
 
 type Props = {
   allTags: string[]
@@ -10,6 +11,8 @@ type Props = {
   onToggle: (tag: string) => void
   onClear: () => void
   loading?: boolean
+  /** When false, hide body (parent section collapsed). Default true. */
+  open?: boolean
 }
 
 export default function TagFamilyFilter({
@@ -18,6 +21,7 @@ export default function TagFamilyFilter({
   onToggle,
   onClear,
   loading,
+  open = true,
 }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ music: true })
   const [tagSearchQuery, setTagSearchQuery] = useState('')
@@ -33,6 +37,8 @@ export default function TagFamilyFilter({
     return allTags.filter((t) => t.toLowerCase().includes(q)).slice(0, 24)
   }, [allTags, tagSearchQuery])
 
+  if (!open) return null
+
   if (loading) {
     return <div className="text-xs text-pager-fg-muted">Loading tags...</div>
   }
@@ -40,17 +46,27 @@ export default function TagFamilyFilter({
     return <div className="text-xs text-pager-fg-muted">No tags available</div>
   }
 
+  const tagBtn = (tag: string, isSelected: boolean) => {
+    const color = getCategoryColor(tag)
+    return (
+      <button
+        key={tag}
+        type="button"
+        onClick={() => onToggle(tag)}
+        className="px-2 py-0.5 text-[11px] font-medium border transition-opacity hover:opacity-90"
+        style={{
+          backgroundColor: isSelected ? color : 'transparent',
+          borderColor: color,
+          color: isSelected ? '#ffffff' : color,
+        }}
+      >
+        {tag}
+      </button>
+    )
+  }
+
   return (
     <div>
-      <div className="text-xs font-semibold mb-2 text-pager-fg uppercase tracking-wider">
-        Tags by family
-        {selectedTags.length > 0 && (
-          <span className="ml-2 font-normal text-pager-fg-muted normal-case">
-            ({selectedTags.length} selected)
-          </span>
-        )}
-      </div>
-
       <input
         type="text"
         placeholder="Search tags..."
@@ -64,19 +80,7 @@ export default function TagFamilyFilter({
           {searchHits.length === 0 ? (
             <p className="text-xs text-pager-fg-faint">No tags match</p>
           ) : (
-            searchHits.map((tag) => {
-              const isSelected = selectedTags.includes(tag)
-              return (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => onToggle(tag)}
-                  className={`pager-pill ${isSelected ? 'pager-pill-active' : ''}`}
-                >
-                  {tag}
-                </button>
-              )
-            })
+            searchHits.map((tag) => tagBtn(tag, selectedTags.includes(tag)))
           )}
         </div>
       ) : (
@@ -107,19 +111,7 @@ export default function TagFamilyFilter({
                 </button>
                 {isOpen && (
                   <div className="flex flex-wrap gap-1 p-2">
-                    {family.tags.map((tag) => {
-                      const isSelected = selectedTags.includes(tag)
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => onToggle(tag)}
-                          className={`pager-pill ${isSelected ? 'pager-pill-active' : ''}`}
-                        >
-                          {tag}
-                        </button>
-                      )
-                    })}
+                    {family.tags.map((tag) => tagBtn(tag, selectedTags.includes(tag)))}
                   </div>
                 )}
               </div>
@@ -130,14 +122,21 @@ export default function TagFamilyFilter({
 
       {selectedTags.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {selectedTags.map((tag) => (
-            <span key={tag} className="pager-pill pager-pill-active gap-1">
-              {tag}
-              <button type="button" onClick={() => onToggle(tag)} aria-label={`Remove ${tag}`}>
-                ×
-              </button>
-            </span>
-          ))}
+          {selectedTags.map((tag) => {
+            const color = getCategoryColor(tag)
+            return (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] border text-white"
+                style={{ backgroundColor: color, borderColor: color }}
+              >
+                {tag}
+                <button type="button" onClick={() => onToggle(tag)} aria-label={`Remove ${tag}`}>
+                  ×
+                </button>
+              </span>
+            )
+          })}
           <button
             type="button"
             onClick={onClear}

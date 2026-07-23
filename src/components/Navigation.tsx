@@ -111,11 +111,13 @@ export default function Navigation() {
           <div className="flex items-center flex-shrink-0 min-w-fit pr-2">
             {isProfilePage ? (
               <a href="/calendar" className={brandClass}>
-                PAGER
+                <span className="hidden sm:inline">CITY PAGER</span>
+                <span className="sm:hidden">CP</span>
               </a>
             ) : (
               <Link href="/calendar" className={brandClass}>
-                PAGER
+                <span className="hidden sm:inline">CITY PAGER</span>
+                <span className="sm:hidden">CP</span>
               </Link>
             )}
           </div>

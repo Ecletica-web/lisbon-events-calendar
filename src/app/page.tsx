@@ -33,7 +33,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-pager-bg flex flex-col items-center justify-center px-4 pt-20 pb-24">
-      <h1 className="pager-heading text-center mb-4 pager-cursor">PAGER</h1>
+      <h1 className="pager-heading text-center mb-4 pager-cursor">CITY PAGER</h1>
       <p className="text-pager-fg-muted text-center max-w-md mb-8 text-sm">
         Lisbon events — venues, promoters, and what&apos;s on. Sign in for a personal feed.
       </p>

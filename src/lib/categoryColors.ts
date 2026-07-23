@@ -1,131 +1,160 @@
 /**
- * Category colors — grayscale for Pager retro B&W theme.
- * Distinct luminance levels so categories stay visually separable.
+ * Category color mapping for events
+ * Each category gets a distinct color for visual organization
  */
 export const CATEGORY_COLORS: Record<string, string> = {
-  arts: '#d4d4d4',
-  art: '#d4d4d4',
-  exhibition: '#d4d4d4',
-  museum: '#d4d4d4',
-  gallery: '#d4d4d4',
-  contemporary: '#d4d4d4',
-  modern: '#d4d4d4',
-  abstract: '#d4d4d4',
-  'street-art': '#d4d4d4',
-  streetart: '#d4d4d4',
-  photography: '#d4d4d4',
-  sculpture: '#d4d4d4',
-  painting: '#d4d4d4',
-  drawing: '#d4d4d4',
-  installation: '#d4d4d4',
-  digital: '#d4d4d4',
-  mixed: '#d4d4d4',
-  'mixed-media': '#d4d4d4',
-  conceptual: '#d4d4d4',
-
-  music: '#fafafa',
-  concert: '#fafafa',
-  live: '#fafafa',
-  dj: '#fafafa',
-  festival: '#fafafa',
-  rock: '#fafafa',
-  jazz: '#fafafa',
-  blues: '#fafafa',
-  electronic: '#fafafa',
-  'hip-hop': '#fafafa',
-  hiphop: '#fafafa',
-  rap: '#fafafa',
-  classical: '#fafafa',
-  folk: '#fafafa',
-  indie: '#fafafa',
-  pop: '#fafafa',
-  techno: '#fafafa',
-  house: '#fafafa',
-  reggae: '#fafafa',
-  fado: '#fafafa',
-  acoustic: '#fafafa',
-
-  cinema: '#a3a3a3',
-  film: '#a3a3a3',
-  screening: '#a3a3a3',
-  movie: '#a3a3a3',
-
-  theatre: '#737373',
-  theater: '#737373',
-  performance: '#737373',
-  dance: '#737373',
-  ballet: '#737373',
-
-  comedy: '#e5e5e5',
-  standup: '#e5e5e5',
-  'stand-up': '#e5e5e5',
-
-  nightlife: '#525252',
-  club: '#525252',
-  party: '#525252',
-
-  workshop: '#b0b0b0',
-  class: '#b0b0b0',
-  course: '#b0b0b0',
-  education: '#b0b0b0',
-
-  food: '#c4c4c4',
-  drink: '#c4c4c4',
-  restaurant: '#c4c4c4',
-  tasting: '#c4c4c4',
-
-  sports: '#8a8a8a',
-  fitness: '#8a8a8a',
-  yoga: '#8a8a8a',
-
-  volunteering: '#6b6b6b',
-  volunteer: '#6b6b6b',
-  community: '#6b6b6b',
-  charity: '#6b6b6b',
-  nonprofit: '#6b6b6b',
-  'non-profit': '#6b6b6b',
-  social: '#6b6b6b',
-  activism: '#6b6b6b',
-  outreach: '#6b6b6b',
-
-  literature: '#9ca3af',
-  poetry: '#9ca3af',
-  reading: '#9ca3af',
-  book: '#9ca3af',
-  books: '#9ca3af',
-  author: '#9ca3af',
-  'book-club': '#9ca3af',
-  bookclub: '#9ca3af',
-  storytelling: '#9ca3af',
-
-  market: '#d1d5db',
-  markets: '#d1d5db',
-  fair: '#d1d5db',
-  'flea-market': '#d1d5db',
-  fleamarket: '#d1d5db',
-  'craft-fair': '#d1d5db',
-  craftfair: '#d1d5db',
-  vendors: '#d1d5db',
-
-  default: '#737373',
+  // Arts & Culture
+  arts: '#8B5CF6', // Purple
+  art: '#8B5CF6',
+  exhibition: '#8B5CF6',
+  museum: '#8B5CF6',
+  gallery: '#8B5CF6',
+  // Art Styles
+  contemporary: '#8B5CF6',
+  modern: '#8B5CF6',
+  abstract: '#8B5CF6',
+  'street-art': '#8B5CF6',
+  streetart: '#8B5CF6',
+  photography: '#8B5CF6',
+  sculpture: '#8B5CF6',
+  painting: '#8B5CF6',
+  drawing: '#8B5CF6',
+  installation: '#8B5CF6',
+  digital: '#8B5CF6',
+  mixed: '#8B5CF6',
+  'mixed-media': '#8B5CF6',
+  conceptual: '#8B5CF6',
+  
+  // Music
+  music: '#EF4444', // Red
+  concert: '#EF4444',
+  live: '#EF4444',
+  dj: '#EF4444',
+  festival: '#EF4444',
+  // Music Genres
+  rock: '#EF4444',
+  jazz: '#EF4444',
+  blues: '#EF4444',
+  electronic: '#EF4444',
+  'hip-hop': '#EF4444',
+  hiphop: '#EF4444',
+  rap: '#EF4444',
+  classical: '#EF4444',
+  folk: '#EF4444',
+  indie: '#EF4444',
+  pop: '#EF4444',
+  techno: '#EF4444',
+  house: '#EF4444',
+  reggae: '#EF4444',
+  fado: '#EF4444',
+  acoustic: '#EF4444',
+  
+  // Cinema
+  cinema: '#3B82F6', // Blue
+  film: '#3B82F6',
+  screening: '#3B82F6',
+  movie: '#3B82F6',
+  
+  // Theatre & Performance
+  theatre: '#10B981', // Green
+  theater: '#10B981',
+  performance: '#10B981',
+  dance: '#10B981',
+  ballet: '#10B981',
+  
+  // Comedy
+  comedy: '#F59E0B', // Amber
+  standup: '#F59E0B',
+  'stand-up': '#F59E0B',
+  
+  // Nightlife
+  nightlife: '#EC4899', // Pink
+  club: '#EC4899',
+  party: '#EC4899',
+  
+  // Workshops & Education
+  workshop: '#06B6D4', // Cyan
+  class: '#06B6D4',
+  course: '#06B6D4',
+  education: '#06B6D4',
+  
+  // Food & Drink
+  food: '#F97316', // Orange
+  drink: '#F97316',
+  restaurant: '#F97316',
+  tasting: '#F97316',
+  
+  // Sports & Fitness
+  sports: '#84CC16', // Lime
+  fitness: '#84CC16',
+  yoga: '#84CC16',
+  
+  // Voluntary Work & Community
+  volunteering: '#14B8A6', // Teal
+  volunteer: '#14B8A6',
+  community: '#14B8A6',
+  charity: '#14B8A6',
+  nonprofit: '#14B8A6',
+  'non-profit': '#14B8A6',
+  social: '#14B8A6',
+  activism: '#14B8A6',
+  outreach: '#14B8A6',
+  
+  // Literature & Poetry
+  literature: '#92400E', // Brown
+  poetry: '#92400E',
+  reading: '#92400E',
+  book: '#92400E',
+  books: '#92400E',
+  author: '#92400E',
+  'book-club': '#92400E',
+  bookclub: '#92400E',
+  storytelling: '#92400E',
+  
+  // Markets & Fairs
+  market: '#FBBF24', // Amber
+  markets: '#FBBF24',
+  fair: '#FBBF24',
+  'flea-market': '#FBBF24',
+  fleamarket: '#FBBF24',
+  'craft-fair': '#FBBF24',
+  craftfair: '#FBBF24',
+  vendors: '#FBBF24',
+  
+  // Default
+  default: '#6B7280', // Gray
 }
 
+/**
+ * Get color for a category
+ */
 export function getCategoryColor(category?: string): string {
   if (!category) return CATEGORY_COLORS.default
+  
   const normalized = category.toLowerCase().trim()
   return CATEGORY_COLORS[normalized] || CATEGORY_COLORS.default
 }
 
-/** Deterministic gray from string (for unknown categories). */
+/**
+ * Generate a color from a string (for categories not in the map)
+ */
 export function generateColorFromString(str: string): string {
   let hash = 0
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash)
   }
-  const lightness = 35 + Math.abs(hash % 45)
-  return `hsl(0, 0%, ${lightness}%)`
+  
+  // Generate a color with good contrast
+  const hue = hash % 360
+  const saturation = 65 + (hash % 20) // 65-85%
+  const lightness = 45 + (hash % 15) // 45-60%
+  
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`
 }
 
+/**
+ * Get all available category colors
+ */
 export function getAllCategoryColors(): Record<string, string> {
   return CATEGORY_COLORS
 }

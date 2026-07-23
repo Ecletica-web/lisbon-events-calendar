@@ -2,44 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Pager design tokens: retro B&W, day / night ─── */
+/* ─── City Pager design tokens: high-contrast B&W day / night ─── */
 :root,
 [data-theme='night'] {
-  --pager-bg: #0a0a0a;
-  --pager-bg-elevated: #141414;
-  --pager-bg-muted: #1a1a1a;
-  --pager-fg: #f5f5f5;
-  --pager-fg-muted: #a3a3a3;
-  --pager-fg-faint: #737373;
-  --pager-border: #2a2a2a;
-  --pager-border-strong: #e5e5e5;
+  --pager-bg: #000000;
+  --pager-bg-elevated: #000000;
+  --pager-bg-muted: #0d0d0d;
+  --pager-fg: #ffffff;
+  --pager-fg-muted: #c4c4c4;
+  --pager-fg-faint: #8a8a8a;
+  --pager-border: #333333;
+  --pager-border-strong: #ffffff;
   --pager-accent: #ffffff;
-  --pager-accent-fg: #0a0a0a;
+  --pager-accent-fg: #000000;
   --pager-inverse: #ffffff;
-  --pager-scanline: rgba(255, 255, 255, 0.03);
-  --pager-dot: rgba(255, 255, 255, 0.06);
+  --pager-scanline: rgba(255, 255, 255, 0.04);
+  --pager-dot: rgba(255, 255, 255, 0.08);
   --pager-shadow: 4px 4px 0 #000;
-  --foreground-rgb: 245, 245, 245;
-  --background-rgb: 10, 10, 10;
+  --foreground-rgb: 255, 255, 255;
+  --background-rgb: 0, 0, 0;
 }
 
 [data-theme='day'] {
-  --pager-bg: #f4f4f0;
+  --pager-bg: #ffffff;
   --pager-bg-elevated: #ffffff;
-  --pager-bg-muted: #e8e8e2;
-  --pager-fg: #111111;
-  --pager-fg-muted: #525252;
-  --pager-fg-faint: #737373;
-  --pager-border: #c4c4bc;
-  --pager-border-strong: #111111;
-  --pager-accent: #111111;
-  --pager-accent-fg: #f4f4f0;
-  --pager-inverse: #111111;
-  --pager-scanline: rgba(0, 0, 0, 0.04);
-  --pager-dot: rgba(0, 0, 0, 0.08);
-  --pager-shadow: 4px 4px 0 rgba(0, 0, 0, 0.35);
-  --foreground-rgb: 17, 17, 17;
-  --background-rgb: 244, 244, 240;
+  --pager-bg-muted: #f2f2f2;
+  --pager-fg: #000000;
+  --pager-fg-muted: #333333;
+  --pager-fg-faint: #666666;
+  --pager-border: #000000;
+  --pager-border-strong: #000000;
+  --pager-accent: #000000;
+  --pager-accent-fg: #ffffff;
+  --pager-inverse: #000000;
+  --pager-scanline: rgba(0, 0, 0, 0.05);
+  --pager-dot: rgba(0, 0, 0, 0.1);
+  --pager-shadow: 4px 4px 0 #000;
+  --foreground-rgb: 0, 0, 0;
+  --background-rgb: 255, 255, 255;
 }
 
 @layer base {
@@ -254,7 +254,7 @@
 }
 
 .fc-event:hover {
-  filter: invert(1);
+  filter: brightness(1.15);
 }
 
 .fc-daygrid-day-frame:hover {
@@ -262,11 +262,24 @@
 }
 
 .fc-col-header-cell {
-  background: var(--pager-bg-muted);
-  border-color: var(--pager-border) !important;
-  color: var(--pager-fg);
+  background: var(--pager-bg) !important;
+  border-color: var(--pager-border-strong) !important;
+  color: var(--pager-fg) !important;
   font-size: 0.7rem;
   text-transform: uppercase;
+}
+
+.fc-daygrid-day,
+.fc-timegrid-col,
+.fc-scrollgrid,
+.fc-theme-standard .fc-scrollgrid {
+  background: var(--pager-bg) !important;
+}
+
+.fc-day-today {
+  background: var(--pager-bg-muted) !important;
+  outline: 2px solid var(--pager-border-strong);
+  outline-offset: -2px;
 }
 
 .fc-daygrid-day-number {
@@ -280,12 +293,6 @@
   color: var(--pager-fg) !important;
   background: none !important;
   -webkit-text-fill-color: var(--pager-fg);
-}
-
-.fc-day-today {
-  background: var(--pager-bg-muted) !important;
-  outline: 2px solid var(--pager-border-strong);
-  outline-offset: -2px;
 }
 
 .fc-daygrid-day-top {

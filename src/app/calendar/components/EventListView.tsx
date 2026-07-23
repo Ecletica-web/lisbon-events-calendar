@@ -338,14 +338,22 @@ export default function EventListView({
                             {event.extendedProps.category}
                           </span>
                         )}
-                        {event.extendedProps.tags.slice(0, 3).map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-2 py-0.5 rounded text-xs bg-slate-700/60 text-slate-200 border border-slate-600/50"
-                          >
-                            {tag}
-                          </span>
-                        ))}
+                        {event.extendedProps.tags.slice(0, 3).map((tag) => {
+                          const tagColor = getCategoryColor(tag)
+                          return (
+                            <span
+                              key={tag}
+                              className="px-2 py-0.5 text-xs border"
+                              style={{
+                                borderColor: tagColor,
+                                color: tagColor,
+                                backgroundColor: 'transparent',
+                              }}
+                            >
+                              {tag}
+                            </span>
+                          )
+                        })}
                       </div>
                     </div>
                   </div>

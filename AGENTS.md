@@ -2,7 +2,7 @@
 
 Single entrypoint for understanding this codebase. Keep this file short; update "Where to find X" when adding major modules.
 
-**Product name:** Pager (UI brand). Repo/package may still use `lisbon-events-calendar`.
+**Product name:** City Pager (UI brand). Repo/package may still use `lisbon-events-calendar`.
 
 ## Stack
 

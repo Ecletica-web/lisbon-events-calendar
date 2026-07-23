@@ -273,9 +273,18 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
             <div>
               <strong className="text-slate-100 text-xs">Tags:</strong>
               <div className="flex flex-wrap gap-1.5 mt-1 items-center">
-                {props.tags.map((tag) => (
+                {props.tags.map((tag) => {
+                  const tagColor = getCategoryColor(tag)
+                  return (
                   <span key={tag} className="flex items-center gap-1">
-                    <span className="bg-slate-700/80 border border-slate-600/50 px-1.5 py-0.5 rounded text-xs text-slate-300">
+                    <span
+                      className="px-1.5 py-0.5 text-xs border"
+                      style={{
+                        borderColor: tagColor,
+                        color: tagColor,
+                        backgroundColor: 'transparent',
+                      }}
+                    >
                       {tag}
                     </span>
                     <FollowButton
@@ -285,7 +294,8 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
                       size="sm"
                     />
                   </span>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}

@@ -10,7 +10,7 @@ export function getProfileShareUrl(userId: string): string {
 }
 
 export function getAppInviteMessage(): string {
-  return 'Discover events in Lisbon — try the calendar:'
+  return 'Discover events in Lisbon on City Pager:'
 }
 
 export function getAppUrl(): string {

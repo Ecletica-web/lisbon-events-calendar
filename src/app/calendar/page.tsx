@@ -20,6 +20,7 @@ import {
 } from '@/lib/eventsAdapter'
 import type { Promoter } from '@/models/Promoter'
 import TagFamilyFilter from '@/components/TagFamilyFilter'
+import SidebarCollapsible from '@/components/SidebarCollapsible'
 import { getCategoryColor, generateColorFromString } from '@/lib/categoryColors'
 import { generateColorShade } from '@/lib/colorShades'
 import { useDebounce } from '@/lib/useDebounce'
@@ -68,6 +69,15 @@ function CalendarPageContent() {
   const [selectedVenues, setSelectedVenues] = useState<string[]>([])
   const [selectedPromoters, setSelectedPromoters] = useState<string[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [sidebarOpen, setSidebarOpen] = useState<Record<string, boolean>>({
+    category: true,
+    venues: false,
+    promoters: false,
+    families: true,
+  })
+  const toggleSidebarSection = (id: string) => {
+    setSidebarOpen((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
   const [freeOnly, setFreeOnly] = useState(false)
   const [excludeExhibitions, setExcludeExhibitions] = useState(false)
   const [excludeContinuous, setExcludeContinuous] = useState(true)
@@ -998,12 +1008,12 @@ function CalendarPageContent() {
 
       <div className="flex flex-col md:flex-row">
         {/* Left Sidebar */}
-        <div className={`relative transition-all duration-300 ${sidebarMinimized ? 'w-0 md:w-12' : 'w-full md:w-72'} border-r-0 md:border-r border-b md:border-b-0 border-slate-700/50 bg-slate-800/60 backdrop-blur-xl ${sidebarMinimized ? 'overflow-visible md:overflow-visible' : 'p-3 md:p-6 max-h-[50vh] md:max-h-none md:min-h-[calc(100vh-120px)] overflow-y-auto'} flex-shrink-0 ${!sidebarMinimized ? 'z-50 md:z-auto fixed md:relative inset-y-0 left-0' : ''}`}>
+        <div className={`relative transition-all duration-300 ${sidebarMinimized ? 'w-0 md:w-12' : 'w-full md:w-72'} border-r-0 md:border-r-2 border-b md:border-b-0 border-pager-strong bg-pager-bg ${sidebarMinimized ? 'overflow-visible md:overflow-visible' : 'p-3 md:p-6 max-h-[50vh] md:max-h-none md:min-h-[calc(100vh-120px)] overflow-y-auto'} flex-shrink-0 ${!sidebarMinimized ? 'z-50 md:z-auto fixed md:relative inset-y-0 left-0' : ''}`}>
 
           {/* Minimize/Expand Button - Desktop only */}
           <button
             onClick={() => setSidebarMinimized(!sidebarMinimized)}
-            className={`hidden md:flex absolute top-4 ${sidebarMinimized ? 'right-2 md:right-1' : 'right-4'} z-[100] p-2 rounded-lg bg-slate-700/90 hover:bg-slate-600/90 border border-slate-600/50 transition-all shadow-lg hover:shadow-xl items-center justify-center backdrop-blur-sm`}
+            className={`hidden md:flex absolute top-4 ${sidebarMinimized ? 'right-2 md:right-1' : 'right-4'} z-[100] p-2 pager-btn items-center justify-center`}
             aria-label={sidebarMinimized ? 'Expand sidebar' : 'Minimize sidebar'}
           >
             <svg 
@@ -1106,31 +1116,26 @@ function CalendarPageContent() {
           </div>
 
           {allCategories.length > 0 && (
-            <div className="mb-4">
-              <div className="text-xs font-semibold mb-2 text-slate-200">
-                Category
-                {selectedCategories.length > 0 && (
-                  <span className="ml-1.5 text-slate-400 font-normal">
-                    ({selectedCategories.length} selected)
-                  </span>
-                )}
-              </div>
-              
-              {/* All Categories Button */}
+            <SidebarCollapsible
+              id="category"
+              title="Category"
+              selectedCount={selectedCategories.length}
+              open={!!sidebarOpen.category}
+              onToggle={() => toggleSidebarSection('category')}
+            >
               <div className="mb-2">
                 <button
+                  type="button"
                   onClick={() => setSelectedCategories([])}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${
+                  className={`px-2.5 py-1 text-xs font-medium border-2 ${
                     selectedCategories.length === 0
-                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-transparent'
-                      : 'bg-slate-800/80 border-slate-600/50 hover:bg-slate-700/80 text-slate-300 hover:border-slate-500'
+                      ? 'bg-pager-accent text-pager-accent-fg border-pager-strong'
+                      : 'bg-pager-elevated border-pager-border text-pager-fg-muted hover:border-pager-strong'
                   }`}
                 >
                   All Categories
                 </button>
               </div>
-              
-              {/* Category Selection Buttons - compact */}
               <div className="flex flex-wrap gap-1.5">
                 {allCategories.map((category) => {
                   const color = getCategoryColor(category)
@@ -1138,12 +1143,9 @@ function CalendarPageContent() {
                   return (
                     <button
                       key={category}
+                      type="button"
                       onClick={() => handleCategoryToggle(category)}
-                      className={`px-2 py-1 rounded-md text-xs font-medium border transition-all ${
-                        isSelected
-                          ? 'text-white'
-                          : 'hover:opacity-90 bg-slate-800/80 text-slate-300'
-                      }`}
+                      className="px-2 py-1 text-xs font-medium border"
                       style={{
                         backgroundColor: isSelected ? color : 'transparent',
                         borderColor: color,
@@ -1155,19 +1157,18 @@ function CalendarPageContent() {
                   )
                 })}
               </div>
-            </div>
+            </SidebarCollapsible>
           )}
 
           {allVenues.length > 0 && (
-            <div className="mb-6">
-              <div className="text-xs font-semibold mb-2 text-pager-fg uppercase tracking-wider">
-                Venues ({filteredVenues.length} of {allVenues.length})
-                {selectedVenues.length > 0 && (
-                  <span className="ml-1.5 text-pager-fg-muted normal-case">
-                    ({selectedVenues.length} selected)
-                  </span>
-                )}
-              </div>
+            <SidebarCollapsible
+              id="venues"
+              title="Venues"
+              countLabel={`(${filteredVenues.length}/${allVenues.length})`}
+              selectedCount={selectedVenues.length}
+              open={!!sidebarOpen.venues}
+              onToggle={() => toggleSidebarSection('venues')}
+            >
               <input
                 type="text"
                 placeholder="Search venues..."
@@ -1180,20 +1181,22 @@ function CalendarPageContent() {
                   <p className="text-xs text-pager-fg-faint py-2">
                     {venueSearchQuery.trim() ? 'No venues match your search' : 'No venues'}
                   </p>
-                ) : filteredVenues.map((venue) => {
-                  const isSelected = selectedVenues.includes(venue.key)
-                  return (
-                    <button
-                      key={venue.key}
-                      type="button"
-                      onClick={() => handleVenueToggle(venue.key)}
-                      className={`pager-pill ${isSelected ? 'pager-pill-active' : ''}`}
-                      title={venue.name}
-                    >
-                      <span className="line-clamp-1 max-w-[140px] md:max-w-[180px]">{venue.name}</span>
-                    </button>
-                  )
-                })}
+                ) : (
+                  filteredVenues.map((venue) => {
+                    const isSelected = selectedVenues.includes(venue.key)
+                    return (
+                      <button
+                        key={venue.key}
+                        type="button"
+                        onClick={() => handleVenueToggle(venue.key)}
+                        className={`pager-pill ${isSelected ? 'pager-pill-active' : ''}`}
+                        title={venue.name}
+                      >
+                        <span className="line-clamp-1 max-w-[140px] md:max-w-[180px]">{venue.name}</span>
+                      </button>
+                    )
+                  })
+                )}
               </div>
               {selectedVenues.length > 0 && (
                 <button
@@ -1204,19 +1207,18 @@ function CalendarPageContent() {
                   Clear venues
                 </button>
               )}
-            </div>
+            </SidebarCollapsible>
           )}
 
           {promoters.length > 0 && (
-            <div className="mb-6">
-              <div className="text-xs font-semibold mb-2 text-pager-fg uppercase tracking-wider">
-                Promoters ({filteredPromoters.length} of {promoters.length})
-                {selectedPromoters.length > 0 && (
-                  <span className="ml-1.5 text-pager-fg-muted normal-case">
-                    ({selectedPromoters.length} selected)
-                  </span>
-                )}
-              </div>
+            <SidebarCollapsible
+              id="promoters"
+              title="Promoters"
+              countLabel={`(${filteredPromoters.length}/${promoters.length})`}
+              selectedCount={selectedPromoters.length}
+              open={!!sidebarOpen.promoters}
+              onToggle={() => toggleSidebarSection('promoters')}
+            >
               <input
                 type="text"
                 placeholder="Search promoters..."
@@ -1259,18 +1261,26 @@ function CalendarPageContent() {
                   Clear promoters
                 </button>
               )}
-            </div>
+            </SidebarCollapsible>
           )}
 
-          <div className="mb-6">
+          <SidebarCollapsible
+            id="families"
+            title="Tag families"
+            countLabel={allTags.length ? `(${allTags.length})` : undefined}
+            selectedCount={selectedTags.length}
+            open={!!sidebarOpen.families}
+            onToggle={() => toggleSidebarSection('families')}
+          >
             <TagFamilyFilter
               allTags={allTags}
               selectedTags={selectedTags}
               onToggle={handleTagToggle}
               onClear={() => setSelectedTags([])}
               loading={loading}
+              open
             />
-          </div>
+          </SidebarCollapsible>
 
           {/* Predefined Lisbon Personas — one-click vibe filters */}
           {FEATURE_FLAGS.PERSONAS && (
@@ -1504,8 +1514,36 @@ function CalendarPageContent() {
             )}
           </div>
 
-          {/* Desktop: Calendar View */}
+          {/* Desktop: Calendar / List */}
           <div className="hidden md:block">
+              {/* View mode: Calendar vs List — always visible */}
+              <div className="mb-4 flex flex-wrap items-center gap-3">
+                <div className="flex border-2 border-pager-strong" role="group" aria-label="View mode">
+                  <button
+                    type="button"
+                    onClick={() => setShowListView(false)}
+                    className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider ${
+                      !showListView
+                        ? 'bg-pager-accent text-pager-accent-fg'
+                        : 'bg-pager-bg text-pager-fg hover:bg-pager-muted'
+                    }`}
+                  >
+                    Calendar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowListView(true)}
+                    className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider border-l-2 border-pager-strong ${
+                      showListView
+                        ? 'bg-pager-accent text-pager-accent-fg'
+                        : 'bg-pager-bg text-pager-fg hover:bg-pager-muted'
+                    }`}
+                  >
+                    List
+                  </button>
+                </div>
+              </div>
+
               {/* Desktop: Event Cards Slider - Above Calendar (only show when not in list view) */}
               {!showListView && !loading && filteredEvents.length > 0 && (
                 <div className="w-full mb-6">
@@ -1528,16 +1566,16 @@ function CalendarPageContent() {
 
               {loading ? (
                 <div className="flex items-center justify-center h-96">
-                  <div className="text-slate-400">Loading events...</div>
+                  <div className="text-pager-fg-muted">Loading events...</div>
                 </div>
               ) : filteredEvents.length === 0 ? (
                 <div className="flex items-center justify-center h-96">
                   <div className="text-center">
-                    <div className="text-slate-400 text-lg mb-2">No events found</div>
+                    <div className="text-pager-fg-muted text-lg mb-2">No events found</div>
                     {activeFiltersCount > 0 && (
                       <button
                         onClick={handleClearFilters}
-                        className="text-indigo-400 hover:text-indigo-300 hover:underline text-sm"
+                        className="pager-link text-sm"
                       >
                         Clear filters to see all events
                       </button>
@@ -1546,25 +1584,6 @@ function CalendarPageContent() {
                 </div>
               ) : (
                 <div className="relative">
-                  {/* Calendar/List Toggle - Desktop: fixed when calendar view, inline with date nav when list view */}
-                  {!showListView && (
-                    <div className="fixed top-2 right-[200px] z-50 hidden md:block">
-                      <div className="flex items-center gap-2 bg-slate-800/80 rounded-lg p-1 border border-slate-700/50">
-                        <button
-                          onClick={() => setShowListView(false)}
-                          className="px-3 py-1.5 rounded-md text-xs font-medium bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg"
-                        >
-                          Calendar
-                        </button>
-                        <button
-                          onClick={() => setShowListView(true)}
-                          className="px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white transition-all"
-                        >
-                          List
-                        </button>
-                      </div>
-                    </div>
-                  )}
                   {showListView ? (
                     <div className="mb-4">
                       <ListToolbar

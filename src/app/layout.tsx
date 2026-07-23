@@ -7,7 +7,7 @@ import { UserActionsProvider } from '@/contexts/UserActionsContext'
 import { ThemeProvider } from '@/lib/theme/ThemeProvider'
 
 export const metadata: Metadata = {
-  title: 'Pager',
+  title: 'City Pager',
   description: 'Lisbon events — venues, promoters, and what’s on. Retro style.',
   manifest: '/manifest.json',
 }
