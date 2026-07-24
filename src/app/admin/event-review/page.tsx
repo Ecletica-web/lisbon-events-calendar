@@ -82,6 +82,7 @@ export default function AdminEventReviewPage() {
   const [cardState, setCardState] = useState<Record<string, CardState>>({})
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [downloadingFeedback, setDownloadingFeedback] = useState(false)
   const [lastProcessedRow, setLastProcessedRow] = useState<Record<string, string> | null>(null)
 
   const load = useCallback(async () => {
@@ -200,11 +201,48 @@ export default function AdminEventReviewPage() {
 
   const canResolve = source === 'supabase'
 
+  async function downloadFeedback() {
+    setDownloadingFeedback(true)
+    setMessage(null)
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/event-review/feedback', { headers })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Failed to load feedback')
+      const feedback = Array.isArray(j.feedback) ? j.feedback : []
+      const payload = {
+        exported_at: new Date().toISOString(),
+        source: 'event_review_feedback',
+        count: feedback.length,
+        // quality_rating, notes, field_corrections — paste into the repo for prompt/scraper tuning
+        feedback,
+      }
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `event-review-feedback-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      setMessage(
+        feedback.length
+          ? `Downloaded ${feedback.length} feedback row(s) (ratings, notes, field corrections).`
+          : 'Downloaded empty feedback export — no rows in event_review_feedback yet.'
+      )
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Download failed')
+    } finally {
+      setDownloadingFeedback(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-400">
         Edit title, datetime, venue, and description on each card. Corrections are saved to{' '}
         <code className="text-slate-300">event_review_feedback</code> for later learning.
+        Download the full export (quality ratings, notes, field corrections) anytime to paste into the
+        repo for scraper / prompt improvements.
         {source === 'sheets' ? ' Sheet fallback.' : ' Supabase queue.'}{' '}
         {sheetsWriteMode === 'manual'
           ? 'Processed Events / Events Clean New are edited manually — Approve does not auto-append.'
@@ -226,9 +264,19 @@ export default function AdminEventReviewPage() {
             </button>
           ))}
         </div>
-        <button type="button" onClick={() => void load()} className="text-sm text-indigo-400">
-          Refresh
-        </button>
+        <div className="flex flex-wrap gap-3 items-center">
+          <button
+            type="button"
+            disabled={downloadingFeedback}
+            onClick={() => void downloadFeedback()}
+            className="text-sm text-emerald-400 disabled:opacity-50"
+          >
+            {downloadingFeedback ? 'Downloading…' : 'Download feedback JSON'}
+          </button>
+          <button type="button" onClick={() => void load()} className="text-sm text-indigo-400">
+            Refresh
+          </button>
+        </div>
       </div>
 
       {message && (
