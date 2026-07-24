@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 import { useUserActions } from '@/contexts/UserActionsContext'
@@ -14,9 +14,23 @@ import FollowPromoterButton from '@/components/FollowPromoterButton'
 import { EventImageThumb } from '@/components/EventImageGallery'
 import EventModal from '@/app/calendar/components/EventModal'
 import { logActivity } from '@/lib/activityLog'
+import {
+  setRecommendationSessionState,
+  clearRecommendationImpressionCache,
+  trackRecommendationImpression,
+  trackRecommendationAction,
+  type RecommendationItemMeta,
+} from '@/lib/recommendationTelemetryClient'
+import {
+  RecommendationSessionProvider,
+  type RecommendationSessionValue,
+} from '@/contexts/RecommendationSessionContext'
+import { FEATURE_FLAGS } from '@/lib/featureFlags'
 
 const SWIPE_THRESHOLD = 80
 const SWIPE_EXIT_MS = 250
+/** Genuine impression: active card visible continuously for this long */
+const IMPRESSION_VISIBLE_MS = 1000
 
 function SkeletonCard() {
   return (
@@ -44,6 +58,10 @@ export default function ForYouPage() {
   const [loading, setLoading] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState<NormalizedEvent | null>(null)
   const [currentCardIndex, setCurrentCardIndex] = useState(0)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [algorithmVersion, setAlgorithmVersion] = useState('rules_v1')
+  const [telemetryEnabled, setTelemetryEnabled] = useState(false)
+  const [recommendationItems, setRecommendationItems] = useState<RecommendationItemMeta[]>([])
 
   const fetchFeed = useCallback(async () => {
     setLoading(true)
@@ -58,6 +76,9 @@ export default function ForYouPage() {
       const data = await res.json()
       let feedEvents: NormalizedEvent[] = data.events || []
       const reasonsMap: Record<string, string[]> = data.reasons || {}
+      const items: RecommendationItemMeta[] = Array.isArray(data.recommendationItems)
+        ? data.recommendationItems
+        : []
 
       if (feedEvents.length === 0) {
         const eventsRes = await fetch('/api/events')
@@ -72,6 +93,23 @@ export default function ForYouPage() {
         }
       }
 
+      const nextSessionId =
+        typeof data.recommendationSessionId === 'string' ? data.recommendationSessionId : null
+      const nextTelemetry = data.telemetryEnabled === true
+      const nextAlgo =
+        typeof data.algorithmVersion === 'string' ? data.algorithmVersion : 'rules_v1'
+
+      clearRecommendationImpressionCache()
+      setRecommendationSessionState({
+        sessionId: nextSessionId,
+        algorithmVersion: nextAlgo,
+        telemetryEnabled: nextTelemetry,
+        items,
+      })
+      setSessionId(nextSessionId)
+      setAlgorithmVersion(nextAlgo)
+      setTelemetryEnabled(nextTelemetry)
+      setRecommendationItems(items)
       setEvents(feedEvents)
       setReasons(reasonsMap)
       setCurrentCardIndex(0)
@@ -88,80 +126,118 @@ export default function ForYouPage() {
     fetchFeed()
   }, [fetchFeed])
 
+  // Genuine impression: only the active swipe card, after continuous visibility threshold
+  useEffect(() => {
+    if (!telemetryEnabled || !sessionId) return
+    if (currentCardIndex < 0 || currentCardIndex >= events.length) return
+    const eventId = events[currentCardIndex]?.id
+    if (!eventId) return
+
+    const timer = setTimeout(() => {
+      trackRecommendationImpression(eventId)
+    }, IMPRESSION_VISIBLE_MS)
+
+    return () => clearTimeout(timer)
+  }, [currentCardIndex, events, sessionId, telemetryEnabled])
+
+  const sessionValue: RecommendationSessionValue = useMemo(
+    () => ({
+      sessionId,
+      algorithmVersion,
+      telemetryEnabled,
+      itemsByEventId: new Map(recommendationItems.map((i) => [i.eventId, i])),
+    }),
+    [sessionId, algorithmVersion, telemetryEnabled, recommendationItems]
+  )
+
+  const activeEvent = currentCardIndex < events.length ? events[currentCardIndex] : null
+
   return (
-    <div className="min-h-screen bg-pager-bg pb-28">
-      <div className="max-w-2xl mx-auto px-4 pt-16 sm:pt-20">
-        {/* Hero */}
-        <header className="mb-10 sm:mb-12">
-          <h1 className="pager-heading mb-3">FOR YOU</h1>
-          <p className="text-pager-fg-muted text-sm sm:text-base max-w-md leading-relaxed">
-            Your personal event feed — venues you follow, promoters, personas, and friends. Swipe to like or pass.
-          </p>
-        </header>
+    <RecommendationSessionProvider value={sessionValue}>
+      <div className="min-h-screen bg-pager-bg pb-28">
+        <div className="max-w-2xl mx-auto px-4 pt-16 sm:pt-20">
+          <header className="mb-10 sm:mb-12">
+            <h1 className="pager-heading mb-3">FOR YOU</h1>
+            <p className="text-pager-fg-muted text-sm sm:text-base max-w-md leading-relaxed">
+              Your personal event feed — venues you follow, promoters, personas, and friends. Swipe to like or pass.
+            </p>
+          </header>
 
-        {loading && events.length === 0 ? (
-          <div className="space-y-6">
-            {[1, 2, 3, 4].map((i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-        ) : events.length > 0 ? (
-          <div className="relative" style={{ minHeight: '420px' }}>
-            {/* Next card peeking behind */}
-            {currentCardIndex + 1 < events.length && (
-              <div className="absolute inset-0 top-2 left-1 right-1 scale-[0.96] opacity-90 pointer-events-none">
-                <FeedCard
-                  event={events[currentCardIndex + 1]}
-                  reasons={reasons[events[currentCardIndex + 1].id] || []}
-                  onOpen={() => {}}
-                  showSwipeButtons={false}
+          {loading && events.length === 0 ? (
+            <div className="space-y-6">
+              {[1, 2, 3, 4].map((i) => (
+                <SkeletonCard key={i} />
+              ))}
+            </div>
+          ) : events.length > 0 ? (
+            <div className="relative" style={{ minHeight: '420px' }}>
+              {/* Next card peeking behind — never qualifies for impressions */}
+              {currentCardIndex + 1 < events.length && (
+                <div className="absolute inset-0 top-2 left-1 right-1 scale-[0.96] opacity-90 pointer-events-none" aria-hidden>
+                  <FeedCard
+                    event={events[currentCardIndex + 1]}
+                    reasons={reasons[events[currentCardIndex + 1].id] || []}
+                    onOpen={() => {}}
+                    showSwipeButtons={false}
+                  />
+                </div>
+              )}
+              {activeEvent && (
+                <SwipeableFeedCard
+                  key={activeEvent.id}
+                  event={activeEvent}
+                  reasons={reasons[activeEvent.id] || []}
+                  onOpen={() => {
+                    setSelectedEvent(activeEvent)
+                    logActivity('view_event_modal', 'event', activeEvent.id, { title: activeEvent.title })
+                  }}
+                  onLike={async () => {
+                    if (actions) {
+                      const ok = await actions.likeEvent(activeEvent.id)
+                      if (ok) trackRecommendationAction('like', activeEvent.id)
+                    }
+                    setCurrentCardIndex((i) => i + 1)
+                  }}
+                  onPass={() => {
+                    trackRecommendationAction('pass', activeEvent.id)
+                    setCurrentCardIndex((i) => i + 1)
+                  }}
+                  onHide={
+                    FEATURE_FLAGS.RECOMMENDATION_HIDE
+                      ? () => {
+                          trackRecommendationAction('hide', activeEvent.id)
+                          setCurrentCardIndex((i) => i + 1)
+                        }
+                      : undefined
+                  }
                 />
-              </div>
-            )}
-            {/* Current swipeable card */}
-            {currentCardIndex < events.length && (
-              <SwipeableFeedCard
-                key={events[currentCardIndex].id}
-                event={events[currentCardIndex]}
-                reasons={reasons[events[currentCardIndex].id] || []}
-                onOpen={() => {
-                  setSelectedEvent(events[currentCardIndex])
-                  logActivity('view_event_modal', 'event', events[currentCardIndex].id, { title: events[currentCardIndex].title })
-                }}
-                onLike={async () => {
-                  if (actions) await actions.likeEvent(events[currentCardIndex].id)
-                  setCurrentCardIndex((i) => i + 1)
-                }}
-                onPass={() => setCurrentCardIndex((i) => i + 1)}
-              />
-            )}
-            {!loading && currentCardIndex >= events.length && events.length > 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-none border border-pager-border bg-pager-elevated/30 backdrop-blur-sm py-12">
-                <p className="text-pager-fg-muted text-lg font-medium">You&apos;re all caught up</p>
-                <p className="text-pager-fg-faint text-sm mt-1">Come back later for more events</p>
-                <button
-                  type="button"
-                  onClick={() => setCurrentCardIndex(0)}
-                  className="mt-6 px-5 py-2.5 rounded-none bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors"
-                >
-                  Browse again
-                </button>
-              </div>
-            )}
-          </div>
-        ) : null}
+              )}
+              {!loading && currentCardIndex >= events.length && events.length > 0 && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center rounded-none border border-pager-border bg-pager-elevated/30 backdrop-blur-sm py-12">
+                  <p className="text-pager-fg-muted text-lg font-medium">You&apos;re all caught up</p>
+                  <p className="text-pager-fg-faint text-sm mt-1">Come back later for more events</p>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentCardIndex(0)}
+                    className="mt-6 px-5 py-2.5 rounded-none bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors"
+                  >
+                    Browse again
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null}
 
-        <EventModal
-          event={selectedEvent}
-          onClose={() => setSelectedEvent(null)}
-          reasons={selectedEvent ? (reasons[selectedEvent.id] || []) : undefined}
-        />
+          <EventModal
+            event={selectedEvent}
+            onClose={() => setSelectedEvent(null)}
+            reasons={selectedEvent ? reasons[selectedEvent.id] || [] : undefined}
+          />
 
-        {!loading && events.length === 0 && (
-          <EmptyState />
-        )}
+          {!loading && events.length === 0 && <EmptyState />}
+        </div>
       </div>
-    </div>
+    </RecommendationSessionProvider>
   )
 }
 
@@ -201,14 +277,15 @@ function SwipeableFeedCard({
   onOpen,
   onLike,
   onPass,
+  onHide,
 }: {
   event: NormalizedEvent
   reasons: string[]
   onOpen: () => void
   onLike: () => void | Promise<void>
   onPass: () => void
+  onHide?: () => void
 }) {
-  const cardRef = useRef<HTMLDivElement>(null)
   const [dragOffset, setDragOffset] = useState(0)
   const [isExiting, setIsExiting] = useState<'like' | 'pass' | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -264,7 +341,6 @@ function SwipeableFeedCard({
 
   return (
     <div
-      ref={cardRef}
       className="relative w-full"
       style={{ touchAction: 'pan-y' }}
       onTouchStart={(e) => handleStart(e.touches[0].clientX)}
@@ -286,8 +362,8 @@ function SwipeableFeedCard({
           showSwipeButtons
           onLike={() => { if (!isExiting) { setIsExiting('like'); setDragOffset(400); setTimeout(() => void Promise.resolve(onLike()).then(() => {}), SWIPE_EXIT_MS) } }}
           onPass={() => { if (!isExiting) { setIsExiting('pass'); setDragOffset(-400); setTimeout(onPass, SWIPE_EXIT_MS) } }}
+          onHide={onHide}
         />
-        {/* Swipe hints on card */}
         {!isExiting && isDragging && (
           <>
             {dragOffset > 30 && (
@@ -314,6 +390,7 @@ function FeedCard({
   showSwipeButtons = false,
   onLike,
   onPass,
+  onHide,
 }: {
   event: NormalizedEvent
   reasons: string[]
@@ -321,6 +398,7 @@ function FeedCard({
   showSwipeButtons?: boolean
   onLike?: () => void
   onPass?: () => void
+  onHide?: () => void
 }) {
   const p = event.extendedProps
   const start = new Date(event.start)
@@ -426,6 +504,17 @@ function FeedCard({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
             </button>
+            {onHide && (
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onHide() }}
+                className="text-xs text-pager-fg-faint hover:text-pager-fg-muted underline"
+                aria-label="Hide event"
+                title="Hide"
+              >
+                Hide
+              </button>
+            )}
           </div>
         )}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" onClick={(e) => e.stopPropagation()}>

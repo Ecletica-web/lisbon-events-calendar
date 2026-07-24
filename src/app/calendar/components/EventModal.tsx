@@ -15,6 +15,8 @@ import EventCounts from '@/components/EventCounts'
 import { EventImageGallery } from '@/components/EventImageGallery'
 import { useUserActions } from '@/contexts/UserActionsContext'
 import { getEventReasons } from '@/lib/eventReasons'
+import { trackRecommendationAction } from '@/lib/recommendationTelemetryClient'
+import { useRecommendationSession } from '@/contexts/RecommendationSessionContext'
 
 interface EventModalProps {
   event: NormalizedEvent | null
@@ -25,6 +27,7 @@ interface EventModalProps {
 export default function EventModal({ event, onClose, reasons: reasonsProp }: EventModalProps) {
   const contentRef = useRef<HTMLDivElement>(null)
   const actions = useUserActions()
+  const recSession = useRecommendationSession()
   const reasons = reasonsProp ?? (event && actions ? getEventReasons(event, {
     followedVenueIds: actions.actions.followedVenueIds,
     followedPromoterIds: actions.actions.followedPromoterIds,
@@ -34,6 +37,18 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
     if (!event) return
     contentRef.current?.scrollTo(0, 0)
   }, [event])
+
+  useEffect(() => {
+    if (!event || !recSession?.telemetryEnabled) return
+    trackRecommendationAction('open', event.id)
+  }, [event?.id, recSession?.telemetryEnabled, recSession?.sessionId])
+
+  const emitTicketClick = () => {
+    if (event && recSession?.telemetryEnabled) trackRecommendationAction('ticket_click', event.id)
+  }
+  const emitCalendarAdd = () => {
+    if (event && recSession?.telemetryEnabled) trackRecommendationAction('calendar_add', event.id)
+  }
 
   if (!event) return null
 
@@ -203,6 +218,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline"
+                            onClick={emitTicketClick}
                           >
                             Tickets
                           </a>
@@ -322,6 +338,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-indigo-400 hover:text-indigo-300 hover:underline text-xs"
+                onClick={emitTicketClick}
               >
                 Buy Tickets
               </a>
@@ -362,6 +379,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg border border-slate-600/50 bg-slate-700/50 text-slate-200 text-sm font-medium hover:bg-slate-600/60 hover:text-white transition-colors mt-3"
+          onClick={emitCalendarAdd}
         >
           <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19.5 3h-1.5v.5h-1V3H7v.5H5.5V3H4c-.55 0-1 .45-1 1v16c0 .55.45 1 1 1h15.5c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM19 19H5V9h14v10zm0-11H5V5h2v.5h1V5h7v.5h1V5h2v3z" />

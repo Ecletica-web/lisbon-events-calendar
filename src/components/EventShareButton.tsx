@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
-import Link from 'next/link'
+import { trackRecommendationAction } from '@/lib/recommendationTelemetryClient'
+import { useRecommendationSession } from '@/contexts/RecommendationSessionContext'
 
 interface EventShareButtonProps {
   eventId: string
@@ -23,7 +24,12 @@ interface Friend {
 export default function EventShareButton({ eventId, eventTitle, eventUrl, className = '', placement = 'bottom' }: EventShareButtonProps) {
   const auth = useSupabaseAuth()
   const user = auth?.user
+  const recSession = useRecommendationSession()
   const [open, setOpen] = useState(false)
+
+  const emitShare = () => {
+    if (recSession?.telemetryEnabled) trackRecommendationAction('share', eventId)
+  }
   const [sendModalOpen, setSendModalOpen] = useState(false)
   const [friends, setFriends] = useState<Friend[]>([])
   const [loadingFriends, setLoadingFriends] = useState(false)
@@ -66,7 +72,10 @@ export default function EventShareButton({ eventId, eventTitle, eventUrl, classN
         headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
         body: JSON.stringify({ recipientId }),
       })
-      if (res.ok) setSent(recipientId)
+      if (res.ok) {
+        setSent(recipientId)
+        emitShare()
+      }
     } finally {
       setSendingTo(null)
     }
@@ -98,7 +107,10 @@ export default function EventShareButton({ eventId, eventTitle, eventUrl, classN
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 px-4 py-2 text-sm text-slate-200 hover:bg-slate-700/80"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              emitShare()
+              setOpen(false)
+            }}
           >
             <span className="text-green-400">WhatsApp</span>
             <span>Share via WhatsApp</span>

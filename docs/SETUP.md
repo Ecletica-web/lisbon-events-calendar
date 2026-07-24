@@ -47,6 +47,8 @@ Review now loads from Supabase `pipeline_review_queue`. These CSV URLs are unuse
 | `NEXT_PUBLIC_ENABLE_PROFILE` | `true` | Enable profile page and auth-gated features. |
 | `NEXT_PUBLIC_ENABLE_PERSONAS` | `true` | Enable personas. |
 | `NEXT_PUBLIC_ENABLE_SHARED_VIEWS` | `true` | Enable shared saved views. |
+| `NEXT_PUBLIC_ENABLE_RECOMMENDATION_HIDE` | `false` | Show optional Hide control on For You (telemetry only; does not change ranking). |
+| `RECOMMENDATION_TELEMETRY_ENABLED` | `false` | Server-only. When `true`, create recommendation sessions and log impressions/actions. Ranking unchanged. See [RECOMMENDATION_TELEMETRY.md](RECOMMENDATION_TELEMETRY.md). |
 
 ### Supabase (optional but recommended for auth + social)
 
@@ -77,7 +79,7 @@ See [OAUTH_SETUP.md](../OAUTH_SETUP.md) for OAuth provider setup.
 
 ## 2. Database migrations (Supabase)
 
-If you use Supabase, run **all** migrations in `supabase/migrations/` **in numeric order** (001 → 019) in the Supabase SQL Editor.
+If you use Supabase, run **all** migrations in `supabase/migrations/` **in numeric order** (001 → 023) in the Supabase SQL Editor.
 
 | Migration | Purpose |
 |-----------|---------|
@@ -98,6 +100,8 @@ If you use Supabase, run **all** migrations in `supabase/migrations/` **in numer
 | 015–017 | event_shares, chats, event-images bucket |
 | 018_event_review_feedback | Admin review quality ratings |
 | 019_pipeline_store | pipeline_posts, extractions, review_queue, verifications, runs, config |
+| 020–022 | venue images / profile images / pipeline mode |
+| 023_recommendation_telemetry | recommendation_sessions, recommendation_events, ml_training_examples_v1 |
 
 Details: [SUPABASE_SETUP.md](../SUPABASE_SETUP.md). See [docs/FRIENDS_VS_FOLLOWS.md](FRIENDS_VS_FOLLOWS.md) for friends vs follow distinction.
 
@@ -129,7 +133,10 @@ The app includes a web app manifest so users can “Add to Home Screen” on mob
 
 ## 6. Other docs
 
+- **Project map (agents + humans):** [AGENTS.md](../AGENTS.md)
+- **Full replication pack (MD + PDF):** [docs/replication/](replication/) — architecture, pipeline AI, Sheets/Supabase, product/UX, bootstrap checklist
 - **CSV column contract:** [docs/SCHEMA.md](SCHEMA.md)
+- **Pipeline runbook:** [docs/PIPELINE.md](PIPELINE.md)
 - **Supabase auth and OAuth:** [SUPABASE_SETUP.md](../SUPABASE_SETUP.md), [OAUTH_SETUP.md](../OAUTH_SETUP.md)
 - **Features and roadmap:** [docs/MASTER_TASK_LIST_ARCHITECTURE.md](MASTER_TASK_LIST_ARCHITECTURE.md)
 - **Friends vs follow distinction:** [docs/FRIENDS_VS_FOLLOWS.md](FRIENDS_VS_FOLLOWS.md)

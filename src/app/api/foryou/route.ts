@@ -1,8 +1,26 @@
+/**
+ * Thin For You recommendation API.
+ * Ranking logic lives in recommendationEngine; telemetry is best-effort and additive.
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase/server'
 import { fetchEvents, toCanonicalTagKey } from '@/lib/eventsAdapter'
 import { fetchUserInteractionsBulk } from '@/lib/interactions'
-import { getPersonalizedFeed, type UserFeedContext, type PersonaWeights } from '@/lib/recommendationEngine'
+import {
+  RECOMMENDATION_ALGORITHM_VERSION,
+  getPersonalizedFeedScored,
+  asColdStartRecommendations,
+  type UserFeedContext,
+  type PersonaWeights,
+  type ScoredRecommendation,
+} from '@/lib/recommendationEngine'
+import {
+  createRecommendationSession,
+  isRecommendationTelemetryEnabled,
+  primaryCandidateSource,
+  type RecommendationSessionContext,
+} from '@/lib/recommendationTelemetry'
 
 /** Uses request.headers (Authorization) and user-specific data — must not be statically rendered */
 export const dynamic = 'force-dynamic'
@@ -11,8 +29,6 @@ function getBearer(request: NextRequest): string | null {
   const authHeader = request.headers.get('authorization')
   return authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
 }
-
-const norm = (s: string) => (s || '').toLowerCase().trim()
 
 const FOR_YOU_LIMIT = 50
 
@@ -27,7 +43,10 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 /** Random sample of upcoming events when user has no follows/likes/persona/friends signal. */
-function randomUpcoming(upcoming: Awaited<ReturnType<typeof fetchEvents>>, limit: number): Awaited<ReturnType<typeof fetchEvents>> {
+function randomUpcoming(
+  upcoming: Awaited<ReturnType<typeof fetchEvents>>,
+  limit: number
+): Awaited<ReturnType<typeof fetchEvents>> {
   if (upcoming.length <= limit) return upcoming
   return shuffle(upcoming).slice(0, limit)
 }
@@ -40,15 +59,99 @@ function hasFeedSignals(
 ): boolean {
   if (bulk.followedVenueIds.size > 0 || bulk.followedPromoterIds.size > 0) return true
   if (bulk.likedEventIds.size > 0 || bulk.wishlistedEventIds.size > 0) return true
-  if (personaWeights?.includeTags?.length || personaWeights?.includeCategories?.length || personaWeights?.includeVenues?.length) return true
+  if (
+    personaWeights?.includeTags?.length ||
+    personaWeights?.includeCategories?.length ||
+    personaWeights?.includeVenues?.length
+  ) {
+    return true
+  }
   if (friendsGoingByEventId.size > 0) return true
   return false
 }
 
+function buildSessionContext(opts: {
+  personaWeights: PersonaWeights | null
+  personaId: string | null
+  personaTitle: string | null
+  coldStart: boolean
+  hasSignals: boolean
+}): RecommendationSessionContext {
+  const now = new Date()
+  const ctx: RecommendationSessionContext = {
+    timezone: 'Europe/Lisbon',
+    local_hour: ((now.getUTCHours() + 1) % 24), // coarse Lisbon CET-ish; do not invent DST
+    weekday: now.getUTCDay(),
+    cold_start: opts.coldStart,
+    has_feed_signals: opts.hasSignals,
+  }
+  if (opts.personaId) ctx.persona_id = opts.personaId
+  if (opts.personaTitle) ctx.persona_title = opts.personaTitle
+  if (opts.personaWeights?.budget_range) {
+    ctx.budget_min = opts.personaWeights.budget_range[0]
+    ctx.budget_max = opts.personaWeights.budget_range[1]
+  }
+  if (opts.personaWeights?.neighborhoods?.length) {
+    ctx.preferred_neighborhoods = opts.personaWeights.neighborhoods
+  }
+  if (opts.personaWeights?.time_preference) {
+    ctx.preferred_time = opts.personaWeights.time_preference
+  }
+  return ctx
+}
+
+function toRecommendationItems(scored: ScoredRecommendation[]) {
+  return scored.map((item) => ({
+    eventId: item.event.id,
+    score: item.score,
+    position: item.position ?? null,
+    candidateSources: item.candidateSources,
+    candidateSource: primaryCandidateSource(item.candidateSources),
+    scoreBreakdown: item.scoreBreakdown,
+    reasons: item.reasons,
+  }))
+}
+
+function legacyReasonsMap(scored: ScoredRecommendation[]): Record<string, string[]> {
+  const reasons: Record<string, string[]> = {}
+  scored.forEach((item) => {
+    if (item.reasons.length) reasons[item.event.id] = item.reasons
+  })
+  return reasons
+}
+
+async function maybeCreateSession(opts: {
+  userId: string | null
+  personaId: string | null
+  context: RecommendationSessionContext
+}): Promise<string | null> {
+  if (!isRecommendationTelemetryEnabled()) return null
+  const result = await createRecommendationSession({
+    userId: opts.userId,
+    personaId: opts.personaId,
+    surface: 'foryou',
+    city: 'lisbon',
+    context: opts.context,
+    algorithmVersion: RECOMMENDATION_ALGORITHM_VERSION,
+  })
+  if (!result.ok) {
+    if (!result.skipped) {
+      console.error('[foryou] recommendation session failed:', result.error)
+    }
+    return null
+  }
+  return result.data.sessionId
+}
+
 export async function GET(request: NextRequest) {
+  const telemetryEnabled = isRecommendationTelemetryEnabled()
+  const algorithmVersion = RECOMMENDATION_ALGORITHM_VERSION
+
   try {
     const bearer = getBearer(request)
     const personaRulesParam = request.nextUrl.searchParams.get('personaRules')
+    const personaIdParam = request.nextUrl.searchParams.get('personaId')
+    const personaTitleParam = request.nextUrl.searchParams.get('personaTitle')
     let personaWeights: PersonaWeights | null = null
     if (personaRulesParam) {
       try {
@@ -61,23 +164,59 @@ export async function GET(request: NextRequest) {
           energy_level: parsed.energy_level,
           neighborhoods: parsed.neighborhoods,
           time_preference: parsed.time_preference,
+          budget_range: parsed.budget_range,
         }
       } catch (_) {}
     }
+    const personaId =
+      typeof personaIdParam === 'string' && personaIdParam.trim() ? personaIdParam.trim().slice(0, 100) : null
+    const personaTitle =
+      typeof personaTitleParam === 'string' && personaTitleParam.trim()
+        ? personaTitleParam.trim().slice(0, 120)
+        : null
 
     const events = await fetchEvents()
     const upcoming = events.filter((e) => e.start >= new Date().toISOString())
 
-    if (!bearer || !supabaseServer) {
+    const respond = async (
+      scored: ScoredRecommendation[],
+      userId: string | null,
+      coldStart: boolean,
+      hasSignals: boolean
+    ) => {
+      const sessionId = await maybeCreateSession({
+        userId,
+        personaId,
+        context: buildSessionContext({
+          personaWeights,
+          personaId,
+          personaTitle,
+          coldStart,
+          hasSignals,
+        }),
+      })
       return NextResponse.json({
-        events: randomUpcoming(upcoming, FOR_YOU_LIMIT),
-        reasons: {},
+        events: scored.map((s) => s.event),
+        reasons: legacyReasonsMap(scored),
+        recommendationSessionId: sessionId,
+        algorithmVersion,
+        telemetryEnabled,
+        recommendationItems: toRecommendationItems(scored),
       })
     }
 
-    const { data: { user }, error: authError } = await supabaseServer.auth.getUser(bearer)
+    if (!bearer || !supabaseServer) {
+      const cold = asColdStartRecommendations(randomUpcoming(upcoming, FOR_YOU_LIMIT))
+      return respond(cold, null, true, false)
+    }
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseServer.auth.getUser(bearer)
     if (authError || !user) {
-      return NextResponse.json({ events: randomUpcoming(upcoming, FOR_YOU_LIMIT), reasons: {} })
+      const cold = asColdStartRecommendations(randomUpcoming(upcoming, FOR_YOU_LIMIT))
+      return respond(cold, null, true, false)
     }
 
     const userId = user.id
@@ -102,7 +241,7 @@ export async function GET(request: NextRequest) {
         .in('user_id', friendIds)
       const eventToCount = new Map<string, number>()
       goingRows?.forEach((r) => {
-        const eid = norm(r.entity_id)
+        const eid = (r.entity_id || '').toLowerCase().trim()
         eventToCount.set(eid, (eventToCount.get(eid) || 0) + 1)
       })
       eventToCount.forEach((count, eid) => friendsGoingByEventId.set(eid, count))
@@ -135,41 +274,21 @@ export async function GET(request: NextRequest) {
       freeEventAttendenceScore: bulk.wishlistedEventIds.size > 0 ? 0.5 : 0,
     }
 
-    const feed = hasFeedSignals(bulk, personaWeights, friendsGoingByEventId)
-      ? getPersonalizedFeed(upcoming, ctx, { limit: FOR_YOU_LIMIT, upcomingOnly: true })
-      : randomUpcoming(upcoming, FOR_YOU_LIMIT)
+    const hasSignals = hasFeedSignals(bulk, personaWeights, friendsGoingByEventId)
+    const scored = hasSignals
+      ? getPersonalizedFeedScored(upcoming, ctx, { limit: FOR_YOU_LIMIT, upcomingOnly: true })
+      : asColdStartRecommendations(randomUpcoming(upcoming, FOR_YOU_LIMIT))
 
-    const reasons: Record<string, string[]> = {}
-    feed.forEach((event) => {
-      const r: string[] = []
-      const v = norm(event.extendedProps.venueId || event.extendedProps.venueKey || '')
-      const promoterIds = [
-        event.extendedProps.promoterId,
-        event.extendedProps.promoterName,
-        ...(event.extendedProps.promoterIds || []),
-        ...(event.extendedProps.nightActs || []).flatMap((a) => [a.promoterId, a.promoterName]),
-      ]
-        .filter((s): s is string => !!s)
-        .map(norm)
-        .filter(Boolean)
-      if (v && bulk.followedVenueIds.has(v)) r.push('Followed venue')
-      if (promoterIds.some((p) => bulk.followedPromoterIds.has(p))) r.push('Followed promoter')
-      if (personaWeights && personaWeights.includeTags?.length) r.push('Matches your vibe')
-      const friendIds = event.extendedProps.mergedEventIds?.length
-        ? event.extendedProps.mergedEventIds
-        : [event.id]
-      const fc = friendIds.reduce((n, id) => n + (friendsGoingByEventId.get(id) || 0), 0)
-      if (fc > 0) r.push(`${fc} friend${fc !== 1 ? 's' : ''} going`)
-      if (event.extendedProps.isFree && personaWeights?.prefer_free) r.push('Free event')
-      if (event.extendedProps.category && likedCategories.has(event.extendedProps.category.toLowerCase())) {
-        r.push('Because you liked similar events')
-      }
-      if (r.length) reasons[event.id] = r
-    })
-
-    return NextResponse.json({ events: feed, reasons })
+    return respond(scored, userId, !hasSignals, hasSignals)
   } catch (e) {
     console.error('For You API error:', e)
-    return NextResponse.json({ events: [], reasons: {} })
+    return NextResponse.json({
+      events: [],
+      reasons: {},
+      recommendationSessionId: null,
+      algorithmVersion,
+      telemetryEnabled,
+      recommendationItems: [],
+    })
   }
 }

@@ -6,6 +6,8 @@ import { useUserActions } from '@/contexts/UserActionsContext'
 import AuthGate from './AuthGate'
 import EventShareButton from './EventShareButton'
 import type { IntentType } from '@/lib/auth/pendingIntents'
+import { trackRecommendationAction } from '@/lib/recommendationTelemetryClient'
+import { useRecommendationSession } from '@/contexts/RecommendationSessionContext'
 
 interface EventActionButtonsProps {
   eventId: string
@@ -36,7 +38,13 @@ export default function EventActionButtons({
   const user = auth?.user
   const isConfigured = auth?.isConfigured ?? false
   const actions = useUserActions()
+  const recSession = useRecommendationSession()
   const [loading, setLoading] = useState<string | null>(null)
+
+  const emitRec = (action: Parameters<typeof trackRecommendationAction>[0]) => {
+    if (!recSession?.telemetryEnabled) return
+    trackRecommendationAction(action, eventId)
+  }
   const [showReminderMenu, setShowReminderMenu] = useState(false)
   const reminderRef = useRef<HTMLDivElement>(null)
 
@@ -68,7 +76,9 @@ export default function EventActionButtons({
     e.stopPropagation()
     if (!actions || loading) return
     const done = setLoadingFor('going')
-    await actions.setGoing(eventId, !isGoing)
+    const next = !isGoing
+    const ok = await actions.setGoing(eventId, next)
+    if (ok) emitRec(next ? 'going' : 'cancel_going')
     done()
   }
 
@@ -77,8 +87,13 @@ export default function EventActionButtons({
     e.stopPropagation()
     if (!actions || loading) return
     const done = setLoadingFor('saved')
-    if (isSaved) await actions.removeFromWishlist(eventId)
-    else await actions.addToWishlist(eventId)
+    if (isSaved) {
+      const ok = await actions.removeFromWishlist(eventId)
+      if (ok) emitRec('unsave')
+    } else {
+      const ok = await actions.addToWishlist(eventId)
+      if (ok) emitRec('save')
+    }
     done()
   }
 
@@ -95,8 +110,13 @@ export default function EventActionButtons({
     e.stopPropagation()
     if (!actions || loading) return
     const done = setLoadingFor('like')
-    if (isLiked) await actions.unlikeEvent(eventId)
-    else await actions.likeEvent(eventId)
+    if (isLiked) {
+      const ok = await actions.unlikeEvent(eventId)
+      if (ok) emitRec('unlike')
+    } else {
+      const ok = await actions.likeEvent(eventId)
+      if (ok) emitRec('like')
+    }
     done()
   }
 
