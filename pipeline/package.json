@@ -15,7 +15,12 @@
     "worker": "tsx cli/worker.ts",
     "backfill": "tsx cli/backfill-supabase.ts",
     "golden": "tsx cli/golden-run.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:gates": "tsx qualification/__tests__/gates.selftest.ts",
+    "quarantine": "tsx scripts/quarantine-publish-unsafe.ts",
+    "expire-review": "tsx scripts/expire-review-queue.ts",
+    "re-resolve-review": "tsx scripts/re-resolve-review-queue.ts",
+    "unresolved-venues": "tsx scripts/unresolved-venues-report.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.7",

@@ -68,7 +68,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
   }
 
   const formatPrice = () => {
-    if (props.isFree) return 'Free'
+    if (props.isFree === true) return 'Free'
     if (props.priceMin !== undefined && props.priceMax !== undefined) {
       if (props.priceMin === props.priceMax) {
         return `${props.priceMin} ${props.currency || 'EUR'}`

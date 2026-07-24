@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ReviewEventEditCard,
   type ReviewCardRow,
@@ -73,6 +73,12 @@ function parseSuggestions(raw: string | undefined): Partial<ReviewEditableFields
   }
 }
 
+function startSortKey(start: string | undefined): number {
+  if (!start?.trim()) return Number.POSITIVE_INFINITY
+  const t = new Date(start).getTime()
+  return isNaN(t) ? Number.POSITIVE_INFINITY : t
+}
+
 export default function AdminEventReviewPage() {
   const { getAuthHeaders, isAdmin } = useAdminAuthHeaders()
   const [rows, setRows] = useState<ReviewCardRow[]>([])
@@ -109,6 +115,13 @@ export default function AdminEventReviewPage() {
     if (isAdmin) void load()
   }, [isAdmin, load])
 
+  const displayRows = useMemo(() => {
+    if (filter !== 'pending') return rows
+    return [...rows].sort(
+      (a, b) => startSortKey(a.start_datetime) - startSortKey(b.start_datetime)
+    )
+  }, [rows, filter])
+
   function stateFor(id: string): CardState {
     return cardState[id] || emptyState()
   }
@@ -130,19 +143,24 @@ export default function AdminEventReviewPage() {
     })
   }
 
-  async function resolve(row: ReviewCardRow, action: 'approved' | 'rejected') {
+  async function resolve(
+    row: ReviewCardRow,
+    action: 'approved' | 'rejected',
+    editsOverride?: Partial<ReviewEditableFields>
+  ) {
     if (source === 'sheets') {
       setMessage('Approve/reject only works on Supabase review queue items (run the pipeline worker).')
       return
     }
     const id = row.review_id
     const state = stateFor(id)
+    const edits = editsOverride ? { ...state.edits, ...editsOverride } : state.edits
     setBusy(id)
     setMessage(null)
     try {
       const headers = await getAuthHeaders()
-      const fieldEdits = effectiveEdits(row, state.edits)
-      const fieldCorrections = buildFieldCorrections(row, state.edits)
+      const fieldEdits = effectiveEdits(row, edits)
+      const fieldCorrections = buildFieldCorrections(row, edits)
 
       // Persist corrections for learning before queue fields are overwritten
       await fetch('/api/admin/event-review/feedback', {
@@ -199,6 +217,13 @@ export default function AdminEventReviewPage() {
     }
   }
 
+  async function applySuggestionsAndApprove(row: ReviewCardRow) {
+    const suggestions = parseSuggestions(row.suggested_corrections)
+    const merged = { ...stateFor(row.review_id).edits, ...suggestions }
+    patchCard(row.review_id, { edits: merged })
+    await resolve(row, 'approved', suggestions)
+  }
+
   const canResolve = source === 'supabase'
 
   async function downloadFeedback() {
@@ -247,6 +272,7 @@ export default function AdminEventReviewPage() {
         {sheetsWriteMode === 'manual'
           ? 'Processed Events / Events Clean New are edited manually — Approve does not auto-append.'
           : 'Approve appends to Processed Events and Events Clean New (live calendar).'}
+        {filter === 'pending' ? ' Pending sorted by start datetime (soonest first).' : ''}
       </p>
 
       <div className="flex flex-wrap gap-2 items-center justify-between">
@@ -306,12 +332,12 @@ export default function AdminEventReviewPage() {
         </div>
       )}
 
-      <p className="text-xs text-slate-500">{rows.length} event(s)</p>
+      <p className="text-xs text-slate-500">{displayRows.length} event(s)</p>
 
-      {rows.length === 0 && <p className="text-slate-500 text-sm">No items ready to review.</p>}
+      {displayRows.length === 0 && <p className="text-slate-500 text-sm">No items ready to review.</p>}
 
       <div className="space-y-4">
-        {rows.map((row) => {
+        {displayRows.map((row) => {
           const state = stateFor(row.review_id)
           return (
             <ReviewEventEditCard
@@ -333,6 +359,7 @@ export default function AdminEventReviewPage() {
                   },
                 })
               }
+              onApplyAndApprove={() => void applySuggestionsAndApprove(row)}
               onApprove={() => void resolve(row, 'approved')}
               onReject={() => void resolve(row, 'rejected')}
             />

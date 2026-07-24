@@ -5,6 +5,7 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { getConfig } from '../config'
+import { isCleanVerification } from '../qualification/publish-safe'
 import type {
   EventsRawRow,
   NeedsReviewRow,
@@ -481,6 +482,74 @@ export async function readVerifiedEventIdsFromStore(): Promise<Set<string>> {
     from += page
   }
   return ids
+}
+
+/**
+ * Event IDs with a clean Tier 5 verdict (verified + no suggested_corrections).
+ * Used by publish to authorize auto-pass rows.
+ */
+export async function readCleanVerifiedEventIdsFromStore(): Promise<Set<string>> {
+  if (!isSupabaseStoreConfigured()) return new Set()
+  const sb = getSupabaseStore()
+  const ids = new Set<string>()
+  let from = 0
+  const page = 1000
+  for (;;) {
+    const { data, error } = await sb
+      .from('pipeline_verifications')
+      .select('event_id, verdict, suggested_corrections')
+      .range(from, from + page - 1)
+    if (error) throw new Error(`readCleanVerifiedEventIdsFromStore: ${error.message}`)
+    if (!data?.length) break
+    for (const r of data) {
+      if (r.event_id && isCleanVerification(r.verdict, r.suggested_corrections)) {
+        ids.add(r.event_id)
+      }
+    }
+    if (data.length < page) break
+    from += page
+  }
+  return ids
+}
+
+/** Mark review queue rows resolved (scripts / ops). */
+export async function resolveReviewQueueItems(
+  reviewIds: string[],
+  action: 'approved' | 'rejected',
+  resolvedBy: string,
+  dryRun = false
+): Promise<number> {
+  if (reviewIds.length === 0) return 0
+  if (dryRun || !isSupabaseStoreConfigured()) return reviewIds.length
+  const sb = getSupabaseStore()
+  const now = new Date().toISOString()
+  const { data, error } = await sb
+    .from('pipeline_review_queue')
+    .update({
+      review_status: action,
+      resolved_at: now,
+      resolved_by: resolvedBy,
+    })
+    .in('review_id', reviewIds)
+    .eq('review_status', 'pending')
+    .select('id')
+  if (error) throw new Error(`resolveReviewQueueItems: ${error.message}`)
+  return data?.length ?? 0
+}
+
+export async function listPendingReviewQueue(limit = 5000): Promise<
+  Array<Record<string, unknown>>
+> {
+  if (!isSupabaseStoreConfigured()) return []
+  const sb = getSupabaseStore()
+  const { data, error } = await sb
+    .from('pipeline_review_queue')
+    .select('*')
+    .eq('review_status', 'pending')
+    .order('start_datetime', { ascending: true })
+    .limit(limit)
+  if (error) throw new Error(`listPendingReviewQueue: ${error.message}`)
+  return (data ?? []) as Array<Record<string, unknown>>
 }
 
 export async function readRoutedSourceEventIds(): Promise<Set<string>> {

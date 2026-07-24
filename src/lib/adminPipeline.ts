@@ -366,5 +366,6 @@ export function reviewToProcessedRow(
     post_pattern: '',
     extraction_source: 'merged',
     on_slide_text_evidence: '',
+    publish_auth: 'human_approved',
   }
 }

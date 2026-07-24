@@ -44,7 +44,7 @@ export function getEventReasons(event: NormalizedEvent, ctx: EventReasonsContext
   if (ctx.likedSimilarCategory) {
     reasons.push('Because you liked similar events')
   }
-  if (ctx.isFreeAndPreferFree && event.extendedProps.isFree) {
+  if (ctx.isFreeAndPreferFree && event.extendedProps.isFree === true) {
     reasons.push('Free event')
   }
 

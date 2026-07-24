@@ -198,7 +198,7 @@ export function scoreEventDetailed(
     breakdown.likedCategory = SCORE.LIKED_CATEGORY
     candidateSources.push('liked_category')
   }
-  if (event.extendedProps.isFree && (ctx.personaWeights?.prefer_free || (ctx.freeEventAttendenceScore ?? 0) > 0.3)) {
+  if (event.extendedProps.isFree === true && (ctx.personaWeights?.prefer_free || (ctx.freeEventAttendenceScore ?? 0) > 0.3)) {
     breakdown.freePreference = SCORE.FREE_PREF
     candidateSources.push('free_preference')
   }

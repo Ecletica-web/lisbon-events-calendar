@@ -270,7 +270,7 @@ export default function EventListView({
             {dayEvents.map((event) => {
               const categoryColor = getCategoryColor(event.extendedProps.category)
               const distanceKm = getEventDistanceKm(event)
-              const priceStr = event.extendedProps.isFree
+              const priceStr = event.extendedProps.isFree === true
                 ? 'Free'
                 : event.extendedProps.priceMin != null
                   ? `${event.extendedProps.priceMin}${event.extendedProps.priceMax && event.extendedProps.priceMax !== event.extendedProps.priceMin ? `–${event.extendedProps.priceMax}` : ''} ${event.extendedProps.currency === 'EUR' ? '€' : event.extendedProps.currency || '€'}`
@@ -295,7 +295,7 @@ export default function EventListView({
                         </h3>
                         {priceStr && (
                           <span
-                            className={`flex-shrink-0 text-xs font-medium tabular-nums ${event.extendedProps.isFree ? 'text-green-400' : 'text-slate-300'}`}
+                            className={`flex-shrink-0 text-xs font-medium tabular-nums ${event.extendedProps.isFree === true ? 'text-green-400' : 'text-slate-300'}`}
                           >
                             {priceStr}
                           </span>

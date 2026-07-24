@@ -40,7 +40,8 @@ export interface Event {
   price_min?: number
   price_max?: number
   currency?: string
-  is_free: boolean
+  /** Tri-state: true/false when known; null when CSV empty/unknown (do not treat as paid or free). */
+  is_free: boolean | null
   age_restriction?: string
   language?: string
   ticket_url?: string

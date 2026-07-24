@@ -22,6 +22,11 @@ import type {
 } from '../types'
 import { appendRows, readTab, isSheetsConfigured, isSheetsWriteEnabled, getSheetsApi, getSpreadsheetId, resolveSpreadsheetId } from './sheets-client'
 import { rowToWatchlistEntry } from './fontes-ig'
+import { isCleanVerification, isPublishAuthorized } from '../qualification/publish-safe'
+import {
+  isSupabaseStoreConfigured,
+  readCleanVerifiedEventIdsFromStore,
+} from './supabase-store'
 
 export const TAB_EVENTS_RAW = 'Events_Raw'
 export const TAB_NEEDS_REVIEW = 'Needs_Review'
@@ -68,6 +73,7 @@ const PROCESSED_HEADER: string[] = [
   'primary_image_url', 'image_credit', 'confidence_score', 'first_seen_at', 'last_seen_at',
   'changed_at', 'change_hash', 'created_at', 'updated_at', '_error', '_raw_model_text',
   'promoter_id', 'promoter_name', 'post_pattern', 'extraction_source', 'on_slide_text_evidence',
+  'publish_auth',
 ]
 
 const VERIFICATION_HEADER: (keyof VerificationLogRow)[] = [
@@ -277,19 +283,35 @@ export interface PublishToCleanResult {
   alreadyPublished: number
   published: number
   skippedEmpty: number
+  skippedUnsafe: number
+  skippedUnverified: number
+  unsafeReasons?: Record<string, number>
+}
+
+/** Prefer Supabase clean verifies; fall back to Sheets Verification_Log. */
+export async function loadCleanVerifiedEventIds(): Promise<Set<string>> {
+  if (isSupabaseStoreConfigured()) {
+    return readCleanVerifiedEventIdsFromStore()
+  }
+  return readCleanVerifiedEventIdsFromSheets()
 }
 
 /**
  * Copy novel rows from Processed Events → Events Clean New (site calendar source).
  * Dedupes by event_id + fingerprint only (not source_url — multi-event posts share a URL).
+ * Skips rows that fail mechanical safety or lack clean verify / human_approved.
  * Does not delete from Processed.
  */
 export async function publishProcessedToEventsClean(options?: {
   dryRun?: boolean
+  now?: Date
+  cleanVerifiedEventIds?: Set<string>
 }): Promise<PublishToCleanResult> {
   const dryRun = Boolean(options?.dryRun)
   const processed = await readTabSafe(TAB_PROCESSED)
   const clean = await readTabSafe(TAB_EVENTS_CLEAN)
+  const cleanVerified =
+    options?.cleanVerifiedEventIds ?? (await loadCleanVerifiedEventIds())
 
   const existingIds = new Set(
     clean.map((r) => (r.event_id ?? '').trim()).filter(Boolean)
@@ -299,6 +321,9 @@ export async function publishProcessedToEventsClean(options?: {
   )
 
   let skippedEmpty = 0
+  let skippedUnsafe = 0
+  let skippedUnverified = 0
+  const unsafeReasons: Record<string, number> = {}
   const novel: Record<string, string>[] = []
   for (const row of processed) {
     const { eventId, fingerprint } = eventPublishKeys(row)
@@ -309,12 +334,28 @@ export async function publishProcessedToEventsClean(options?: {
     if (isAlreadyPublished(row, existingIds, existingFingerprints)) {
       continue
     }
+    const auth = isPublishAuthorized(row, {
+      now: options?.now,
+      cleanVerifiedEventIds: cleanVerified,
+    })
+    if (!auth.authorized) {
+      if (auth.unverified) {
+        skippedUnverified++
+      } else {
+        skippedUnsafe++
+        for (const r of auth.reasons) {
+          unsafeReasons[r] = (unsafeReasons[r] ?? 0) + 1
+        }
+      }
+      continue
+    }
     novel.push(row)
     if (eventId) existingIds.add(eventId)
     if (fingerprint) existingFingerprints.add(fingerprint)
   }
 
-  const alreadyPublished = processed.length - novel.length - skippedEmpty
+  const alreadyPublished =
+    processed.length - novel.length - skippedEmpty - skippedUnsafe - skippedUnverified
   const published = await writeRows(TAB_EVENTS_CLEAN, PROCESSED_HEADER, novel, dryRun)
 
   return {
@@ -322,6 +363,9 @@ export async function publishProcessedToEventsClean(options?: {
     alreadyPublished,
     published,
     skippedEmpty,
+    skippedUnsafe,
+    skippedUnverified,
+    unsafeReasons,
   }
 }
 
@@ -337,6 +381,18 @@ export async function appendVerificationLog(rows: VerificationLogRow[], dryRun =
 export async function readVerifiedEventIds(): Promise<Set<string>> {
   const rows = await readTabSafe(TAB_VERIFICATION)
   return new Set(rows.map((r) => (r.event_id ?? '').trim()).filter(Boolean))
+}
+
+export async function readCleanVerifiedEventIdsFromSheets(): Promise<Set<string>> {
+  const rows = await readTabSafe(TAB_VERIFICATION)
+  const ids = new Set<string>()
+  for (const r of rows) {
+    const eventId = (r.event_id ?? '').trim()
+    if (eventId && isCleanVerification(r.verdict, r.suggested_corrections)) {
+      ids.add(eventId)
+    }
+  }
+  return ids
 }
 
 // ---- Run_Log ----

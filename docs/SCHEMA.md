@@ -34,7 +34,7 @@ This document describes the **Event CSV** and **Venue CSV** schemas. Treat these
 | `price_min` | number | No | Min price | `10` |
 | `price_max` | number | No | Max price | `25` |
 | `currency` | string | No | Currency code | `EUR` |
-| `is_free` | bool/string | No | Free event | `false` |
+| `is_free` | bool/string | No | Tri-state: `true` / `false` / empty (unknown). Empty or `unknown` must not show Free badge | `true` / `false` / `` |
 | `age_restriction` | string | No | Age limit | `18+` |
 | `language` | string | No | Event language | `pt` |
 | `ticket_url` | URL | No | Ticket link | `https://...` |

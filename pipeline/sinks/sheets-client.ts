@@ -71,7 +71,17 @@ export async function ensureTab(tabName: string, header: string[]): Promise<stri
     })
     return header
   }
-  return existingHeader
+  // Append any new canonical columns (e.g. publish_auth) without reshuffling existing ones
+  const missing = header.filter((col) => !existingHeader.includes(col))
+  if (missing.length === 0) return existingHeader
+  const merged = [...existingHeader, ...missing]
+  await api.spreadsheets.values.update({
+    spreadsheetId,
+    range: `'${tabName}'!1:1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [merged] },
+  })
+  return merged
 }
 
 export async function readTab(tabName: string): Promise<TabData> {

@@ -1,5 +1,9 @@
 # Events Pipeline — runbook
 
+> Broader context: [AGENTS.md](../AGENTS.md) · replication deep-dive
+> [docs/replication/02-pipeline-e-inteligencia.md](replication/02-pipeline-e-inteligencia.md)
+> (PDF: `docs/replication/pdf/02-Pipeline-e-Inteligencia.pdf`).
+
 CAF-style scraping + tiered AI extraction in `pipeline/`. Instagram via Apify →
 tiered AI → validation. **Storage is split:**
 
@@ -193,8 +197,28 @@ During **`profile-images`**, the pipeline fetches Instagram profile pics for Fon
 `missing_title` / `missing_or_invalid_start_datetime` → **fail**;
 `missing_venue_name_raw`, `low_confidence`,
 `program_undersplit`, `online_verification_*` → **review**.
-Past start datetimes and unresolved venue IDs are allowed (publish with `venue_name_raw` / IG handle).
-Canonical venue match is best-effort and no longer blocks auto-publish.
+Past start datetimes are **rejected** for auto-pass (`past_event`). Canonical `venue_id` is **required** (`venue_unresolved` blocks). Promoter/editorial sources never become the venue via owner-handle fallback. Confidence is **calculated** (field evidence − conflict penalties), not `max(caption, vision)`.
+
+Hard gates also include: `end_before_start`, invalid/`24:00` ends, bad ticket URLs (`example.com`), free/price conflicts, tier conflicts, implausible duration (>36h), outside Lisbon metro when city is known.
+
+Auto-repair runs before validation (overnight end rollover, clear placeholder URLs, clear free+price conflicts).
+
+`npm run publish` copies only rows that pass `isPublishSafe` **and** are authorized (`publish_auth=human_approved` or clean Tier 5 verified). Quarantine existing Clean junk with:
+
+```bash
+cd pipeline
+npx tsx scripts/quarantine-publish-unsafe.ts          # dry-run
+npx tsx scripts/quarantine-publish-unsafe.ts --apply  # archive + requeue future
+```
+
+Review recovery helpers:
+
+```bash
+npx tsx scripts/unresolved-venues-report.ts
+npx tsx scripts/re-resolve-review-queue.ts [--apply]
+npx tsx scripts/expire-review-queue.ts [--apply]
+npx tsx qualification/__tests__/gates.selftest.ts
+```
 
 ## Key modules
 

@@ -833,11 +833,14 @@ export async function commandPublish(flags: CliFlags): Promise<Record<string, un
   const result = await publishProcessedToEventsClean({ dryRun: flags.dryRun || !isSheetsWriteEnabled() })
   await logRun(
     flags,
-    `[publish] processed=${result.processed} already_on_clean=${result.alreadyPublished} appended=${result.published} skipped_empty=${result.skippedEmpty}` +
+    `[publish] processed=${result.processed} already_on_clean=${result.alreadyPublished} appended=${result.published} skipped_empty=${result.skippedEmpty} skipped_unsafe=${result.skippedUnsafe} skipped_unverified=${result.skippedUnverified}` +
+      (result.skippedUnsafe
+        ? ` unsafe_reasons=${JSON.stringify(result.unsafeReasons ?? {})}`
+        : '') +
       (flags.dryRun || !isSheetsWriteEnabled() ? ' (dry-run / local CSV only)' : '')
   )
   await logRun(flags, '=== STAGE: publish (done) ===')
-  return result
+  return { ...result }
 }
 
 export async function runCommand(flags: CliFlags): Promise<Record<string, unknown>> {

@@ -24,17 +24,35 @@ import { preFilterPost, shouldDiscard } from './intelligence/pre-filter'
 import { broadEventExtraction } from './intelligence/broad-event-extraction'
 import { carouselEventVision } from './intelligence/carousel-event-vision'
 import { videoEventExtraction, isVideoPassEnabled } from './intelligence/video-event-extraction'
-import { mergeExtractions } from './intelligence/merge-extractions'
+import { mergeExtractions, type MergeExtractionsResult } from './intelligence/merge-extractions'
 import { validateEvent } from './qualification/validate-event'
 import { resolveEventVenue } from './qualification/venue-resolve'
+import { autoRepairEvent } from './qualification/auto-repair'
+import { calculateConfidence, detectCriticalInference } from './qualification/calculated-confidence'
+import { reconcilePostEvents } from './qualification/reconcile-post-events'
+import { normalizeCategory } from './qualification/normalize-category'
 import { computeFingerprint } from './qualification/dedupe'
 import { visionTriggerReason } from './qualification/mandatory-fields'
 import { getConfig } from './config'
+import { normalizeIgHandle } from './sinks/fontes-ig'
+import { readWatchlist } from './sinks/sheets-writer'
 import {
   insertExtraction,
   updatePostProcessingStatus,
   type ProcessingStatus,
 } from './sinks/supabase-store'
+
+let cachedSourceTypeByHandle: Map<string, 'venue' | 'promoter'> | null = null
+
+async function lookupSourceType(ownerUsername: string): Promise<'venue' | 'promoter'> {
+  const handle = normalizeIgHandle(ownerUsername || '')
+  if (!handle) return 'venue'
+  if (!cachedSourceTypeByHandle) {
+    const watchlist = await readWatchlist()
+    cachedSourceTypeByHandle = new Map(watchlist.map((w) => [w.handle, w.type]))
+  }
+  return cachedSourceTypeByHandle.get(handle) ?? 'venue'
+}
 
 export interface ProcessPostOptions {
   /** Skip persist-image archival (golden replays, dry experiments) */
@@ -214,14 +232,20 @@ export async function processPost(
   }
 
   // Merge
-  const merged = mergeExtractions(broad, vision)
+  const mergeResult: MergeExtractionsResult = mergeExtractions(broad, vision)
+  const merged = reconcilePostEvents(mergeResult.events)
   const postPattern = vision?.post_pattern ?? gate.post_pattern
   const combinedRawText = [broad.raw_model_text, vision?.raw_model_text]
     .filter(Boolean)
     .join('\n===VISION===\n')
 
   await persistTier(options, 'merge', {
-    parsedJson: { events: merged, post_pattern: postPattern },
+    parsedJson: {
+      events: merged,
+      post_pattern: postPattern,
+      conflicts: mergeResult.conflicts,
+      tier_empty_disagreement: mergeResult.tierEmptyDisagreement,
+    },
   })
 
   if (merged.length === 0) {
@@ -242,34 +266,65 @@ export async function processPost(
     }
   }
 
+  const sourceType = await lookupSourceType(row.owner_username)
+
   // Validate + route each event
   const processed: ProcessedEventRow[] = []
   const needsReview: NeedsReviewRow[] = []
   const validationArtifacts: unknown[] = []
 
   for (let i = 0; i < merged.length; i++) {
-    const event = merged[i]
-    const venue = await resolveEventVenue(event.venue_name_raw, row.location_name, row.owner_username)
-    // Auto-fill venue_name_raw from IG location / resolution, then owner handle
+    const repaired = autoRepairEvent(merged[i])
+    const event = repaired.event
+
+    const venue = await resolveEventVenue(event.venue_name_raw, row.location_name, row.owner_username, {
+      sourceType,
+    })
+    // Auto-fill venue_name_raw from IG location / resolution only — not promoter handle as venue
     if (!event.venue_name_raw?.trim() && venue.venue_name_raw) {
       event.venue_name_raw = venue.venue_name_raw
     }
-    if (!event.venue_name_raw?.trim() && row.owner_username?.trim()) {
+    if (
+      !event.venue_name_raw?.trim() &&
+      sourceType === 'venue' &&
+      row.owner_username?.trim()
+    ) {
       event.venue_name_raw = row.owner_username.replace(/^@/, '').trim()
     }
+
+    const eventConflicts = mergeResult.conflictsByIndex.get(i) ?? mergeResult.conflicts
+    const criticalFieldsInferred = detectCriticalInference(combinedRawText, event)
+    const calculated = calculateConfidence(event, {
+      conflicts: eventConflicts,
+      tierEmptyDisagreement: mergeResult.tierEmptyDisagreement,
+      hasSlideEvidence: Boolean(event.on_slide_text_evidence?.trim()),
+      criticalInferred: criticalFieldsInferred,
+    })
+    event.confidence_score = calculated.score
 
     const validation = validateEvent(event, {
       post_pattern: postPattern,
       events_in_post: merged.length,
       venueResolved: venue.resolved,
       now: options.now,
+      sourceAsVenue: venue.sourceAsVenueRisk && !venue.resolved,
+      conflicts: eventConflicts,
+      tierEmptyDisagreement: mergeResult.tierEmptyDisagreement,
+      criticalFieldsInferred: criticalFieldsInferred || undefined,
+      city: venue.city,
     })
     validationArtifacts.push({
       title: event.title,
       status: validation.status,
       reasons: validation.reasons,
+      repairs: repaired.repairs,
+      calculated_confidence: calculated.score,
+      confidence_penalties: calculated.penalties,
+      critical_fields_inferred: criticalFieldsInferred,
       venue_resolved: venue.resolved,
       venue_id: venue.resolved ? venue.venue_id : null,
+      venue_method: venue.method,
+      conflicts: eventConflicts,
     })
 
     if (validation.status !== 'pass') {
@@ -280,14 +335,19 @@ export async function processPost(
     const displayVenueName =
       (venue.resolved ? venue.venue_name : '') ||
       event.venue_name_raw?.trim() ||
-      row.owner_username?.replace(/^@/, '') ||
+      (sourceType === 'venue' ? row.owner_username?.replace(/^@/, '') : '') ||
       ''
     const fingerprint = computeFingerprint(
       event.title,
       event.start_datetime!,
-      venue.resolved ? venue.venue_id : displayVenueName || 'unknown'
+      venue.resolved ? venue.venue_id : displayVenueName || 'unknown',
+      row.source_event_id || row.source_url
     )
     const timestamp = nowIso()
+    const city =
+      (venue.city || '').trim() ||
+      (venue.resolved ? 'Lisboa' : '') ||
+      'Lisboa'
     processed.push({
       event_id: makeEventId(row, i),
       source_name: row.owner_username || row.source_name,
@@ -308,13 +368,13 @@ export async function processPost(
       venue_id: venue.resolved ? venue.venue_id : '',
       venue_name: displayVenueName,
       venue_name_raw: event.venue_name_raw ?? '',
-      venue_address: '',
-      neighborhood: '',
-      city: 'Lisboa',
+      venue_address: venue.venue_address ?? '',
+      neighborhood: venue.neighborhood ?? '',
+      city,
       country: 'Portugal',
       latitude: row.latitude,
       longitude: row.longitude,
-      category: event.category ?? '',
+      category: normalizeCategory(event.category) || event.category || '',
       tags: event.tags.join('|'),
       price_min: event.price_min != null ? String(event.price_min) : '',
       price_max: event.price_max != null ? String(event.price_max) : '',
@@ -334,6 +394,7 @@ export async function processPost(
       post_pattern: postPattern ?? '',
       extraction_source: event.extraction_source,
       on_slide_text_evidence: event.on_slide_text_evidence ?? '',
+      publish_auth: '',
     })
   }
 

@@ -38,6 +38,10 @@ Rules:
 - source_slide_indices: which slide number(s) (1-based) the event was read from.
 - OCR text for each slide may be provided — trust OCR for exact characters (dates, prices), trust the image for layout and association (which date belongs to which artist).
 - Portuguese abbreviations: SEG/TER/QUA/QUI/SEX/SÁB/DOM are weekdays; months JAN FEV MAR ABR MAI JUN JUL AGO SET OUT NOV DEZ; "H" or "h" marks the hour ("22H" = 22:00).
+- Evidence-bound critical fields: start_datetime, end_datetime, venue_name_raw, price_min/price_max, is_free, ticket_url, age_restriction must be null/omitted unless EXACT evidence appears on the slide, OCR, or caption. Never invent or assume them.
+- NEVER invent ticket URLs (no example.com, placeholders, or guessed domains). Only copy a URL visible on the slide/caption.
+- NEVER assume typical club age (e.g. 18+) or typical cover price — omit when not printed.
+- Prices: only when stated. "entrada livre"/"free"/"grátis" => is_free true. If price is unknown, leave is_free unset/null (NOT true) and note "unknown" — never mark free by default.
 - venue_name_raw: as written on the flyer or caption; never invent.
 - confidence_score reflects certainty about DATE and VENUE. Do not guess dates.
 - If slides contain no attendable upcoming events, return {"events": []}.

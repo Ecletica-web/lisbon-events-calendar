@@ -5,7 +5,7 @@
 import Papa from 'papaparse'
 import type { Event, EventStatus } from '@/models/Event'
 import { isEventVisibleInListing } from '@/models/Event'
-import { normalizeEventTags, normalizeBoolean, normalizeNumber, simpleHash } from './utils'
+import { normalizeEventTags, normalizeBoolean, normalizeIsFree, normalizeNumber, simpleHash } from './utils'
 import { resolveEventColumn } from '@/data/schema/eventColumns'
 import type { VenueIndex } from '@/data/venueIndex'
 import { resolveVenue } from '@/data/venueIndex'
@@ -130,11 +130,16 @@ function computeFingerprint(
   title: string,
   startIso: string,
   isAllDay: boolean,
-  venueId: string
+  venueId: string,
+  sourcePostId?: string
 ): string {
   const titleNorm = normalizeTitleForFingerprint(title)
   const { date, time } = getDateAndTimeBucket(startIso, isAllDay)
-  const input = `${titleNorm}|${date}|${time}|${venueId}`
+  const venueKey = (venueId || 'unknown').trim().toLowerCase()
+  const sourceKey = (sourcePostId || '').trim().toLowerCase()
+  const input = sourceKey
+    ? `${sourceKey}|${date}|${time}|${titleNorm}|${venueKey}`
+    : `${titleNorm}|${date}|${time}|${venueKey}`
   return simpleHash(input)
 }
 
@@ -257,7 +262,8 @@ export function normalizeEvent(
     title,
     finalStart,
     false,
-    venue_id ?? 'unknown'
+    venue_id ?? 'unknown',
+    getStr(raw, 'source_event_id') || getStr(raw, 'source_url')
   )
 
   const first_seen_at = getStr(raw, 'first_seen_at') || nowIso()
@@ -296,7 +302,7 @@ export function normalizeEvent(
     price_min: priceMin ?? undefined,
     price_max: priceMax ?? undefined,
     currency: getStr(raw, 'currency')?.toUpperCase(),
-    is_free: normalizeBoolean(getRaw(raw, 'is_free'), false),
+    is_free: normalizeIsFree(getRaw(raw, 'is_free')),
     age_restriction: getStr(raw, 'age_restriction'),
     language: getStr(raw, 'language'),
     ticket_url: getStr(raw, 'ticket_url'),

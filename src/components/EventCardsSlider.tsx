@@ -430,7 +430,7 @@ function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: {
   }
 
   const formatPrice = () => {
-    if (props.isFree) return 'Free'
+    if (props.isFree === true) return 'Free'
     if (props.priceMin !== undefined && props.priceMax !== undefined) {
       if (props.priceMin === props.priceMax) return `${props.priceMin} ${props.currency === 'EUR' ? '€' : props.currency || '€'}`
       return `${props.priceMin}–${props.priceMax} ${props.currency === 'EUR' ? '€' : props.currency || '€'}`
@@ -458,7 +458,7 @@ function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1.5">
             <h3 className="text-lg font-bold text-white line-clamp-2">{event.title}</h3>
-            {formatPrice() && <span className={`flex-shrink-0 text-sm font-semibold tabular-nums ${props.isFree ? 'text-green-400' : 'text-slate-200'}`}>{formatPrice()}</span>}
+            {formatPrice() && <span className={`flex-shrink-0 text-sm font-semibold tabular-nums ${props.isFree === true ? 'text-green-400' : 'text-slate-200'}`}>{formatPrice()}</span>}
           </div>
           {reasons.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-1.5">

@@ -22,6 +22,25 @@ export function normalizeBoolean(value?: string | number | boolean | string[] | 
   return str === 'true' || str === '1' || str === 'yes'
 }
 
+/**
+ * Tri-state free flag for CSV/Sheets: true / false / null (unknown).
+ * Empty, "unknown", and similar must not become false (avoids false Free badge).
+ */
+export function normalizeIsFree(
+  value?: string | number | boolean | string[] | undefined
+): boolean | null {
+  if (value === undefined || value === null) return null
+  if (typeof value === 'boolean') return value
+  const str = String(value).trim().toLowerCase()
+  if (!str || str === 'unknown' || str === 'null' || str === 'n/a' || str === 'na') return null
+  if (str === 'true' || str === '1' || str === 'yes') return true
+  if (str === 'false' || str === '0' || str === 'no') return false
+  return null
+}
+
+/** @deprecated alias — use normalizeIsFree */
+export const normalizeFreeFlag = normalizeIsFree
+
 export function normalizeNumber(value?: string | number | boolean | string[] | undefined): number | null {
   if (value === undefined || value === null || value === '') return null
   if (typeof value === 'number') {

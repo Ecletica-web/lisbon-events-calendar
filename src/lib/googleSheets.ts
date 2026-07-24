@@ -34,7 +34,7 @@ const PROCESSED_HEADER = [
   'price_max', 'currency', 'is_free', 'age_restriction', 'language', 'ticket_url',
   'primary_image_url', 'image_credit', 'confidence_score', 'first_seen_at', 'last_seen_at',
   'changed_at', 'change_hash', 'created_at', 'updated_at', '_error', '_raw_model_text',
-  'promoter_id', 'promoter_name',
+  'promoter_id', 'promoter_name', 'publish_auth',
 ]
 
 let sheetsApi: sheets_v4.Sheets | null = null
@@ -349,6 +349,17 @@ async function appendRowsToTab(tabName: string, rows: Record<string, string>[]):
       valueInputOption: 'RAW',
       requestBody: { values: [header] },
     })
+  } else {
+    const missing = PROCESSED_HEADER.filter((col) => !header.includes(col))
+    if (missing.length > 0) {
+      header = [...header, ...missing]
+      await api.spreadsheets.values.update({
+        spreadsheetId: spreadsheetId(),
+        range: `'${tabName}'!1:1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [header] },
+      })
+    }
   }
   const values = rows.map((row) => header.map((col) => row[col] ?? ''))
   await api.spreadsheets.values.append({

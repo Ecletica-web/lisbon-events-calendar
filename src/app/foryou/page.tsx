@@ -403,7 +403,7 @@ function FeedCard({
   const p = event.extendedProps
   const start = new Date(event.start)
   const categoryColor = getCategoryColor(p.category)
-  const priceLabel = p.isFree
+  const priceLabel = p.isFree === true
     ? 'Free'
     : p.priceMin !== undefined && p.priceMax !== undefined
       ? `${p.priceMin === p.priceMax ? p.priceMin : `${p.priceMin}–${p.priceMax}`} €`
@@ -442,13 +442,13 @@ function FeedCard({
               {r}
             </span>
           ))}
-          {p.isFree && (
+          {p.isFree === true && (
             <span className="px-2.5 py-1 rounded-none text-xs font-semibold bg-emerald-500/90 text-white">
               Free
             </span>
           )}
         </div>
-        {priceLabel && !p.isFree && (
+        {priceLabel && p.isFree !== true && (
           <div className="absolute top-3 right-3 px-2.5 py-1 rounded-none text-xs font-medium bg-black/50 text-pager-fg backdrop-blur-sm">
             {priceLabel}
           </div>

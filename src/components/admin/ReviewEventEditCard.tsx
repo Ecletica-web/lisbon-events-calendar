@@ -40,6 +40,7 @@ type Props = {
   onQualityChange: (rating: number) => void
   onNotesChange: (notes: string) => void
   onApplySuggestions: () => void
+  onApplyAndApprove?: () => void
   onApprove: () => void
   onReject: () => void
 }
@@ -65,6 +66,7 @@ export function ReviewEventEditCard({
   onQualityChange,
   onNotesChange,
   onApplySuggestions,
+  onApplyAndApprove,
   onApprove,
   onReject,
 }: Props) {
@@ -122,13 +124,25 @@ export function ReviewEventEditCard({
         {row.suggested_corrections && (
           <div className="text-xs">
             {pending && canResolve && (
-              <button
-                type="button"
-                className="text-indigo-400 underline"
-                onClick={onApplySuggestions}
-              >
-                Apply Tier 5 suggestions
-              </button>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  className="text-indigo-400 underline"
+                  onClick={onApplySuggestions}
+                >
+                  Apply Tier 5 suggestions
+                </button>
+                {onApplyAndApprove && (
+                  <button
+                    type="button"
+                    className="text-emerald-400 underline"
+                    onClick={onApplyAndApprove}
+                    disabled={busy}
+                  >
+                    Apply suggestions &amp; approve
+                  </button>
+                )}
+              </div>
             )}
             <pre className="mt-1 text-slate-500 overflow-auto max-h-20 whitespace-pre-wrap break-all">
               {row.suggested_corrections}
@@ -209,7 +223,7 @@ export function ReviewEventEditCard({
                 placeholder="Optional notes for learning / prompts"
               />
             </label>
-            <div className="flex gap-2 pt-2">
+            <div className="flex flex-wrap gap-2 pt-2">
               <button
                 type="button"
                 disabled={busy}

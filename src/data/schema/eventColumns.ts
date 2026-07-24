@@ -69,7 +69,8 @@ export const columnDefaults = {
   is_all_day: false,
   status: 'scheduled',
   tags: [] as string[],
-  is_free: false,
+  /** Empty / unknown in CSV; not treated as free or paid until explicit true/false. */
+  is_free: null as boolean | null,
 } as const
 
 /** Resolve column name: use current name or legacy map */

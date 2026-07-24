@@ -1,7 +1,8 @@
 /**
- * Dedupe fingerprint — same scheme as the app's eventsLoader
- * (normalized title | date | 30-min time bucket | venue_id, djb2 hash),
- * so pipeline-side dedupe agrees with app-side dedupe.
+ * Dedupe fingerprint — shared scheme with the app's eventsLoader.
+ *
+ * Primary: source_post_id | occurrence date | 30-min bucket | normalized title | venue_key
+ * Fallback (no source id): normalized title | date | 30-min bucket | venue_id (legacy)
  */
 
 /** djb2 — identical to src/data/loaders/utils.ts simpleHash */
@@ -13,7 +14,7 @@ export function simpleHash(str: string): string {
   return (h >>> 0).toString(16)
 }
 
-function normalizeTitleForFingerprint(title: string): string {
+export function normalizeTitleForFingerprint(title: string): string {
   return title
     .toLowerCase()
     .replace(/[\p{Emoji}\p{Symbol}]/gu, '')
@@ -22,12 +23,29 @@ function normalizeTitleForFingerprint(title: string): string {
     .trim()
 }
 
-export function computeFingerprint(title: string, startIso: string, venueId: string): string {
+/**
+ * @param venueId resolved venue_id or stable display key
+ * @param sourcePostId Instagram shortCode / source_event_id / source_url (optional but preferred)
+ */
+export function computeFingerprint(
+  title: string,
+  startIso: string,
+  venueId: string,
+  sourcePostId?: string
+): string {
   const d = new Date(startIso)
   const date = startIso.slice(0, 10)
-  const bucket = Math.floor(d.getUTCMinutes() / 30) * 30
-  const time = `${String(d.getUTCHours()).padStart(2, '0')}:${String(bucket).padStart(2, '0')}`
-  return simpleHash(`${normalizeTitleForFingerprint(title)}|${date}|${time}|${venueId}`)
+  const bucket = Math.floor((isNaN(d.getTime()) ? 0 : d.getUTCMinutes()) / 30) * 30
+  const time = `${String(isNaN(d.getTime()) ? 0 : d.getUTCHours()).padStart(2, '0')}:${String(bucket).padStart(2, '0')}`
+  const titleKey = normalizeTitleForFingerprint(title)
+  const venueKey = (venueId || 'unknown').trim().toLowerCase()
+  const sourceKey = (sourcePostId || '').trim().toLowerCase()
+
+  if (sourceKey) {
+    // Post-scoped: same IG post + same occurrence bucket + title collapses lineup/dupe slides
+    return simpleHash(`${sourceKey}|${date}|${time}|${titleKey}|${venueKey}`)
+  }
+  return simpleHash(`${titleKey}|${date}|${time}|${venueKey}`)
 }
 
 export interface FingerprintedCandidate {
@@ -65,4 +83,27 @@ export function dedupeCandidates<T extends FingerprintedCandidate>(
   }
 
   return { kept: Array.from(byFingerprint.values()), droppedAsDuplicate, droppedAsExisting }
+}
+
+/**
+ * Fuzzy same-occurrence check within a post (lineup slides with slight title variance).
+ * Same source + same day + within 60 minutes + similar title prefix OR shared venue.
+ */
+export function sameOccurrenceFuzzy(
+  a: { title: string; startIso: string; venueKey: string },
+  b: { title: string; startIso: string; venueKey: string }
+): boolean {
+  const da = new Date(a.startIso)
+  const db = new Date(b.startIso)
+  if (isNaN(da.getTime()) || isNaN(db.getTime())) return false
+  if (a.startIso.slice(0, 10) !== b.startIso.slice(0, 10)) return false
+  if (Math.abs(da.getTime() - db.getTime()) > 60 * 60 * 1000) return false
+  const ta = normalizeTitleForFingerprint(a.title)
+  const tb = normalizeTitleForFingerprint(b.title)
+  if (ta === tb) return true
+  if (a.venueKey && b.venueKey && a.venueKey === b.venueKey) {
+    // Same venue + same hour window — lineup / artist-slide split
+    return true
+  }
+  return false
 }

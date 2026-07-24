@@ -157,6 +157,7 @@ export const NEEDS_REVIEW_COLUMNS = [
   '_raw_model_text',
   'promoter_id',
   'promoter_name',
+  'publish_auth',
 ] as const
 
 /** Events Clean New tab — live calendar CSV source (`NEXT_PUBLIC_EVENTS_CSV_URL`). */
@@ -210,6 +211,7 @@ export const EVENTS_CLEAN_COLUMNS = [
   '_raw_model_text',
   'promoter_id',
   'promoter_name',
+  'publish_auth',
 ] as const
 
 /** Processed Events tab — pipeline staging before publish to Events Clean New. */

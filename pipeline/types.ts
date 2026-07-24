@@ -70,7 +70,8 @@ export interface ExtractedEvent {
   price_min?: number
   price_max?: number
   currency?: string
-  is_free?: boolean
+  /** Tri-state: true/false when known; null/omit when unknown. In Processed sheet rows, empty string means unknown. */
+  is_free?: boolean | null
   ticket_url?: string
   age_restriction?: string
   confidence_score: number
@@ -188,6 +189,11 @@ export interface ProcessedEventRow {
   post_pattern: string
   extraction_source: string
   on_slide_text_evidence: string
+  /**
+   * Publish authorization marker. Empty for auto-pass (needs Tier 5 clean verify).
+   * `human_approved` after Tier 6 admin approve — publish accepts without clean verify.
+   */
+  publish_auth: string
 }
 
 /** Online verification audit row (Verification_Log tab) — Tier 5 suggestions for Tier 6. */

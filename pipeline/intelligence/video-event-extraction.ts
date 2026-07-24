@@ -21,6 +21,9 @@ const FRAME_COUNT = 4
 const SYSTEM_PROMPT = `You extract structured event data from Instagram reel frames (and an optional audio transcript) posted by Lisbon venues.
 Timezone Europe/Lisbon; datetimes as ISO 8601 with offset; posted_at is the reference for partial dates (events are upcoming).
 Portuguese and English text. On-screen text in frames (flyer overlays) is the most reliable date source.
+Evidence-bound critical fields: start_datetime, end_datetime, venue_name_raw, price_min/price_max, is_free, ticket_url, age_restriction must be null/omitted unless EXACT evidence appears in frames, transcript, or caption. Never invent or assume them.
+NEVER invent ticket URLs (no example.com, placeholders, or guessed domains). NEVER assume typical club age or cover price.
+Prices: only when stated. "entrada livre"/"free"/"grátis" => is_free true. If price unknown, leave is_free unset/null (NOT true) and note "unknown" — never mark free by default.
 confidence_score reflects certainty about DATE and VENUE; never guess dates.
 Respond with JSON only: {"events":[{"title","description_short","category","tags","start_datetime","end_datetime","venue_name_raw","price_min","price_max","currency","is_free","ticket_url","confidence_score"}],"extraction_notes":"..."}`
 

@@ -106,7 +106,8 @@ export interface NormalizedEvent {
     priceMin?: number
     priceMax?: number
     currency?: string
-    isFree?: boolean
+    /** Tri-state: true/false when known; null/undefined when unknown — Free badge only when true. */
+    isFree?: boolean | null
 
     // Event details
     ageRestriction?: string
@@ -441,7 +442,11 @@ function mergeVenueNight(nightKey: string, group: NormalizedEvent[]): Normalized
       category,
       priceMin: priceMins.length ? Math.min(...priceMins) : primary.extendedProps.priceMin,
       priceMax: priceMaxes.length ? Math.max(...priceMaxes) : primary.extendedProps.priceMax,
-      isFree: sorted.every((ev) => ev.extendedProps.isFree),
+      isFree: sorted.every((ev) => ev.extendedProps.isFree === true)
+        ? true
+        : sorted.some((ev) => ev.extendedProps.isFree === false)
+          ? false
+          : null,
       ticketUrl,
       imageUrl: imageUrls[0] ?? primary.extendedProps.imageUrl,
       imageUrls: imageUrls.length > 0 ? imageUrls : undefined,

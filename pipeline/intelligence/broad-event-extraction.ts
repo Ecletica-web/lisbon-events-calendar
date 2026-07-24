@@ -19,7 +19,7 @@ export const extractedEventSchema = z.object({
   price_min: z.number().nullish(),
   price_max: z.number().nullish(),
   currency: z.string().optional(),
-  is_free: z.boolean().optional(),
+  is_free: z.boolean().nullish(),
   ticket_url: z.string().optional(),
   age_restriction: z.string().optional(),
   confidence_score: z.number().min(0).max(1),
@@ -38,10 +38,13 @@ Rules:
 - Portuguese date formats you must handle: "28 de Fevereiro", "sáb 14 jun", "sexta-feira, 6 de Março", "06.03", "6/3", "dia 15", "quinta às 22h", "22h30", "das 18h às 02h". Month names: janeiro, fevereiro, março, abril, maio, junho, julho, agosto, setembro, outubro, novembro, dezembro. Weekdays: segunda, terça, quarta, quinta, sexta, sábado, domingo.
 - Recurring patterns ("todas as quintas") without a concrete date: extract the NEXT single occurrence after posted_at and note the recurrence in extraction_notes.
 - One caption can announce MULTIPLE events (line-ups across days, program posts): output one entry per distinct event.
+- Evidence-bound critical fields: start_datetime, end_datetime, venue_name_raw, price_min/price_max, is_free, ticket_url, age_restriction must be null/omitted unless EXACT evidence appears in the caption (or provided metadata for venue). Never invent or assume them.
+- NEVER invent ticket URLs (no example.com, placeholders, or guessed domains). Only copy a URL that appears in the caption/links.
+- NEVER assume typical club age (e.g. 18+) or typical cover price — omit age_restriction and prices when not stated.
+- Prices: only when stated. "entrada livre"/"free"/"grátis" => is_free true. "10€" => price_min 10, currency "EUR". "10-15€" => min 10 max 15. If price is unknown, leave is_free unset/null (NOT true) and note "unknown" in extraction_notes — never mark free by default.
 - venue_name_raw: the venue as written in the caption; if absent use location_name from metadata; never invent one.
 - category: one lowercase word (music, nightlife, art, culture, food, market, workshop, theatre, cinema, sports, community).
 - tags: up to 5 lowercase tags (genre, vibe, e.g. "techno", "jazz", "open air").
-- Prices: "entrada livre"/"free" => is_free true. "10€" => price_min 10, currency "EUR". "10-15€" => min 10 max 15.
 - confidence_score reflects how certain you are about the DATE and VENUE specifically. If no explicit date exists in the caption, either omit start_datetime or set confidence below 0.5 — never guess a date.
 - If the caption announces no attendable upcoming event, return {"events": []}.
 

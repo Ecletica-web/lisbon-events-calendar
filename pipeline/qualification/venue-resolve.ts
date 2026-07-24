@@ -1,6 +1,12 @@
 /**
  * Venue resolution — Fontes IG - Venues is the source of truth (name + IG handle).
  * Optional Venues CSV enriches address / venue_id when the handle matches.
+ *
+ * Owner-handle fallback is ONLY allowed when:
+ *   - source watchlist type is `venue` (not promoter/editorial), AND
+ *   - no usable extracted venue_name_raw / location_name was provided.
+ * If an extracted venue string exists but fails to resolve, we leave unresolved
+ * (do not silently promote the posting account — musicasemcapa failure mode).
  */
 
 import Papa from 'papaparse'
@@ -11,6 +17,7 @@ import { normalizeIgHandle, slugifyName } from '../sinks/fontes-ig'
 import { readFontesVenues, readTabSafe, TAB_VENUES } from '../sinks/sheets-writer'
 
 let cachedIndex: VenueIndex | null = null
+let cachedSourceTypeByHandle: Map<string, 'venue' | 'promoter'> | null = null
 
 function rowToVenue(row: Record<string, string>): Venue | null {
   const venueId = (row.venue_id ?? '').trim()
@@ -34,7 +41,6 @@ function rowToVenue(row: Record<string, string>): Venue | null {
 
 async function loadVenuesSheetRows(): Promise<Venue[]> {
   const cfg = getConfig()
-  // Prefer live Sheets Venues tab (same spreadsheet as Fontes)
   try {
     const rows = await readTabSafe(TAB_VENUES)
     if (rows.length > 0) {
@@ -102,7 +108,6 @@ export async function loadVenueIndex(): Promise<VenueIndex | null> {
     })
   }
 
-  // Keep sheet venues that aren't in Fontes (name-only matches still useful)
   for (const s of sheetVenues) {
     const h = normalizeIgHandle(s.instagram_handle || '')
     if (h && seenHandles.has(h)) continue
@@ -122,48 +127,159 @@ export async function loadVenueIndex(): Promise<VenueIndex | null> {
   return cachedIndex
 }
 
+/** Clear caches (tests / after Fontes updates). */
+export function clearVenueResolveCache(): void {
+  cachedIndex = null
+  cachedSourceTypeByHandle = null
+}
+
+export type VenueResolveMethod = 'extracted' | 'location' | 'owner' | 'none'
+
 export interface PipelineVenueResolution {
   venue_id: string
   venue_name: string
   venue_name_raw: string
   resolved: boolean
+  method: VenueResolveMethod
+  city?: string
+  neighborhood?: string
+  venue_address?: string
+  /** True when we would have used owner fallback but extracted venue differed / promoter */
+  sourceAsVenueRisk: boolean
+}
+
+export interface ResolveEventVenueOptions {
+  /** Watchlist type of the posting account */
+  sourceType?: 'venue' | 'promoter'
+}
+
+function tryResolve(
+  index: VenueIndex,
+  name: string | undefined,
+  handle: string | undefined
+): VenueResolution {
+  return resolveVenue(index, undefined, name, handle)
 }
 
 /**
  * Resolve a venue for an extracted event.
- * Tries the extracted venue name, then the post's IG location name, then the owner handle
- * (venue accounts post their own events) — against Fontes IG - Venues handles/names.
  */
 export async function resolveEventVenue(
   venueNameRaw: string | undefined,
   locationName: string,
-  ownerUsername: string
+  ownerUsername: string,
+  options: ResolveEventVenueOptions = {}
 ): Promise<PipelineVenueResolution> {
-  const effectiveName = venueNameRaw?.trim() || locationName.trim()
+  const extracted = venueNameRaw?.trim() || ''
+  const location = locationName.trim()
+  const owner = normalizeIgHandle(ownerUsername || '')
+  const effectiveName = extracted || location
+  const sourceType = options.sourceType ?? 'venue'
+
   const index = await loadVenueIndex()
-
   if (!index) {
-    return { venue_id: '', venue_name: '', venue_name_raw: effectiveName, resolved: false }
-  }
-
-  const candidates: [string | undefined, string | undefined, string | undefined][] = [
-    [undefined, venueNameRaw, undefined],
-    [undefined, locationName || undefined, undefined],
-    [undefined, undefined, ownerUsername || undefined],
-  ]
-
-  for (const [id, name, source] of candidates) {
-    if (!name && !source) continue
-    const res: VenueResolution = resolveVenue(index, id, name, source)
-    if (res.resolved) {
-      return {
-        venue_id: res.venue_id,
-        venue_name: res.venue_name,
-        venue_name_raw: effectiveName,
-        resolved: true,
-      }
+    return {
+      venue_id: '',
+      venue_name: '',
+      venue_name_raw: effectiveName,
+      resolved: false,
+      method: 'none',
+      sourceAsVenueRisk: sourceType === 'promoter',
     }
   }
 
-  return { venue_id: 'unknown', venue_name: '', venue_name_raw: effectiveName, resolved: false }
+  if (extracted) {
+    const res = tryResolve(index, extracted, undefined)
+    if (res.resolved) {
+      return enrichment(res, effectiveName, 'extracted', false, index)
+    }
+    // Extracted string present but unresolved — NEVER fall back to owner
+    return {
+      venue_id: 'unknown',
+      venue_name: '',
+      venue_name_raw: effectiveName,
+      resolved: false,
+      method: 'none',
+      sourceAsVenueRisk: Boolean(owner),
+    }
+  }
+
+  if (location) {
+    const res = tryResolve(index, location, undefined)
+    if (res.resolved) {
+      return enrichment(res, effectiveName, 'location', false, index)
+    }
+  }
+
+  // Owner fallback only for venue accounts with no extracted/location venue string
+  if (sourceType === 'promoter') {
+    return {
+      venue_id: 'unknown',
+      venue_name: '',
+      venue_name_raw: effectiveName || owner,
+      resolved: false,
+      method: 'none',
+      sourceAsVenueRisk: true,
+    }
+  }
+
+  if (owner && !extracted && !location) {
+    const res = tryResolve(index, undefined, owner)
+    if (res.resolved) {
+      return enrichment(res, effectiveName || owner, 'owner', false, index)
+    }
+  }
+
+  // Had location that failed + owner available: still do not override with owner
+  // when location was provided (different place named)
+  if (owner && location && !extracted) {
+    return {
+      venue_id: 'unknown',
+      venue_name: '',
+      venue_name_raw: effectiveName,
+      resolved: false,
+      method: 'none',
+      sourceAsVenueRisk: true,
+    }
+  }
+
+  return {
+    venue_id: 'unknown',
+    venue_name: '',
+    venue_name_raw: effectiveName,
+    resolved: false,
+    method: 'none',
+    sourceAsVenueRisk: false,
+  }
+}
+
+function enrichment(
+  res: VenueResolution,
+  venueNameRaw: string,
+  method: VenueResolveMethod,
+  sourceAsVenueRisk: boolean,
+  index: VenueIndex
+): PipelineVenueResolution {
+  if (!res.resolved) {
+    return {
+      venue_id: 'unknown',
+      venue_name: '',
+      venue_name_raw: venueNameRaw,
+      resolved: false,
+      method: 'none',
+      sourceAsVenueRisk,
+    }
+  }
+  const venue = index.byId.get(res.venue_id)
+  return {
+    venue_id: res.venue_id,
+    venue_name: res.venue_name,
+    venue_name_raw: venueNameRaw,
+    resolved: true,
+    method,
+    city: venue?.city,
+    neighborhood: venue?.neighborhood,
+    venue_address: venue?.venue_address,
+    sourceAsVenueRisk,
+  }
 }
