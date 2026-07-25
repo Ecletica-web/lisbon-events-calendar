@@ -111,7 +111,7 @@ export default function ProfileSupabaseSections({
 
   if (loading) {
     return (
-      <div className="text-slate-400 py-8">Loading your profile data...</div>
+      <div className="text-pager-fg-muted py-8">Loading your profile data...</div>
     )
   }
 
@@ -119,18 +119,18 @@ export default function ProfileSupabaseSections({
     <>
       {/* Followed Venues - Cards */}
       <div className="mb-10">
-        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Followed Venues</h2>
+        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-pager-fg">Followed Venues</h2>
         {followedVenues.length === 0 ? (
-          <p className="text-slate-500">No followed venues yet. Follow venues from event cards or venue pages.</p>
+          <p className="text-pager-fg-faint">No followed venues yet. Follow venues from event cards or venue pages.</p>
         ) : (
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
             {followedVenues.map((v) => (
               <Link
                 key={v.venue_id}
                 href={`/venues/${encodeURIComponent(v.slug)}`}
-                className="block rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden hover:bg-slate-700/50 hover:border-slate-600 transition-all"
+                className="block border-2 border-pager-strong bg-pager-bg overflow-hidden hover:bg-pager-muted transition-colors"
               >
-                <div className="aspect-[16/10] bg-slate-700/50 flex-shrink-0">
+                <div className="aspect-[16/10] bg-pager-muted flex-shrink-0">
                   <img
                     src={v.primary_image_url || '/lisboa.png'}
                     alt=""
@@ -139,9 +139,9 @@ export default function ProfileSupabaseSections({
                   />
                 </div>
                 <div className="p-4">
-                  <h3 className="font-semibold text-lg text-white">{v.name}</h3>
+                  <h3 className="font-semibold text-lg text-pager-fg">{v.name}</h3>
                   {(v.neighborhood || v.venue_address) && (
-                    <p className="text-slate-400 text-sm mt-0.5">
+                    <p className="text-pager-fg-muted text-sm mt-0.5">
                       {[v.neighborhood, v.venue_address].filter(Boolean).join(' · ')}
                     </p>
                   )}
@@ -154,30 +154,30 @@ export default function ProfileSupabaseSections({
 
       {/* Followed Promoters - Cards */}
       <div className="mb-10">
-        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Followed Promoters</h2>
+        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-pager-fg">Followed Promoters</h2>
         {followedPromotersList.length === 0 ? (
-          <p className="text-slate-500">No followed promoters yet. Follow promoters from promoter pages.</p>
+          <p className="text-pager-fg-faint">No followed promoters yet. Follow promoters from promoter pages.</p>
         ) : (
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
             {followedPromotersList.map((p) => (
               <Link
                 key={p.promoter_id}
                 href={`/promoters/${encodeURIComponent(p.slug)}`}
-                className="block rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden hover:bg-slate-700/50 hover:border-slate-600 transition-all p-4"
+                className="block border-2 border-pager-strong bg-pager-bg overflow-hidden hover:bg-pager-muted transition-colors p-4"
               >
                 <div className="flex items-center gap-3">
                   {p.primary_image_url && (
                     <img
                       src={p.primary_image_url}
                       alt=""
-                      className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
+                      className="w-14 h-14 object-cover flex-shrink-0 border border-pager-border"
                       onError={(e) => { e.currentTarget.style.display = 'none' }}
                     />
                   )}
                   <div>
-                    <h3 className="font-semibold text-white">{p.name}</h3>
+                    <h3 className="font-semibold text-pager-fg">{p.name}</h3>
                     {p.description_short && (
-                      <p className="text-slate-400 text-sm mt-0.5 line-clamp-2">{p.description_short}</p>
+                      <p className="text-pager-fg-muted text-sm mt-0.5 line-clamp-2">{p.description_short}</p>
                     )}
                   </div>
                 </div>
@@ -189,7 +189,7 @@ export default function ProfileSupabaseSections({
 
       {/* Upcoming (Going) */}
       <div className="mb-10">
-        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Upcoming (Going)</h2>
+        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-pager-fg">Upcoming (Going)</h2>
         <EventCardsSlider
           key="going"
           events={[...goingEvents].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())}
@@ -204,7 +204,7 @@ export default function ProfileSupabaseSections({
 
       {/* Events at Followed Venues & Promoters */}
       <div className="mb-10">
-        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Events at Your Venues & Promoters</h2>
+        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-pager-fg">Events at Your Venues & Promoters</h2>
         <EventCardsSlider
           key="venues-promoters"
           events={eventsAtFollowed}
@@ -219,7 +219,7 @@ export default function ProfileSupabaseSections({
 
       {/* Saved Events (formerly Wishlisted) */}
       <div className="mb-10">
-        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Saved Events</h2>
+        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-pager-fg">Saved Events</h2>
         <EventCardsSlider
           key="saved"
           events={savedEvents}
@@ -234,7 +234,7 @@ export default function ProfileSupabaseSections({
 
       {/* Liked Events */}
       <div className="mb-10">
-        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-slate-200">Liked Events</h2>
+        <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-pager-fg">Liked Events</h2>
         <EventCardsSlider
           key="liked"
           events={[...likedEventsPre].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())}

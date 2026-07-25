@@ -3,7 +3,6 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { getCategoryColor } from '@/lib/categoryColors'
 import { toCanonicalTagKey } from '@/lib/eventsAdapter'
 import { getGoogleCalendarUrl } from '@/lib/googleCalendar'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
@@ -55,7 +54,6 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
   const startDate = new Date(event.start)
   const endDate = event.end ? new Date(event.end) : null
   const props = event.extendedProps
-  const categoryColor = getCategoryColor(props.category)
   const status = props.status
 
   const formatDateTime = (date: Date, opts?: { timeStyle?: 'short' | undefined }) => {
@@ -102,7 +100,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
     >
       <div
         ref={contentRef}
-        className="bg-slate-800/95 backdrop-blur-xl rounded-t-2xl sm:rounded-lg p-4 pb-[max(1rem,env(safe-area-inset-bottom))] max-w-md w-full max-h-[90vh] sm:max-h-[85vh] min-h-0 overflow-y-auto overflow-x-hidden border border-slate-700/50 shadow-2xl overscroll-contain flex-shrink-0 sm:mx-4 sm:my-8 touch-pan-y"
+        className="pager-panel p-4 pb-[max(1rem,env(safe-area-inset-bottom))] max-w-md w-full max-h-[90vh] sm:max-h-[85vh] min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain flex-shrink-0 sm:mx-4 sm:my-8 touch-pan-y border-t-2 sm:border-2"
         style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
         onClick={(e) => e.stopPropagation()}
       >
@@ -113,16 +111,16 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
           heightClass="h-28 sm:h-36"
         />
 
-        <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-start justify-between gap-2 mb-3 mt-3">
           <div className="flex-1 min-w-0 flex items-start gap-2 flex-wrap">
             <h2
               id="event-modal-title"
-              className="text-lg font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent"
+              className="text-lg font-semibold text-pager-fg"
             >
               {event.title}
             </h2>
             {statusLabel && (
-              <span className="flex-shrink-0 px-2 py-0.5 rounded text-xs font-medium bg-amber-600/80 text-white">
+              <span className="pager-pill pager-pill-active flex-shrink-0">
                 {statusLabel}
               </span>
             )}
@@ -132,7 +130,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
         {reasons.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-3">
             {reasons.map((r) => (
-              <span key={r} className="px-2 py-0.5 rounded text-xs bg-indigo-900/50 text-indigo-200 border border-indigo-700/50">
+              <span key={r} className="pager-pill">
                 {r}
               </span>
             ))}
@@ -143,15 +141,15 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
           <EventLikeCount eventId={event.id} />
         </div>
 
-        <div className="space-y-2 mb-3 text-slate-200 text-xs">
+        <div className="space-y-2 mb-3 text-pager-fg text-xs">
           <div>
-            <strong className="text-slate-100 text-xs">Date/Time:</strong>
-            <div className="text-slate-300 text-xs">
+            <strong className="text-pager-fg text-xs">Date/Time:</strong>
+            <div className="text-pager-fg-muted text-xs">
               {props.opensAt ? (
                 <>
                   {formatDateTime(startDate, { timeStyle: undefined })}
                   {endDate && ` – ${formatDateTime(endDate, { timeStyle: undefined })}`}
-                  <span className="text-slate-400"> · Opens {props.opensAt}</span>
+                  <span className="text-pager-fg-faint"> · Opens {props.opensAt}</span>
                 </>
               ) : (
                 <>
@@ -160,54 +158,54 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
                 </>
               )}
             </div>
-            <div className="text-xs text-slate-400 mt-0.5">
+            <div className="text-xs text-pager-fg-faint mt-0.5">
               Timezone: {props.timezone || 'Europe/Lisbon'}
             </div>
           </div>
 
           {props.descriptionShort && (
             <div>
-              <strong className="text-slate-100 text-xs">Description:</strong>
-              <p className="mt-0.5 text-slate-300 text-xs">{props.descriptionShort}</p>
+              <strong className="text-pager-fg text-xs">Description:</strong>
+              <p className="mt-0.5 text-pager-fg-muted text-xs">{props.descriptionShort}</p>
             </div>
           )}
 
           {props.nightActs && props.nightActs.length > 1 && (
             <div>
-              <strong className="text-slate-100 text-xs">
+              <strong className="text-pager-fg text-xs">
                 Lineup ({props.nightActs.length} acts):
               </strong>
               <ul className="mt-1.5 space-y-2">
                 {props.nightActs.map((act) => (
                   <li
                     key={act.id}
-                    className="flex gap-2 items-start rounded-md border border-slate-700/50 bg-slate-900/40 p-2"
+                    className="flex gap-2 items-start border-2 border-pager-border bg-pager-muted p-2"
                   >
                     {act.imageUrl && (
                       <img
                         src={act.imageUrl}
                         alt=""
-                        className="w-10 h-10 rounded object-cover flex-shrink-0 border border-slate-700/50"
+                        className="w-10 h-10 object-cover flex-shrink-0 border border-pager-border"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none'
                         }}
                       />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="text-slate-200 text-xs font-medium leading-snug">{act.title}</div>
+                      <div className="text-pager-fg text-xs font-medium leading-snug">{act.title}</div>
                       {act.descriptionShort && (
-                        <p className="text-slate-400 text-[11px] mt-0.5 line-clamp-2">{act.descriptionShort}</p>
+                        <p className="text-pager-fg-faint text-[11px] mt-0.5 line-clamp-2">{act.descriptionShort}</p>
                       )}
                       <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
                         {act.promoterName && (
-                          <span className="text-[11px] text-slate-500">{act.promoterName}</span>
+                          <span className="text-[11px] text-pager-fg-faint">{act.promoterName}</span>
                         )}
                         {act.sourceUrl && (
                           <a
                             href={act.sourceUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline"
+                            className="text-[11px] pager-link"
                           >
                             Post
                           </a>
@@ -217,7 +215,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
                             href={act.ticketUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline"
+                            className="text-[11px] pager-link"
                             onClick={emitTicketClick}
                           >
                             Tickets
@@ -233,8 +231,8 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
 
           {props.descriptionLong && !props.nightActs?.length && (
             <div>
-              <strong className="text-slate-100 text-xs">Full Description:</strong>
-              <p className="mt-0.5 whitespace-pre-wrap text-slate-300 text-xs">
+              <strong className="text-pager-fg text-xs">Full Description:</strong>
+              <p className="mt-0.5 whitespace-pre-wrap text-pager-fg-muted text-xs">
                 {props.descriptionLong}
               </p>
             </div>
@@ -242,11 +240,11 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
 
           {props.venueName && (
             <div>
-              <strong className="text-slate-100 text-xs">Venue:</strong>{' '}
+              <strong className="text-pager-fg text-xs">Venue:</strong>{' '}
               <div className="flex items-center gap-2 flex-wrap mt-0.5">
                 <Link
                   href={`/venues/${encodeURIComponent(props.venueId || props.venueKey || props.venueName?.toLowerCase().replace(/\s+/g, '-') || '')}`}
-                  className="text-indigo-400 hover:text-indigo-300 hover:underline text-xs"
+                  className="pager-link text-xs"
                 >
                   {props.venueName}
                 </Link>
@@ -257,29 +255,26 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
                 />
               </div>
               {props.venueAddress && (
-                <div className="text-xs text-slate-400 mt-0.5">{props.venueAddress}</div>
+                <div className="text-xs text-pager-fg-faint mt-0.5">{props.venueAddress}</div>
               )}
               {props.neighborhood && (
-                <div className="text-xs text-slate-400">{props.neighborhood}</div>
+                <div className="text-xs text-pager-fg-faint">{props.neighborhood}</div>
               )}
-              {props.city && <div className="text-xs text-slate-400">{props.city}</div>}
+              {props.city && <div className="text-xs text-pager-fg-faint">{props.city}</div>}
             </div>
           )}
 
           {formatPrice() && (
             <div>
-              <strong className="text-slate-100 text-xs">Price:</strong>{' '}
-              <span className="text-slate-300 text-xs">{formatPrice()}</span>
+              <strong className="text-pager-fg text-xs">Price:</strong>{' '}
+              <span className="text-pager-fg-muted text-xs">{formatPrice()}</span>
             </div>
           )}
 
           {props.category && (
             <div>
-              <strong className="text-slate-100 text-xs">Category:</strong>{' '}
-              <span
-                className="px-1.5 py-0.5 rounded text-xs text-white font-medium"
-                style={{ backgroundColor: categoryColor }}
-              >
+              <strong className="text-pager-fg text-xs">Category:</strong>{' '}
+              <span className="pager-pill pager-pill-active">
                 {props.category}
               </span>
             </div>
@@ -287,22 +282,11 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
 
           {props.tags.length > 0 && (
             <div>
-              <strong className="text-slate-100 text-xs">Tags:</strong>
+              <strong className="text-pager-fg text-xs">Tags:</strong>
               <div className="flex flex-wrap gap-1.5 mt-1 items-center">
-                {props.tags.map((tag) => {
-                  const tagColor = getCategoryColor(tag)
-                  return (
+                {props.tags.map((tag) => (
                   <span key={tag} className="flex items-center gap-1">
-                    <span
-                      className="px-1.5 py-0.5 text-xs border"
-                      style={{
-                        borderColor: tagColor,
-                        color: tagColor,
-                        backgroundColor: 'transparent',
-                      }}
-                    >
-                      {tag}
-                    </span>
+                    <span className="pager-pill">{tag}</span>
                     <FollowButton
                       type="tag"
                       normalizedValue={toCanonicalTagKey(tag)}
@@ -310,34 +294,33 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
                       size="sm"
                     />
                   </span>
-                  )
-                })}
+                ))}
               </div>
             </div>
           )}
 
           {props.language && (
             <div>
-              <strong className="text-slate-100 text-xs">Language:</strong>{' '}
-              <span className="text-slate-300 text-xs">{props.language}</span>
+              <strong className="text-pager-fg text-xs">Language:</strong>{' '}
+              <span className="text-pager-fg-muted text-xs">{props.language}</span>
             </div>
           )}
 
           {props.ageRestriction && (
             <div>
-              <strong className="text-slate-100 text-xs">Age Restriction:</strong>{' '}
-              <span className="text-slate-300 text-xs">{props.ageRestriction}</span>
+              <strong className="text-pager-fg text-xs">Age Restriction:</strong>{' '}
+              <span className="text-pager-fg-muted text-xs">{props.ageRestriction}</span>
             </div>
           )}
 
           {props.ticketUrl && (
             <div>
-              <strong className="text-slate-100 text-xs">Tickets:</strong>{' '}
+              <strong className="text-pager-fg text-xs">Tickets:</strong>{' '}
               <a
                 href={props.ticketUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-indigo-400 hover:text-indigo-300 hover:underline text-xs"
+                className="pager-link text-xs"
                 onClick={emitTicketClick}
               >
                 Buy Tickets
@@ -347,19 +330,19 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
 
           {(props.sourceUrl || props.sourceName) && (
             <div>
-              <strong className="text-slate-100 text-xs">Source:</strong>{' '}
+              <strong className="text-pager-fg text-xs">Source:</strong>{' '}
               <div className="flex items-center gap-2 flex-wrap mt-0.5">
                 {props.sourceUrl ? (
                   <a
                     href={props.sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-indigo-400 hover:text-indigo-300 hover:underline text-xs"
+                    className="pager-link text-xs"
                   >
                     {props.sourceName || 'View Source'}
                   </a>
                 ) : (
-                  <span className="text-slate-300 text-xs">{props.sourceName}</span>
+                  <span className="text-pager-fg-muted text-xs">{props.sourceName}</span>
                 )}
                 {props.sourceName && (
                   <FollowButton
@@ -378,7 +361,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
           href={getGoogleCalendarUrl(event)}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg border border-slate-600/50 bg-slate-700/50 text-slate-200 text-sm font-medium hover:bg-slate-600/60 hover:text-white transition-colors mt-3"
+          className="pager-btn w-full px-3 py-2.5 text-sm mt-3"
           onClick={emitCalendarAdd}
         >
           <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
@@ -389,7 +372,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
 
         <button
           onClick={onClose}
-          className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 px-3 py-1.5 rounded-md text-xs font-medium text-white transition-all shadow-md hover:shadow-lg mt-3"
+          className="pager-btn pager-btn-primary w-full px-3 py-2 text-xs font-semibold uppercase tracking-wider mt-3"
         >
           Close
         </button>

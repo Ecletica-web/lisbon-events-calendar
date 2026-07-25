@@ -74,17 +74,17 @@ export default function FollowButton({
   if ((session?.user as any)?.id === 'guest') return null
 
   const sizeClass = size === 'sm' ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'
-  const baseClass = `rounded-lg font-medium transition-colors ${sizeClass}`
+  const baseClass = `border-2 border-pager-strong font-medium transition-colors ${sizeClass}`
   const variantClass =
     variant === 'outline'
-      ? 'border border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:text-white'
-      : 'bg-indigo-600/80 text-white hover:bg-indigo-500'
+      ? 'bg-pager-bg text-pager-fg hover:bg-pager-muted'
+      : 'bg-pager-accent text-pager-accent-fg hover:opacity-90'
 
   return (
     <button
       onClick={handleClick}
       disabled={loading || !checked}
-      className={`${baseClass} ${isFollowing ? 'bg-indigo-600/50 text-indigo-200 border-indigo-500/50' : variantClass}`}
+      className={`${baseClass} ${isFollowing ? 'bg-pager-accent text-pager-accent-fg' : variantClass}`}
       title={isFollowing ? `Unfollow ${displayValue}` : `Follow ${displayValue}`}
     >
       {loading ? '...' : isFollowing ? 'Following' : 'Follow'}

@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { getCategoryColor } from '@/lib/categoryColors'
 import { haversineDistanceKm, formatDistance } from '@/lib/geo'
 import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import type { ViewState } from '@/lib/viewState'
@@ -21,6 +20,52 @@ interface EventListViewProps {
   /** When near me is on, show distance per event */
   userPos?: { lat: number; lng: number } | null
   venueCoordsMap?: Map<string, { lat: number; lng: number }>
+}
+
+function DateNav({
+  periodTitle,
+  onPrev,
+  onNext,
+  onToday,
+}: {
+  periodTitle: string
+  onPrev: () => void
+  onNext: () => void
+  onToday: () => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 flex-wrap bg-pager-bg border-2 border-pager-strong px-4 py-3">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onPrev}
+          className="p-2 text-pager-fg hover:bg-pager-muted"
+          aria-label="Previous period"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <button
+          onClick={onNext}
+          className="p-2 text-pager-fg hover:bg-pager-muted"
+          aria-label="Next period"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+        <span className="text-sm font-semibold text-pager-fg min-w-[140px] text-center">
+          {periodTitle}
+        </span>
+      </div>
+      <button
+        onClick={onToday}
+        className="pager-btn px-3 py-1.5 text-xs uppercase tracking-wider"
+      >
+        Today
+      </button>
+    </div>
+  )
 }
 
 export default function EventListView({
@@ -175,44 +220,21 @@ export default function EventListView({
     onDateChange(new Date().toISOString().split('T')[0])
   }
 
+  const showNav = Boolean(onDateChange && !hideDateNav)
+
   if (filteredEvents.length === 0) {
     return (
       <div className="space-y-6">
-        {onDateChange && !hideDateNav && (
-          <div className="flex items-center justify-between gap-4 flex-wrap bg-slate-800/60 rounded-xl border border-slate-700/50 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={goPrev}
-                className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition-colors"
-                aria-label="Previous period"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <button
-                onClick={goNext}
-                className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition-colors"
-                aria-label="Next period"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-              <span className="text-sm font-semibold text-slate-200 min-w-[140px] text-center">
-                {getPeriodTitle()}
-              </span>
-            </div>
-            <button
-              onClick={goToday}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700/60 text-slate-300 hover:bg-slate-600/60 hover:text-white transition-colors"
-            >
-              Today
-            </button>
-          </div>
+        {showNav && (
+          <DateNav
+            periodTitle={getPeriodTitle()}
+            onPrev={goPrev}
+            onNext={goNext}
+            onToday={goToday}
+          />
         )}
         <div className="flex items-center justify-center h-96">
-          <div className="text-slate-400">No events in this period</div>
+          <div className="text-pager-fg-muted">No events in this period</div>
         </div>
       </div>
     )
@@ -220,55 +242,29 @@ export default function EventListView({
 
   return (
     <div className="space-y-6">
-      {onDateChange && !hideDateNav && (
-        <div className="flex items-center justify-between gap-4 flex-wrap bg-slate-800/60 rounded-xl border border-slate-700/50 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={goPrev}
-              className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition-colors"
-              aria-label="Previous period"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button
-              onClick={goNext}
-              className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition-colors"
-              aria-label="Next period"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-            <span className="text-sm font-semibold text-slate-200 min-w-[140px] text-center">
-              {getPeriodTitle()}
-            </span>
-          </div>
-          <button
-            onClick={goToday}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700/60 text-slate-300 hover:bg-slate-600/60 hover:text-white transition-colors"
-          >
-            Today
-          </button>
-        </div>
+      {showNav && (
+        <DateNav
+          periodTitle={getPeriodTitle()}
+          onPrev={goPrev}
+          onNext={goNext}
+          onToday={goToday}
+        />
       )}
       {Array.from(eventsByDay.entries()).map(([dayKey, dayEvents]) => (
         <div
           key={dayKey}
-          className="bg-slate-800/60 backdrop-blur-xl rounded-xl border border-slate-700/50 overflow-hidden"
+          className="border-2 border-pager-strong bg-pager-bg overflow-hidden"
         >
-          <div className="bg-slate-900/80 px-4 py-3 border-b border-slate-700/50">
+          <div className="bg-pager-muted px-4 py-3 border-b-2 border-pager-strong">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-200">{formatDate(dayKey)}</div>
-              <div className="text-xs text-slate-400">
+              <div className="text-sm font-semibold text-pager-fg">{formatDate(dayKey)}</div>
+              <div className="text-xs text-pager-fg-faint">
                 {dayEvents.length} event{dayEvents.length !== 1 ? 's' : ''}
               </div>
             </div>
           </div>
-          <div className="divide-y divide-slate-700/50">
+          <div className="divide-y divide-pager-border">
             {dayEvents.map((event) => {
-              const categoryColor = getCategoryColor(event.extendedProps.category)
               const distanceKm = getEventDistanceKm(event)
               const priceStr = event.extendedProps.isFree === true
                 ? 'Free'
@@ -279,33 +275,31 @@ export default function EventListView({
                 <div
                   key={event.id}
                   onClick={() => onEventClick({ event })}
-                  className="px-4 py-4 min-h-[44px] hover:bg-slate-700/30 transition-colors cursor-pointer touch-manipulation"
+                  className="px-4 py-4 min-h-[44px] hover:bg-pager-muted transition-colors cursor-pointer touch-manipulation"
                 >
                   <div className="flex items-start gap-3 md:gap-4">
                     <EventImageThumb
                       imageUrl={event.extendedProps.imageUrl}
                       imageUrls={event.extendedProps.imageUrls}
                       alt={event.title}
-                      className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20 rounded-lg bg-slate-700/50"
+                      className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20 border border-pager-border bg-pager-muted"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-0.5">
-                        <h3 className="text-base font-semibold text-white leading-tight">
+                        <h3 className="text-base font-semibold text-pager-fg leading-tight">
                           {event.title}
                         </h3>
                         {priceStr && (
-                          <span
-                            className={`flex-shrink-0 text-xs font-medium tabular-nums ${event.extendedProps.isFree === true ? 'text-green-400' : 'text-slate-300'}`}
-                          >
+                          <span className="flex-shrink-0 text-xs font-medium tabular-nums text-pager-fg-muted">
                             {priceStr}
                           </span>
                         )}
                       </div>
-                      <div className="text-xs font-medium text-slate-300 tabular-nums mb-1">
+                      <div className="text-xs font-medium text-pager-fg-muted tabular-nums mb-1">
                         {formatTime(event)}
                       </div>
                       {distanceKm != null && (
-                        <div className="flex items-center gap-2 text-xs text-indigo-400 mb-1">
+                        <div className="flex items-center gap-2 text-xs text-pager-fg-muted mb-1">
                           <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -317,7 +311,7 @@ export default function EventListView({
                         <div className="flex items-center gap-2 flex-wrap mb-2" onClick={(e) => e.stopPropagation()}>
                           <Link
                             href={`/venues/${encodeURIComponent(event.extendedProps.venueId || event.extendedProps.venueKey || event.extendedProps.venueName?.toLowerCase().replace(/\s+/g, '-') || '')}`}
-                            className="text-sm text-indigo-400 hover:text-indigo-300 hover:underline"
+                            className="text-sm pager-link"
                           >
                             {event.extendedProps.venueName}
                           </Link>
@@ -331,29 +325,15 @@ export default function EventListView({
                       )}
                       <div className="flex flex-wrap items-center gap-1.5">
                         {event.extendedProps.category && (
-                          <span
-                            className="px-2 py-0.5 rounded text-xs font-medium text-white"
-                            style={{ backgroundColor: categoryColor }}
-                          >
+                          <span className="pager-pill pager-pill-active">
                             {event.extendedProps.category}
                           </span>
                         )}
-                        {event.extendedProps.tags.slice(0, 3).map((tag) => {
-                          const tagColor = getCategoryColor(tag)
-                          return (
-                            <span
-                              key={tag}
-                              className="px-2 py-0.5 text-xs border"
-                              style={{
-                                borderColor: tagColor,
-                                color: tagColor,
-                                backgroundColor: 'transparent',
-                              }}
-                            >
-                              {tag}
-                            </span>
-                          )
-                        })}
+                        {event.extendedProps.tags.slice(0, 3).map((tag) => (
+                          <span key={tag} className="pager-pill">
+                            {tag}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </div>

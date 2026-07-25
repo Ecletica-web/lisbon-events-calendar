@@ -78,28 +78,28 @@ function FilterMultiSelect({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-300 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-pager-fg-muted mb-1">{label}</label>
       <input
         type="text"
         placeholder={placeholder}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg bg-slate-800/80 border border-slate-600/50 text-slate-200 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 mb-2"
+        className="pager-input text-sm mb-2"
       />
-      <div className="max-h-32 overflow-y-auto rounded-lg border border-slate-600/50 bg-slate-800/60 p-2 space-y-1">
+      <div className="max-h-32 overflow-y-auto border-2 border-pager-strong bg-pager-muted p-2 space-y-1">
         {filtered.length === 0 ? (
-          <p className="text-slate-500 text-sm py-2">No matches</p>
+          <p className="text-pager-fg-faint text-sm py-2">No matches</p>
         ) : (
           filtered.map((item) => (
             <label
               key={item.value}
-              className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-slate-700/50 cursor-pointer text-sm text-slate-200"
+              className="flex items-center gap-2 py-1.5 px-2 hover:bg-pager-muted cursor-pointer text-sm text-pager-fg"
             >
               <input
                 type="checkbox"
                 checked={selected.includes(item.value)}
                 onChange={() => toggle(item.value)}
-                className="rounded border-slate-600 text-indigo-600 focus:ring-indigo-500/50"
+                className="border-pager-strong text-pager-fg focus:ring-pager-accent"
               />
               {item.label}
             </label>
@@ -107,7 +107,7 @@ function FilterMultiSelect({
         )}
       </div>
       {selected.length > 0 && (
-        <p className="text-xs text-slate-400 mt-1">{selected.length} selected</p>
+        <p className="text-xs text-pager-fg-muted mt-1">{selected.length} selected</p>
       )}
     </div>
   )
@@ -265,45 +265,45 @@ export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps =
   }
 
   if (loading) {
-    return <p className="text-slate-500">Loading personas...</p>
+    return <p className="text-pager-fg-faint">Loading personas...</p>
   }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl sm:text-2xl font-semibold text-slate-200">My Personas</h2>
+        <h2 className="text-xl sm:text-2xl font-semibold text-pager-fg">My Personas</h2>
         <button
           onClick={openCreate}
-          className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-medium hover:from-indigo-500 hover:to-purple-500 transition-all"
+          className="pager-btn pager-btn-primary px-4 py-2 text-sm"
         >
           + Create Persona
         </button>
       </div>
 
-      <p className="text-slate-400 text-sm">
+      <p className="text-pager-fg-muted text-sm">
         Personas are custom views that apply your chosen filters (tags, categories, venues) to the calendar.
       </p>
 
       {personas.length === 0 ? (
-        <p className="text-slate-500 py-4">No personas yet. Create one to get started.</p>
+        <p className="text-pager-fg-faint py-4">No personas yet. Create one to get started.</p>
       ) : (
         <div className="space-y-2">
           {personas.map((p) => (
             <div
               key={p.id}
-              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-slate-600 transition-colors"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-pager-muted border-2 border-pager-strong hover:border-pager-strong transition-colors"
             >
               <div className="flex flex-wrap items-center gap-2">
                 <Link
                   href={`/calendar?personaId=${p.id}`}
-                  className="font-medium text-indigo-400 hover:text-indigo-300"
+                  className="font-medium pager-link"
                 >
                   {p.title}
                 </Link>
                 {p.is_public && p.share_slug && (
                   <Link
                     href={`/p/${p.share_slug}`}
-                    className="text-xs text-slate-400 hover:text-indigo-400"
+                    className="text-xs text-pager-fg-muted hover:text-pager-fg"
                   >
                     Share
                   </Link>
@@ -312,13 +312,13 @@ export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps =
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => openEdit(p)}
-                  className="px-3 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700/60 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-sm text-pager-fg-muted hover:text-pager-fg hover:bg-pager-muted transition-colors"
                 >
                   Edit filters
                 </button>
                 <button
                   onClick={() => handleDelete(p.id)}
-                  className="px-3 py-1.5 text-sm text-red-400 hover:bg-red-900/30 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-sm text-pager-fg hover:bg-pager-muted transition-colors"
                 >
                   Delete
                 </button>
@@ -336,23 +336,23 @@ export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps =
           aria-modal="true"
         >
           <div
-            className="bg-slate-800 border border-slate-600/50 rounded-t-2xl sm:rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]"
+            className="pager-panel w-full max-w-lg max-h-[90vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-4 sm:p-6">
-              <h3 className="text-lg font-semibold text-slate-200 mb-4">
+              <h3 className="text-lg font-semibold text-pager-fg mb-4">
                 {editingId ? 'Edit Persona' : 'Create Persona'}
               </h3>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Name</label>
+                  <label className="block text-sm font-medium text-pager-fg-muted mb-1">Name</label>
                   <input
                     type="text"
                     value={form.title}
                     onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                     placeholder="e.g. Jazz nights"
-                    className="w-full px-3 py-2 rounded-lg bg-slate-900/80 border border-slate-600/50 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="pager-input"
                     autoFocus
                   />
                 </div>
@@ -380,30 +380,30 @@ export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps =
                   </>
                 )}
 
-                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
+                <label className="flex items-center gap-3 cursor-pointer p-3 hover:bg-pager-muted transition-colors">
                   <input
                     type="checkbox"
                     checked={form.freeOnly}
                     onChange={(e) => setForm((f) => ({ ...f, freeOnly: e.target.checked }))}
-                    className="rounded border-slate-600 text-indigo-600 focus:ring-indigo-500/50"
+                    className="border-pager-strong text-pager-fg focus:ring-pager-accent"
                   />
-                  <span className="text-slate-200">Free events only</span>
+                  <span className="text-pager-fg">Free events only</span>
                 </label>
 
-                {error && <p className="text-red-400 text-sm">{error}</p>}
+                {error && <p className="text-pager-fg-muted text-sm">{error}</p>}
 
                 <div className="flex gap-3 pt-2">
                   <button
                     type="submit"
                     disabled={saving}
-                    className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-500 disabled:opacity-50 transition-colors"
+                    className="px-4 py-2 pager-btn pager-btn-primary disabled:opacity-50 transition-colors"
                   >
                     {saving ? 'Saving...' : editingId ? 'Update' : 'Create'}
                   </button>
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="px-4 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 transition-colors"
+                    className="px-4 py-2 pager-btn transition-colors"
                   >
                     Cancel
                   </button>

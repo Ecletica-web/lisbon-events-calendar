@@ -120,8 +120,8 @@ export default function EventActionButtons({
     done()
   }
 
-  const btnClass = 'p-2 rounded-lg border border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:text-white transition-colors disabled:opacity-50 min-w-[40px] min-h-[40px] flex items-center justify-center'
-  const activeClass = 'bg-indigo-600/50 text-indigo-200 border-indigo-500/50'
+  const btnClass = 'p-2 border-2 border-pager-strong text-pager-fg hover:bg-pager-muted transition-colors disabled:opacity-50 min-w-[40px] min-h-[40px] flex items-center justify-center bg-pager-bg'
+  const activeClass = 'bg-pager-accent text-pager-accent-fg'
 
   const ActionBtn = ({
     onClick,
@@ -186,14 +186,14 @@ export default function EventActionButtons({
       </ActionBtn>
       {showReminderMenu && (
         <div
-          className="absolute bottom-full left-0 mb-1 py-2 rounded-lg bg-slate-800 border border-slate-600/50 shadow-xl z-50 min-w-[160px]"
+          className="absolute bottom-full left-0 mb-1 py-2 pager-panel z-50 min-w-[160px]"
           onClick={(e) => e.stopPropagation()}
         >
           {REMINDER_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               onClick={() => handleReminder(opt.value)}
-              className="block w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-slate-700/60"
+              className="block w-full text-left px-4 py-2 text-sm text-pager-fg hover:bg-pager-muted"
             >
               {opt.label}
             </button>

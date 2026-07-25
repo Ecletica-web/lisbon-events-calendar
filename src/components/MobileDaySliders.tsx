@@ -122,10 +122,10 @@ export default function MobileDaySliders({
           {/* Day Header */}
           <div className="mb-3 px-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-bold text-white">
+              <h3 className="text-lg font-bold text-pager-fg">
                 {day.label}
               </h3>
-              <span className="text-sm text-slate-400">
+              <span className="text-sm text-pager-fg-muted">
                 {eventsByDay[index].length} event{eventsByDay[index].length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -136,12 +136,12 @@ export default function MobileDaySliders({
                 {selectedTags.map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-gradient-to-r from-indigo-600/80 to-purple-600/80 text-white border border-indigo-500/50"
+                    className="pager-pill inline-flex items-center gap-1.5"
                   >
                     {tag}
                     <button
                       onClick={() => handleRemoveTag(tag)}
-                      className="hover:bg-indigo-500/50 rounded-full p-0.5 transition-colors flex items-center justify-center"
+                      className="hover:opacity-70 p-0.5 transition-colors flex items-center justify-center"
                       aria-label={`Remove ${tag}`}
                     >
                       <svg
@@ -181,8 +181,8 @@ export default function MobileDaySliders({
               skipFiltering={true}
             />
           ) : (
-            <div className="text-center py-6 px-4 bg-slate-800/40 rounded-lg border border-slate-700/30 mx-4">
-              <div className="text-slate-400 text-sm">
+            <div className="text-center py-6 px-4 border-2 border-pager-strong bg-pager-muted mx-4">
+              <div className="text-pager-fg-muted text-sm">
                 {selectedTags.length > 0 || selectedCategories.length > 0 || freeOnly || excludeExhibitions || excludeContinuous
                   ? `No events for ${day.label.toLowerCase()} with current filters`
                   : `No events for ${day.label.toLowerCase()}`
