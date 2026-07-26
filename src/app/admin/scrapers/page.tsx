@@ -51,6 +51,7 @@ export default function AdminScrapersPage() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [aborting, setAborting] = useState(false)
+  const [restartingWorker, setRestartingWorker] = useState(false)
 
   const load = useCallback(async () => {
     const headers = await getAuthHeaders()
@@ -150,6 +151,29 @@ export default function AdminScrapersPage() {
       setMessage(e instanceof Error ? e.message : 'Invalid JSON')
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function restartWorker() {
+    setRestartingWorker(true)
+    setMessage(null)
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/pipeline/worker', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restart' }),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error || 'Restart failed')
+      setMessage(j.message || 'Worker restart requested')
+      // Heartbeat updates after the new process boots
+      await new Promise((r) => setTimeout(r, 3000))
+      await load()
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Error')
+    } finally {
+      setRestartingWorker(false)
     }
   }
 
@@ -260,10 +284,21 @@ export default function AdminScrapersPage() {
       <section className="rounded-lg border border-slate-700 bg-slate-800/40 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h2 className="text-lg font-medium text-white">Run scrapers</h2>
-          <span className="text-xs text-slate-400">
-            Worker heartbeat:{' '}
-            {workerHb ? new Date(workerHb).toLocaleString() : 'never — run npm run worker'}
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-slate-400">
+              Worker heartbeat:{' '}
+              {workerHb ? new Date(workerHb).toLocaleString() : 'never — run npm run worker'}
+            </span>
+            <button
+              type="button"
+              disabled={restartingWorker || busy}
+              onClick={() => void restartWorker()}
+              className="text-xs px-2.5 py-1 rounded border border-slate-500 bg-slate-700 text-slate-100 hover:bg-slate-600 disabled:opacity-50"
+              title="Stop the local worker if running and start a fresh one (Next must be local)"
+            >
+              {restartingWorker ? 'Restarting…' : 'Restart worker'}
+            </button>
+          </div>
         </div>
         <p className="text-xs text-slate-400">
           Separate scrapers: <span className="text-slate-300">profile-images</span> (venue + promoter

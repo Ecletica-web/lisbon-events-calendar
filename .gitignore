@@ -28,6 +28,7 @@ yarn-error.log*
 .env*.local
 .env
 pipeline/.env
+pipeline/.worker.pid
 
 # GCP service account keys (never commit)
 lisbon-events-calendar-*.json

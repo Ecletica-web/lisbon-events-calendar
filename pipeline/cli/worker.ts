@@ -4,12 +4,16 @@
  *   cd pipeline && npm run worker
  *
  * Keep this running on a machine with Apify/OpenAI/ffmpeg access (not Vercel).
+ * Admin /scrapers "Restart worker" signals via pipeline_config and may respawn locally.
  */
 
+import fs from 'fs'
+import path from 'path'
 import { getConfig } from '../config'
 import {
   appendRunLogLine,
   claimNextQueuedRun,
+  consumeWorkerRestartRequest,
   isAbortRequested,
   isSupabaseStoreConfigured,
   PipelineAbortedError,
@@ -19,12 +23,30 @@ import {
 import { parseFlags, runCommand, type CliFlags } from './run'
 
 const POLL_MS = 10_000
+const PID_FILE = path.join(process.cwd(), '.worker.pid')
+const workerStartedAt = new Date()
 
 function isAbortError(err: unknown): boolean {
   return (
     err instanceof PipelineAbortedError ||
     (err instanceof Error && err.name === 'PipelineAbortedError')
   )
+}
+
+function writePidFile(): void {
+  try {
+    fs.writeFileSync(PID_FILE, String(process.pid), 'utf8')
+  } catch (err) {
+    console.warn('[worker] could not write PID file:', err instanceof Error ? err.message : err)
+  }
+}
+
+function clearPidFile(): void {
+  try {
+    if (fs.existsSync(PID_FILE)) fs.unlinkSync(PID_FILE)
+  } catch {
+    /* ignore */
+  }
 }
 
 async function executeRun(run: {
@@ -139,12 +161,17 @@ async function executeRun(run: {
   }
 }
 
-async function tick(): Promise<void> {
+async function tick(): Promise<'ok' | 'restart'> {
   await touchWorkerHeartbeat()
+  if (await consumeWorkerRestartRequest(workerStartedAt)) {
+    console.log('[worker] restart requested — exiting after current idle tick')
+    return 'restart'
+  }
   const run = await claimNextQueuedRun()
-  if (!run) return
+  if (!run) return 'ok'
   console.log(`[worker] claimed ${run.id} mode=${run.mode}`)
   await executeRun(run)
+  return 'ok'
 }
 
 async function main(): Promise<void> {
@@ -155,12 +182,31 @@ async function main(): Promise<void> {
     return
   }
 
+  writePidFile()
+  const shutdown = () => {
+    clearPidFile()
+  }
+  process.on('exit', shutdown)
+  process.on('SIGINT', () => {
+    shutdown()
+    process.exit(0)
+  })
+  process.on('SIGTERM', () => {
+    shutdown()
+    process.exit(0)
+  })
+
   console.log(`[worker] polling every ${POLL_MS / 1000}s for queued pipeline_runs…`)
+  console.log(`[worker] pid=${process.pid} pidFile=${PID_FILE}`)
   await touchWorkerHeartbeat()
 
   for (;;) {
     try {
-      await tick()
+      const result = await tick()
+      if (result === 'restart') {
+        clearPidFile()
+        process.exit(0)
+      }
     } catch (err) {
       console.error('[worker] tick error:', err instanceof Error ? err.message : err)
     }
@@ -170,5 +216,6 @@ async function main(): Promise<void> {
 
 main().catch((err) => {
   console.error('[worker] fatal:', err)
+  clearPidFile()
   process.exitCode = 1
 })

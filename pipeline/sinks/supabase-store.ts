@@ -708,6 +708,36 @@ export async function touchWorkerHeartbeat(): Promise<void> {
     })
 }
 
+/** Admin "Restart worker" sets config_json.worker_restart_requested_at (ISO). */
+export async function consumeWorkerRestartRequest(workerStartedAt: Date): Promise<boolean> {
+  if (!isSupabaseStoreConfigured()) return false
+  const sb = getSupabaseStore()
+  const { data } = await sb
+    .from('pipeline_config')
+    .select('config_json')
+    .eq('id', 'default')
+    .maybeSingle()
+  const json =
+    data?.config_json && typeof data.config_json === 'object' && !Array.isArray(data.config_json)
+      ? (data.config_json as Record<string, unknown>)
+      : {}
+  const raw = json.worker_restart_requested_at
+  if (typeof raw !== 'string' || !raw) return false
+  const requestedMs = Date.parse(raw)
+  if (!Number.isFinite(requestedMs) || requestedMs < workerStartedAt.getTime()) return false
+
+  const next = { ...json }
+  delete next.worker_restart_requested_at
+  await sb
+    .from('pipeline_config')
+    .upsert({
+      id: 'default',
+      config_json: next,
+      updated_at: new Date().toISOString(),
+    })
+  return true
+}
+
 export async function readLastSuccessfulScrapeAt(): Promise<string | null> {
   if (!isSupabaseStoreConfigured()) return null
   const sb = getSupabaseStore()
