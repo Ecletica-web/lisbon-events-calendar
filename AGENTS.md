@@ -29,9 +29,12 @@ Regenerate PDFs: `python scripts/md-to-replication-pdfs.py`
 ## One-paragraph essence
 
 Instagram watchlist (Google Sheets **Fontes IG**) → Apify scrape → tiered AI
-extraction in `pipeline/` → high-confidence rows to **Processed Events**,
-low-confidence to Supabase review → human Tier 6 → `publish` to **Events Clean
-New** CSV → Next.js calendar + For You. Supabase holds auth, social, and all
+extraction in `pipeline/` → **hard gates + calculated confidence** (auto-repair,
+canonical venue required, no promoter-as-venue) → high-confidence rows to
+**Processed Events**, soft failures to Supabase review → Tier 5 verify /
+human Tier 6 (`publish_auth=human_approved`) → `publish` only ships
+**mechanically safe + verified|human_approved** rows to **Events Clean New**
+CSV → Next.js calendar + For You. Supabase holds auth, social, and all
 pipeline artifacts; Sheets remain the human-editable calendar SoT.
 
 ---
@@ -70,11 +73,13 @@ pipeline artifacts; Sheets remain the human-editable calendar SoT.
 
 ```
 Fontes IG Venues/Promoters → Apify → pipeline_posts
-         → Tier 0–4 + merge + validate + venue + dedupe
-         → pass → Processed Events (Sheets)
+         → Tier 0–4 (evidence-bound) + merge (min conf − conflicts)
+         → reconcile lineup → auto-repair → venue resolve → validate
+         → pass → Processed Events (publish_auth empty until verify/human)
          → review/fail → pipeline_review_queue → /admin/event-review (Tier 6)
-         → Tier 5 verify (suggestions only; unclean → review)
-         → npm run publish → Events Clean New CSV → app loaders → UI
+         → Tier 5 verify (suggestions only; unclean → review; never edits Processed)
+         → npm run publish → only safe + (clean verified | human_approved)
+           → Events Clean New CSV → app loaders → UI
 ```
 
 Modes: `profile-images` | `scrape` | `extract` | `verify` | `full` | `publish`.  
@@ -87,19 +92,30 @@ Modes: `profile-images` | `scrape` | `extract` | `verify` | `full` | `publish`.
 | Tier | Module | Role |
 |------|--------|------|
 | 0 | `intelligence/pre-filter.ts` | Keep/discard; `post_pattern` |
-| 1 | `intelligence/broad-event-extraction.ts` | Caption → structured events |
+| 1 | `intelligence/broad-event-extraction.ts` | Caption → structured events (evidence-bound) |
 | 3 | `intelligence/carousel-event-vision.ts` | Image/carousel vision (+ OCR) |
 | 4 | `intelligence/video-event-extraction.ts` | Frames + Whisper |
-| merge | `intelligence/merge-extractions.ts` | Caption ↔ vision |
-| validate | `qualification/validate-event.ts` | pass / review / fail (conf ≥ ~0.7) |
+| merge | `intelligence/merge-extractions.ts` | Caption ↔ vision; **min** conf − conflict penalties |
+| reconcile | `qualification/reconcile-post-events.ts` | Collapse same-night lineup / dupe slides |
+| repair | `qualification/auto-repair.ts` | Overnight ends, `24:00`, placeholder URLs, free/price |
+| conf | `qualification/calculated-confidence.ts` | Field-evidence score (not model self-report) |
+| venue | `qualification/venue-resolve.ts` | Canonical venue; **no** promoter owner-fallback |
+| validate | `qualification/validate-event.ts` | Hard gates → pass / review / fail |
 | 5 | `intelligence/event-verification.ts` | Web verify; never auto-edits Processed |
-| 6 | Admin UI | Human approve/reject → Processed |
+| 6 | Admin UI | Human approve → Processed + Clean with `publish_auth=human_approved` |
 
 Vision runs only if caption lacks title, valid start, or venue (or `--force-vision`).  
 Models: text `gpt-4o-mini`; vision Nemotron VL → `gpt-4o`; verify `gpt-4o` + Brave optional.
 
+**Publish gate:** `qualification/publish-safe.ts` — mechanical invariants **and**
+(`publish_auth=human_approved` **or** clean Tier 5 `verified` without suggested corrections).
+
+**Ops scripts** (`pipeline/scripts/`): `quarantine-publish-unsafe`, `expire-review-queue`,
+`re-resolve-review-queue`, `unresolved-venues-report`. Selftest: `npm run test:gates`.
+
 Orchestrator: `pipeline/process-post.ts`.
 
+**Product accuracy notes:** `is_free` is tri-state (`true` / `false` / empty unknown — Free badge only when true). City comes from resolved venue (not hardcoded Lisboa when known). Categories normalized via `normalize-category.ts`.
 ---
 
 ## Storage split
@@ -153,10 +169,14 @@ CSV column contract: `docs/SCHEMA.md`. Pipeline runbook: `docs/PIPELINE.md`.
 | For You | `app/api/foryou/route.ts`, `lib/recommendationEngine.ts` |
 | Recommendation telemetry | `lib/recommendationTelemetry.ts`, `docs/RECOMMENDATION_TELEMETRY.md`, migration `023` |
 | Scraping / AI | `pipeline/` (`process-post.ts`, `cli/run.ts`, `cli/worker.ts`) |
+| Publish gates / repair | `pipeline/qualification/publish-safe.ts`, `auto-repair.ts`, `validate-event.ts` |
+| Venue resolve (no promoter-as-venue) | `pipeline/qualification/venue-resolve.ts` |
 | IG sources SoT | Fontes IG tabs → `readWatchlist` / `venue-resolve.ts` |
 | Admin ops | `/admin`, `lib/adminPipeline.ts`, `lib/googleSheets.ts` |
+| User bug feedback | `components/FeedbackButton.tsx`, `lib/userBugReports.ts`, `/admin/bugs` |
+| Review recovery scripts | `pipeline/scripts/{quarantine,expire,re-resolve,unresolved-venues}*` |
 | Review feedback | `lib/adminEventReviewFeedback.ts`, `event_review_feedback` |
-| Env / migrations | `docs/SETUP.md`, `supabase/migrations/` (001→022) |
+| Env / migrations | `docs/SETUP.md`, `supabase/migrations/` (001→023) |
 | Replication PDFs | `docs/replication/pdf/` |
 
 ---

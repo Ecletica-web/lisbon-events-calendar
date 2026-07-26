@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Navigation from '@/components/Navigation'
+import FeedbackButton from '@/components/FeedbackButton'
 import ConditionalSessionProvider from '@/components/ConditionalSessionProvider'
 import { SupabaseAuthProvider } from '@/lib/auth/supabaseAuth'
 import { UserActionsProvider } from '@/contexts/UserActionsContext'
@@ -52,6 +53,7 @@ export default function RootLayout({
                   <Navigation />
                 </header>
                 <main className="relative z-0 overflow-visible shrink-0">{children}</main>
+                <FeedbackButton />
               </UserActionsProvider>
             </ThemeProvider>
           </SupabaseAuthProvider>
