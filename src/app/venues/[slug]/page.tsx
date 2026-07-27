@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { fetchVenues, fetchEvents } from '@/lib/eventsAdapter'
@@ -10,10 +10,21 @@ import { getCategoryColor } from '@/lib/categoryColors'
 import FollowVenueButton from '@/components/FollowVenueButton'
 import EventModal from '@/app/calendar/components/EventModal'
 import { EventImageThumb } from '@/components/EventImageGallery'
+import { normalizeVenueSlugParam, slugifyVenueSegment } from '@/lib/venuePath'
+
+function venuePlaceholderDataUri(label: string): string {
+  const initial = (label || '?').trim().charAt(0).toUpperCase() || '?'
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
+  <rect width="800" height="450" fill="#111"/>
+  <text x="400" y="250" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="120" fill="#fff">${initial}</text>
+</svg>`
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
 
 export default function VenueDetailPage() {
   const params = useParams()
-  const slug = typeof params.slug === 'string' ? params.slug : ''
+  const rawSlug = typeof params.slug === 'string' ? params.slug : ''
+  const slug = normalizeVenueSlugParam(rawSlug)
 
   const [venues, setVenues] = useState<Awaited<ReturnType<typeof fetchVenues>>>([])
   const [events, setEvents] = useState<NormalizedEvent[]>([])
@@ -42,36 +53,45 @@ export default function VenueDetailPage() {
     load()
   }, [])
 
-  const venue = venues.find((v) => v.slug === slug || v.venue_id === slug)
+  const venue = useMemo(() => {
+    return venues.find((v) => {
+      const candidates = [v.slug, v.venue_id, v.name].filter(Boolean).map((s) => slugifyVenueSegment(String(s)))
+      return candidates.includes(slug) || v.slug === rawSlug || v.venue_id === rawSlug
+    })
+  }, [venues, slug, rawSlug])
+
   const now = Date.now()
-  const venueMatchKeys = new Set<string>([slug, venue?.venue_id, venue?.slug].filter(Boolean) as string[])
+  const venueMatchKeys = new Set<string>(
+    [slug, venue?.venue_id, venue?.slug, venue?.name ? slugifyVenueSegment(venue.name) : '']
+      .filter(Boolean)
+      .map((s) => slugifyVenueSegment(String(s)))
+  )
+
   const upcomingEvents = events
     .filter((e) => {
       const eventVenueId = e.extendedProps.venueId
       const eventVenueKey = e.extendedProps.venueKey
-      const eventKeyFromName = (e.extendedProps.venueName || '')
-        .toLowerCase()
-        .trim()
-        .normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9-]/g, '') || ''
+      const eventKeyFromName = slugifyVenueSegment(e.extendedProps.venueName || '')
       const matches =
-        (eventVenueId && venueMatchKeys.has(eventVenueId)) ||
-        (eventVenueKey && venueMatchKeys.has(eventVenueKey)) ||
+        (eventVenueId && (venueMatchKeys.has(slugifyVenueSegment(eventVenueId)) || venueMatchKeys.has(eventVenueId))) ||
+        (eventVenueKey && (venueMatchKeys.has(slugifyVenueSegment(eventVenueKey)) || venueMatchKeys.has(eventVenueKey))) ||
         (eventKeyFromName && venueMatchKeys.has(eventKeyFromName))
       return !!matches && new Date(e.start).getTime() >= now
     })
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 
   const displayName = venue?.name || upcomingEvents[0]?.extendedProps.venueName || slug
+  const heroSrc =
+    venue?.primary_image_url ||
+    upcomingEvents[0]?.extendedProps.imageUrl ||
+    venuePlaceholderDataUri(displayName)
 
   if (!venue && upcomingEvents.length === 0 && !loading) {
     return (
-      <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center">
+      <div className="min-h-screen bg-pager-bg text-pager-fg flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-xl font-bold mb-4">Venue not found</h1>
-          <Link href="/venues" className="text-indigo-400 hover:text-indigo-300">
+          <Link href="/venues" className="pager-link">
             ← Back to Venues
           </Link>
         </div>
@@ -83,30 +103,27 @@ export default function VenueDetailPage() {
     new Intl.DateTimeFormat('en-GB', { dateStyle: 'full', timeStyle: 'short', timeZone: 'Europe/Lisbon' }).format(d)
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100">
+    <div className="min-h-screen bg-pager-bg text-pager-fg">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <Link
-          href="/venues"
-          className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
-        >
+        <Link href="/venues" className="inline-flex items-center gap-2 pager-link mb-6">
           ← Back to Venues
         </Link>
 
-        {/* Richer header */}
-        <div className="mb-6 sm:mb-8 rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden">
-          <div className="aspect-[16/10] sm:aspect-[21/9] bg-slate-700/50 flex-shrink-0">
+        <div className="mb-6 sm:mb-8 border-2 border-pager-strong bg-pager-elevated overflow-hidden">
+          <div className="aspect-[16/10] sm:aspect-[21/9] bg-pager-muted flex-shrink-0">
             <img
-              src={venue?.primary_image_url || '/lisboa.png'}
+              src={heroSrc}
               alt=""
               className="w-full h-full object-cover"
-              onError={(e) => { e.currentTarget.src = '/lisboa.png' }}
+              onError={(e) => {
+                e.currentTarget.onerror = null
+                e.currentTarget.src = venuePlaceholderDataUri(displayName)
+              }}
             />
           </div>
           <div className="p-4 sm:p-6">
             <div className="flex items-center gap-3 flex-wrap mb-2">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                {displayName}
-              </h1>
+              <h1 className="text-2xl font-bold pager-heading">{displayName}</h1>
               <FollowVenueButton
                 venueId={(venue?.venue_id || venue?.slug || slug).toString()}
                 displayName={displayName}
@@ -115,12 +132,12 @@ export default function VenueDetailPage() {
               />
             </div>
             {(venue?.neighborhood || venue?.venue_address) && (
-              <p className="text-slate-300">
+              <p className="text-pager-fg-muted">
                 {[venue?.neighborhood, venue?.venue_address].filter(Boolean).join(' · ')}
               </p>
             )}
             {venue?.description_short && (
-              <p className="text-slate-300 mt-3">{venue.description_short}</p>
+              <p className="text-pager-fg-muted mt-3">{venue.description_short}</p>
             )}
             <div className="flex flex-wrap gap-4 mt-4">
               {venue?.website_url && (
@@ -128,7 +145,7 @@ export default function VenueDetailPage() {
                   href={venue.website_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-indigo-400 hover:text-indigo-300 text-sm font-medium"
+                  className="pager-link text-sm font-medium"
                 >
                   Website
                 </a>
@@ -138,33 +155,21 @@ export default function VenueDetailPage() {
                   href={`https://instagram.com/${venue.instagram_handle.replace(/^@/, '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-indigo-400 hover:text-indigo-300 text-sm font-medium"
+                  className="pager-link text-sm font-medium"
                 >
                   Instagram
                 </a>
               )}
             </div>
-            {venue && venue.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-4">
-                {venue.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="px-2 py-0.5 rounded text-xs bg-slate-700/60 text-slate-200"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
         <h2 className="text-lg font-semibold mb-4">Upcoming events</h2>
 
         {loading ? (
-          <div className="text-slate-400">Loading events...</div>
+          <div className="text-pager-fg-muted">Loading events...</div>
         ) : upcomingEvents.length === 0 ? (
-          <p className="text-slate-400">No upcoming events at this venue.</p>
+          <p className="text-pager-fg-muted">No upcoming events at this venue.</p>
         ) : (
           <ul className="space-y-4">
             {upcomingEvents.map((event) => {
@@ -179,44 +184,36 @@ export default function VenueDetailPage() {
                     logActivity('view_event_modal', 'event', event.id, { title: event.title })
                   }}
                   onKeyDown={(e) => e.key === 'Enter' && setSelectedEvent(event)}
-                  className="rounded-lg bg-slate-800/60 border border-slate-700/50 overflow-hidden cursor-pointer hover:border-slate-600 transition-colors"
+                  className="border-2 border-pager-border bg-pager-elevated overflow-hidden cursor-pointer hover:bg-pager-muted transition-colors"
                 >
                   <div className="p-4 flex flex-col sm:flex-row gap-4">
                     <EventImageThumb
                       imageUrl={event.extendedProps.imageUrl}
                       imageUrls={event.extendedProps.imageUrls}
                       alt={event.title}
-                      className="w-full sm:w-24 h-40 sm:h-24 rounded flex-shrink-0"
+                      className="w-full sm:w-24 h-40 sm:h-24 flex-shrink-0 border border-pager-border"
                     />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-lg">{event.title}</h3>
-                      <p className="text-slate-400 text-sm mt-1">
+                      <p className="text-pager-fg-muted text-sm mt-1">
                         {formatDate(new Date(event.start))}
                         {event.end && ` – ${formatDate(new Date(event.end))}`}
                       </p>
                       {event.extendedProps.descriptionShort && (
-                        <p className="text-slate-300 text-sm mt-2 line-clamp-2">
+                        <p className="text-pager-fg-muted text-sm mt-2 line-clamp-2">
                           {event.extendedProps.descriptionShort}
                         </p>
                       )}
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {event.extendedProps.category && (
+                      {event.extendedProps.category && (
+                        <div className="flex flex-wrap gap-2 mt-2">
                           <span
-                            className="px-2 py-0.5 rounded text-xs font-medium text-white"
-                            style={{ backgroundColor: categoryColor }}
+                            className="px-2 py-0.5 text-xs font-medium border"
+                            style={{ borderColor: categoryColor, color: categoryColor }}
                           >
                             {event.extendedProps.category}
                           </span>
-                        )}
-                        {event.extendedProps.tags.slice(0, 3).map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-2 py-0.5 rounded text-xs bg-slate-700/60 text-slate-200"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </li>

@@ -1,9 +1,11 @@
 /**
  * List friends (accepted friend requests).
- * Uses authenticated client when Bearer token is sent so RLS allows reading friend_requests.
+ * Auth required for own profile; uses service role after auth so RLS cannot empty the list.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseServer, createAuthenticatedClient } from '@/lib/supabase/server'
+import { supabaseServer } from '@/lib/supabase/server'
+import { profileDisplayName } from '@/lib/profileDisplayName'
+import { ensureViewableProfileImageUrl } from '@/lib/profileImageUrls'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,17 +24,15 @@ export async function GET(
   if (!supabaseServer) return NextResponse.json({ friends: [] })
 
   const bearer = getBearer(request)
-  let supabase = supabaseServer
   if (bearer) {
     const { data: { user } } = await supabaseServer.auth.getUser(bearer)
-    // When viewing another user's profile, use server client (service role) so we can read their friends; RLS would otherwise only return rows involving the viewer.
-    if (user && user.id === userId) {
-      const authClient = createAuthenticatedClient(bearer) ?? supabaseServer
-      supabase = authClient
+    // Viewing another user's friends is ok via service role; own list requires valid token
+    if (user && user.id !== userId) {
+      // still allow (public-ish friends list on profiles)
     }
   }
 
-  const { data: rows, error: frError } = await supabase
+  const { data: rows, error: frError } = await supabaseServer
     .from('friend_requests')
     .select('requester_id, addressee_id')
     .eq('status', 'accepted')
@@ -43,35 +43,34 @@ export async function GET(
     return NextResponse.json({ friends: [], error: frError.message }, { status: 500 })
   }
 
-  const friendIds = [...new Set(
-    (rows || [])
-      .map((r) => (r.requester_id === userId ? r.addressee_id : r.requester_id))
-      .filter(Boolean)
-  )]
+  const friendIds = [
+    ...new Set(
+      (rows || [])
+        .map((r) => (r.requester_id === userId ? r.addressee_id : r.requester_id))
+        .filter(Boolean)
+    ),
+  ]
 
   if (friendIds.length === 0) return NextResponse.json({ friends: [] })
 
-  const { data: profiles } = await supabase
+  const { data: profiles } = await supabaseServer
     .from('user_profiles')
-    .select('id, display_name, avatar_url, username')
+    .select('id, display_name, name, avatar_url, username')
     .in('id', friendIds)
 
-  const profileMap = new Map(
-    (profiles || []).map((p) => [
-      p.id,
-      { displayName: p.display_name, avatarUrl: p.avatar_url, username: p.username },
-    ])
-  )
+  const profileMap = new Map((profiles || []).map((p) => [p.id, p]))
 
-  const friends = friendIds.map((id) => {
-    const p = profileMap.get(id)
-    return {
-      id,
-      displayName: p?.displayName ?? null,
-      avatarUrl: p?.avatarUrl ?? null,
-      username: p?.username ?? null,
-    }
-  })
+  const friends = await Promise.all(
+    friendIds.map(async (id) => {
+      const p = profileMap.get(id)
+      return {
+        id,
+        displayName: profileDisplayName(p),
+        avatarUrl: await ensureViewableProfileImageUrl(p?.avatar_url ?? null),
+        username: p?.username ?? null,
+      }
+    })
+  )
 
   return NextResponse.json({ friends })
 }

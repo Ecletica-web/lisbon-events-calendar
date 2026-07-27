@@ -119,13 +119,17 @@ export default function AddFriendButton({
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ action: 'accept' }),
       })
-      if (res.ok) {
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && (data.action === 'accepted' || data.action === 'already_friends')) {
         versionRef.current += 1
         if (!isControlled) setInternalStatus('friends')
         onStatusChangeRef.current?.('friends')
+      } else {
+        setError(data.error || `Failed to accept (${res.status})`)
       }
     } catch (e) {
       console.error('Accept friend request error:', e)
+      setError('Failed to accept friend request')
     } finally {
       setLoading(false)
     }

@@ -6,6 +6,18 @@ import type { NormalizedEvent } from '@/lib/eventsAdapter'
 import type { ViewState } from '@/lib/viewState'
 import FollowButton from '@/components/FollowButton'
 import { EventImageThumb } from '@/components/EventImageGallery'
+import {
+  addDaysKey,
+  addMonthsKey,
+  lisbonDateKey,
+  lisbonMonthBoundsFromKey,
+  lisbonTodayKey,
+  lisbonWeekBoundsFromKey,
+  parseDateKeyLocal,
+  lisbonDayBoundsFromKey,
+  lisbonStartOfToday,
+} from '@/lib/lisbonDate'
+import { venueHrefFromEvent } from '@/lib/venuePath'
 
 interface EventListViewProps {
   events: NormalizedEvent[]
@@ -15,7 +27,10 @@ interface EventListViewProps {
   onDateChange?: (newDateFocus: string) => void
   /** When true, parent renders the date nav (e.g. in combined toolbar); this component only renders events */
   hideDateNav?: boolean
-  /** When true, show all events without date filtering (e.g. for "All" range) */
+  /**
+   * When true, skip calendar-period filter but still hide past events
+   * (upcoming-from-today). Used for the "All" range.
+   */
   skipDateFilter?: boolean
   /** When near me is on, show distance per event */
   userPos?: { lat: number; lng: number } | null
@@ -82,9 +97,9 @@ export default function EventListView({
   const getEventDistanceKm = (e: NormalizedEvent): number | null => {
     if (!userPos || !venueCoordsMap) return null
     const norm = (s: string) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
-    const lat = e.extendedProps?.latitude
-    const lng = e.extendedProps?.longitude
-    if (typeof lat === 'number' && typeof lng === 'number') {
+    const lat = Number(e.extendedProps?.latitude)
+    const lng = Number(e.extendedProps?.longitude)
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
       return haversineDistanceKm(userPos.lat, userPos.lng, lat, lng)
     }
     const vid = e.extendedProps?.venueId
@@ -97,60 +112,42 @@ export default function EventListView({
     if (!coords) return null
     return haversineDistanceKm(userPos.lat, userPos.lng, coords.lat, coords.lng)
   }
-  const getDateRange = () => {
-    const focusDate = new Date(dateFocus)
-    const year = focusDate.getFullYear()
-    const month = focusDate.getMonth()
-    const day = focusDate.getDate()
 
+  const getDateRange = () => {
     if (calendarView === 'dayGridMonth') {
-      const start = new Date(year, month, 1)
-      const end = new Date(year, month + 1, 0, 23, 59, 59)
-      return { start, end }
-    } else if (calendarView === 'timeGridWeek') {
-      const start = new Date(focusDate)
-      const dayOfWeek = start.getDay()
-      const diff = start.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
-      start.setDate(diff)
-      start.setHours(0, 0, 0, 0)
-      const end = new Date(start)
-      end.setDate(end.getDate() + 7)
-      return { start, end }
-    } else {
-      const start = new Date(year, month, day, 0, 0, 0)
-      const end = new Date(year, month, day, 23, 59, 59)
-      return { start, end }
+      return lisbonMonthBoundsFromKey(dateFocus)
     }
+    if (calendarView === 'timeGridWeek') {
+      return lisbonWeekBoundsFromKey(dateFocus)
+    }
+    return lisbonDayBoundsFromKey(dateFocus)
   }
 
   const { start, end } = getDateRange()
-  const filteredEvents = skipDateFilter
-    ? [...events].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-    : events
-        .filter((event) => {
+  const upcomingFloor = lisbonStartOfToday()
+
+  const filteredEvents = (
+    skipDateFilter
+      ? events.filter((event) => new Date(event.start).getTime() >= upcomingFloor.getTime())
+      : events.filter((event) => {
           const eventDate = new Date(event.start)
           return eventDate >= start && eventDate <= end
         })
-        .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+  ).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 
   const eventsByDay = new Map<string, NormalizedEvent[]>()
   filteredEvents.forEach((event) => {
-    const eventDate = new Date(event.start)
-    const dayKey = eventDate.toISOString().split('T')[0]
+    const dayKey = lisbonDateKey(new Date(event.start))
     if (!eventsByDay.has(dayKey)) eventsByDay.set(dayKey, [])
     eventsByDay.get(dayKey)!.push(event)
   })
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const today = new Date()
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-    const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    const tomorrowDay = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate())
-    if (dateDay.getTime() === todayDay.getTime()) return 'Today'
-    if (dateDay.getTime() === tomorrowDay.getTime()) return 'Tomorrow'
+    const todayKey = lisbonTodayKey()
+    const tomorrowKey = addDaysKey(todayKey, 1)
+    if (dateStr === todayKey) return 'Today'
+    if (dateStr === tomorrowKey) return 'Tomorrow'
+    const date = parseDateKeyLocal(dateStr)
     return date.toLocaleDateString('en-GB', {
       weekday: 'long',
       day: 'numeric',
@@ -162,62 +159,61 @@ export default function EventListView({
   const formatTime = (event: NormalizedEvent) => {
     const opensAt = event.extendedProps?.opensAt
     if (opensAt) return `Opens ${opensAt}`
-    const start = new Date(event.start)
+    const startDt = new Date(event.start)
     const endDt = event.end ? new Date(event.end) : null
-    const startTime = start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+    const startTime = startDt.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Europe/Lisbon',
+    })
     if (endDt) {
-      const endTime = endDt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+      const endTime = endDt.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Europe/Lisbon',
+      })
       return `${startTime} – ${endTime}`
     }
     return startTime
   }
 
   const getPeriodTitle = () => {
-    const focusDate = new Date(dateFocus)
+    const focusDate = parseDateKeyLocal(dateFocus)
     if (calendarView === 'dayGridMonth') {
       return focusDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
     }
     if (calendarView === 'timeGridWeek') {
-      const start = new Date(focusDate)
-      const dayOfWeek = start.getDay()
-      const diff = start.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
-      start.setDate(diff)
-      const end = new Date(start)
-      end.setDate(end.getDate() + 6)
-      return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+      const { start: ws, end: we } = lisbonWeekBoundsFromKey(dateFocus)
+      return `${ws.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/Lisbon' })} – ${we.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Lisbon' })}`
     }
     return focusDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   }
 
   const goPrev = () => {
     if (!onDateChange) return
-    const d = new Date(dateFocus)
     if (calendarView === 'dayGridMonth') {
-      d.setMonth(d.getMonth() - 1)
+      onDateChange(addMonthsKey(dateFocus, -1))
     } else if (calendarView === 'timeGridWeek') {
-      d.setDate(d.getDate() - 7)
+      onDateChange(addDaysKey(dateFocus, -7))
     } else {
-      d.setDate(d.getDate() - 1)
+      onDateChange(addDaysKey(dateFocus, -1))
     }
-    onDateChange(d.toISOString().split('T')[0])
   }
 
   const goNext = () => {
     if (!onDateChange) return
-    const d = new Date(dateFocus)
     if (calendarView === 'dayGridMonth') {
-      d.setMonth(d.getMonth() + 1)
+      onDateChange(addMonthsKey(dateFocus, 1))
     } else if (calendarView === 'timeGridWeek') {
-      d.setDate(d.getDate() + 7)
+      onDateChange(addDaysKey(dateFocus, 7))
     } else {
-      d.setDate(d.getDate() + 1)
+      onDateChange(addDaysKey(dateFocus, 1))
     }
-    onDateChange(d.toISOString().split('T')[0])
   }
 
   const goToday = () => {
     if (!onDateChange) return
-    onDateChange(new Date().toISOString().split('T')[0])
+    onDateChange(lisbonTodayKey())
   }
 
   const showNav = Boolean(onDateChange && !hideDateNav)
@@ -310,7 +306,7 @@ export default function EventListView({
                       {event.extendedProps.venueName && (
                         <div className="flex items-center gap-2 flex-wrap mb-2" onClick={(e) => e.stopPropagation()}>
                           <Link
-                            href={`/venues/${encodeURIComponent(event.extendedProps.venueId || event.extendedProps.venueKey || event.extendedProps.venueName?.toLowerCase().replace(/\s+/g, '-') || '')}`}
+                            href={venueHrefFromEvent(event)}
                             className="text-sm pager-link"
                           >
                             {event.extendedProps.venueName}
@@ -323,18 +319,13 @@ export default function EventListView({
                           />
                         </div>
                       )}
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {event.extendedProps.category && (
+                      {event.extendedProps.category && (
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <span className="pager-pill pager-pill-active">
                             {event.extendedProps.category}
                           </span>
-                        )}
-                        {event.extendedProps.tags.slice(0, 3).map((tag) => (
-                          <span key={tag} className="pager-pill">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

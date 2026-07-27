@@ -16,6 +16,7 @@ import { useUserActions } from '@/contexts/UserActionsContext'
 import { getEventReasons } from '@/lib/eventReasons'
 import { trackRecommendationAction } from '@/lib/recommendationTelemetryClient'
 import { useRecommendationSession } from '@/contexts/RecommendationSessionContext'
+import { venueHref } from '@/lib/venuePath'
 
 interface EventModalProps {
   event: NormalizedEvent | null
@@ -243,7 +244,11 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
               <strong className="text-pager-fg text-xs">Venue:</strong>{' '}
               <div className="flex items-center gap-2 flex-wrap mt-0.5">
                 <Link
-                  href={`/venues/${encodeURIComponent(props.venueId || props.venueKey || props.venueName?.toLowerCase().replace(/\s+/g, '-') || '')}`}
+                  href={venueHref({
+                    venueId: props.venueId,
+                    venueKey: props.venueKey,
+                    venueName: props.venueName,
+                  })}
                   className="pager-link text-xs"
                 >
                   {props.venueName}

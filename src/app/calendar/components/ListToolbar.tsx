@@ -1,4 +1,11 @@
 import type { ViewState } from '@/lib/viewState'
+import {
+  addDaysKey,
+  addMonthsKey,
+  lisbonTodayKey,
+  lisbonWeekBoundsFromKey,
+  parseDateKeyLocal,
+} from '@/lib/lisbonDate'
 
 const RADIUS_OPTIONS_KM = [2, 5, 10, 15, 25, 50] as const
 
@@ -53,37 +60,28 @@ export function ListToolbar({
   }
 
   const getPeriodTitle = () => {
-    if (timeRange === 'all') return 'All events'
-    const focusDate = new Date(dateFocus)
+    if (timeRange === 'all') return 'All upcoming'
+    const focusDate = parseDateKeyLocal(dateFocus)
     if (calendarView === 'dayGridMonth') {
       return focusDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
     }
     if (calendarView === 'timeGridWeek') {
-      const start = new Date(focusDate)
-      const dayOfWeek = start.getDay()
-      const diff = start.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
-      start.setDate(diff)
-      const end = new Date(start)
-      end.setDate(end.getDate() + 6)
-      return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+      const { start, end } = lisbonWeekBoundsFromKey(dateFocus)
+      return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/Lisbon' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Lisbon' })}`
     }
     return focusDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   }
 
   const goPrev = () => {
-    const d = new Date(dateFocus)
-    if (calendarView === 'dayGridMonth') d.setMonth(d.getMonth() - 1)
-    else if (calendarView === 'timeGridWeek') d.setDate(d.getDate() - 7)
-    else d.setDate(d.getDate() - 1)
-    onDateChange(d.toISOString().split('T')[0])
+    if (calendarView === 'dayGridMonth') onDateChange(addMonthsKey(dateFocus, -1))
+    else if (calendarView === 'timeGridWeek') onDateChange(addDaysKey(dateFocus, -7))
+    else onDateChange(addDaysKey(dateFocus, -1))
   }
 
   const goNext = () => {
-    const d = new Date(dateFocus)
-    if (calendarView === 'dayGridMonth') d.setMonth(d.getMonth() + 1)
-    else if (calendarView === 'timeGridWeek') d.setDate(d.getDate() + 7)
-    else d.setDate(d.getDate() + 1)
-    onDateChange(d.toISOString().split('T')[0])
+    if (calendarView === 'dayGridMonth') onDateChange(addMonthsKey(dateFocus, 1))
+    else if (calendarView === 'timeGridWeek') onDateChange(addDaysKey(dateFocus, 7))
+    else onDateChange(addDaysKey(dateFocus, 1))
   }
 
   return (
@@ -198,7 +196,7 @@ export function ListToolbar({
           )}
           <button
             type="button"
-            onClick={() => onDateChange(new Date().toISOString().split('T')[0])}
+            onClick={() => onDateChange(lisbonTodayKey())}
             className="pager-btn px-3 py-1.5 text-xs uppercase tracking-wider shrink-0"
           >
             Today

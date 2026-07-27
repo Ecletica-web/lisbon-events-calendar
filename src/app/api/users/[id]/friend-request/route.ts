@@ -1,9 +1,9 @@
 /**
  * Friend request: send, accept, reject, cancel
- * Uses service role for DB (bypasses RLS). Requires SUPABASE_SERVICE_ROLE_KEY in production.
+ * Uses service role for DB after auth check (bypasses RLS).
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseServer, createAuthenticatedClient } from '@/lib/supabase/server'
+import { supabaseServer } from '@/lib/supabase/server'
 
 function getBearer(request: NextRequest): string | null {
   const authHeader = request.headers.get('authorization')
@@ -31,19 +31,33 @@ export async function POST(
 
     const body = await request.json().catch(() => ({}))
     const action = body?.action
+    const sb = supabaseServer
 
-    const supabase = createAuthenticatedClient(bearer) ?? supabaseServer
+    if (action === 'accept') {
+      const { data: existing } = await sb
+        .from('friend_requests')
+        .select('id, requester_id, status')
+        .eq('requester_id', targetId)
+        .eq('addressee_id', currentUserId)
+        .eq('status', 'pending')
+        .maybeSingle()
 
-    const { data: existing } = await supabase
-      .from('friend_requests')
-      .select('id, requester_id, status')
-      .eq('requester_id', targetId)
-      .eq('addressee_id', currentUserId)
-      .eq('status', 'pending')
-      .maybeSingle()
+      if (!existing) {
+        const { data: already } = await sb
+          .from('friend_requests')
+          .select('id')
+          .eq('status', 'accepted')
+          .or(
+            `and(requester_id.eq.${currentUserId},addressee_id.eq.${targetId}),and(requester_id.eq.${targetId},addressee_id.eq.${currentUserId})`
+          )
+          .limit(1)
+        if (already?.length) {
+          return NextResponse.json({ success: true, action: 'already_friends' })
+        }
+        return NextResponse.json({ error: 'No pending friend request to accept' }, { status: 404 })
+      }
 
-    if (existing && action === 'accept') {
-      const { error } = await supabase
+      const { error } = await sb
         .from('friend_requests')
         .update({ status: 'accepted', updated_at: new Date().toISOString() })
         .eq('id', existing.id)
@@ -54,7 +68,7 @@ export async function POST(
       return NextResponse.json({ success: true, action: 'accepted' })
     }
 
-    const { data: ourRequestRows } = await supabase
+    const { data: ourRequestRows } = await sb
       .from('friend_requests')
       .select('id')
       .eq('requester_id', currentUserId)
@@ -63,21 +77,26 @@ export async function POST(
 
     if (ourRequestRows?.length) return NextResponse.json({ success: true, action: 'already_sent' })
 
-    const { data: acceptedRows } = await supabase
+    const { data: acceptedRows } = await sb
       .from('friend_requests')
       .select('id')
       .eq('status', 'accepted')
-      .or('and(requester_id.eq.' + currentUserId + ',addressee_id.eq.' + targetId + '),and(requester_id.eq.' + targetId + ',addressee_id.eq.' + currentUserId + ')')
+      .or(
+        `and(requester_id.eq.${currentUserId},addressee_id.eq.${targetId}),and(requester_id.eq.${targetId},addressee_id.eq.${currentUserId})`
+      )
       .limit(1)
 
     if (acceptedRows?.length) return NextResponse.json({ success: true, action: 'already_friends' })
 
-    const { error } = await supabase
-      .from('friend_requests')
-      .upsert(
-        { requester_id: currentUserId, addressee_id: targetId, status: 'pending', updated_at: new Date().toISOString() },
-        { onConflict: 'requester_id,addressee_id' }
-      )
+    const { error } = await sb.from('friend_requests').upsert(
+      {
+        requester_id: currentUserId,
+        addressee_id: targetId,
+        status: 'pending',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'requester_id,addressee_id' }
+    )
 
     if (error) {
       console.error('Friend request upsert error:', error)
@@ -108,10 +127,19 @@ export async function DELETE(
   const { data: { user }, error: authError } = await supabaseServer.auth.getUser(bearer)
   if (authError || !user) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const supabase = createAuthenticatedClient(bearer) ?? supabaseServer
+  const sb = supabaseServer
   const currentUserId = user.id
-  const orFilter = 'and(requester_id.eq.' + currentUserId + ',addressee_id.eq.' + targetId + '),and(requester_id.eq.' + targetId + ',addressee_id.eq.' + currentUserId + ')'
-  const { data: rows } = await supabase
+  const orFilter =
+    'and(requester_id.eq.' +
+    currentUserId +
+    ',addressee_id.eq.' +
+    targetId +
+    '),and(requester_id.eq.' +
+    targetId +
+    ',addressee_id.eq.' +
+    currentUserId +
+    ')'
+  const { data: rows } = await sb
     .from('friend_requests')
     .select('id, requester_id, addressee_id, status')
     .or(orFilter)
@@ -121,17 +149,17 @@ export async function DELETE(
   for (const row of rows) {
     if (row.status === 'pending') {
       if (row.addressee_id === currentUserId) {
-        const { error } = await supabase
+        const { error } = await sb
           .from('friend_requests')
           .update({ status: 'rejected', updated_at: new Date().toISOString() })
           .eq('id', row.id)
         if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       } else {
-        const { error } = await supabase.from('friend_requests').delete().eq('id', row.id)
+        const { error } = await sb.from('friend_requests').delete().eq('id', row.id)
         if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       }
     } else if (row.status === 'accepted') {
-      const { error } = await supabase.from('friend_requests').delete().eq('id', row.id)
+      const { error } = await sb.from('friend_requests').delete().eq('id', row.id)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     }
   }

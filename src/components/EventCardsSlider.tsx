@@ -12,6 +12,16 @@ import FriendAvatars from '@/components/FriendAvatars'
 import { EventImageThumb } from '@/components/EventImageGallery'
 import { useUserActions } from '@/contexts/UserActionsContext'
 import { getEventReasons } from '@/lib/eventReasons'
+import {
+  getLisbonRangeBounds,
+  lisbonDateKey,
+  lisbonMonthBoundsFromKey,
+  lisbonStartOfToday,
+  lisbonTodayKey,
+  addDaysKey,
+  type TimeRangePreset,
+} from '@/lib/lisbonDate'
+import { venueHrefFromEvent, slugifyVenueSegment } from '@/lib/venuePath'
 
 function norm(s: string): string {
   return (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
@@ -35,34 +45,15 @@ interface EventCardsSliderProps {
 }
 
 const RADIUS_OPTIONS_KM = [2, 5, 10, 15, 25, 50] as const
-const DEFAULT_RADIUS_KM = 2
+const DEFAULT_RADIUS_KM = 10
 
-type TimeRange = 'all' | 'today' | 'tomorrow' | 'week' | 'month' | 'nextMonth'
+type TimeRange = TimeRangePreset
 
 function getDateRangeBounds(range: TimeRange, dateFocus?: string): { start: Date; end: Date } | null {
-  if (range === 'all') return null
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const nextDay = new Date(tomorrow)
-  nextDay.setDate(nextDay.getDate() + 1)
-  const nextWeek = new Date(today)
-  nextWeek.setDate(nextWeek.getDate() + 7)
-  const monthStart = new Date(today.getFullYear(), today.getMonth() + 1, 1)
-  const nextMonthStart = new Date(today.getFullYear(), today.getMonth() + 2, 1)
-
-  if (range === 'today') return { start: today, end: tomorrow }
-  if (range === 'tomorrow') return { start: tomorrow, end: nextDay }
-  if (range === 'week') return { start: today, end: nextWeek }
-  if (range === 'month') {
-    if (dateFocus) {
-      const d = new Date(dateFocus)
-      return { start: new Date(d.getFullYear(), d.getMonth(), 1), end: new Date(d.getFullYear(), d.getMonth() + 1, 1) }
-    }
-    return { start: today, end: monthStart }
+  if (range === 'month' && dateFocus) {
+    return lisbonMonthBoundsFromKey(dateFocus)
   }
-  return { start: monthStart, end: nextMonthStart }
+  return getLisbonRangeBounds(range)
 }
 
 export default function EventCardsSlider({
@@ -152,15 +143,17 @@ export default function EventCardsSlider({
   }, [venuesWithCoords])
 
   const getEventCoords = (e: NormalizedEvent): { lat: number; lng: number } | null => {
-    const lat = e.extendedProps?.latitude
-    const lng = e.extendedProps?.longitude
-    if (typeof lat === 'number' && typeof lng === 'number') return { lat, lng }
+    const lat = Number(e.extendedProps?.latitude)
+    const lng = Number(e.extendedProps?.longitude)
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng }
     const vid = e.extendedProps?.venueId
     const vkey = e.extendedProps?.venueKey
     const vname = e.extendedProps?.venueName
     if (vid && venueCoordsMap.has(vid)) return venueCoordsMap.get(vid)! 
     if (vkey && venueCoordsMap.has(vkey)) return venueCoordsMap.get(vkey)!
+    if (vkey && venueCoordsMap.has(slugifyVenueSegment(vkey))) return venueCoordsMap.get(slugifyVenueSegment(vkey))!
     if (vname && venueCoordsMap.has(norm(vname))) return venueCoordsMap.get(norm(vname))!
+    if (vname && venueCoordsMap.has(slugifyVenueSegment(vname))) return venueCoordsMap.get(slugifyVenueSegment(vname))!
     return null
   }
 
@@ -178,10 +171,12 @@ export default function EventCardsSlider({
     if (skipFiltering) return events.map((e) => ({ event: e, km: undefined as number | undefined }))
 
     let filtered = timeRange === 'all'
-      ? [...events]
+      ? events.filter((event) => new Date(event.start).getTime() >= lisbonStartOfToday().getTime())
       : events.filter((event) => {
           const eventDate = new Date(event.start)
-          return dateRange && eventDate >= dateRange.start && eventDate < dateRange.end
+          if (!dateRange) return true
+          // Inclusive end for day/month bounds that use 23:59:59
+          return eventDate >= dateRange.start && eventDate <= dateRange.end
         })
 
     filtered = filterEvents(filtered, {
@@ -417,15 +412,16 @@ function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: {
   }) : [])
 
   const formatDate = () => {
-    const today = new Date()
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const eventDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
-    const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    const tomorrowDay = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate())
-    if (eventDay.getTime() === todayDay.getTime()) return 'Today'
-    if (eventDay.getTime() === tomorrowDay.getTime()) return 'Tomorrow'
-    return startDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+    const eventKey = lisbonDateKey(startDate)
+    const todayKey = lisbonTodayKey()
+    if (eventKey === todayKey) return 'Today'
+    if (eventKey === addDaysKey(todayKey, 1)) return 'Tomorrow'
+    return startDate.toLocaleDateString('en-GB', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'Europe/Lisbon',
+    })
   }
 
   const formatTime = () => {
@@ -445,7 +441,7 @@ function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: {
 
   const displayTags = props.tags.slice(0, 2)
 
-  const venueSlug = props.venueId || props.venueKey || props.venueName?.toLowerCase().replace(/\s+/g, '-') || ''
+  const venueLink = venueHrefFromEvent(event)
 
   return (
     <div
@@ -488,7 +484,7 @@ function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: {
           {props.venueName && (
             <div className="flex items-center gap-2 flex-wrap mb-2" onClick={(e) => e.stopPropagation()}>
               <Link
-                href={`/venues/${encodeURIComponent(venueSlug)}`}
+                href={venueLink}
                 className="text-base font-semibold pager-link line-clamp-1"
               >
                 {props.venueName}

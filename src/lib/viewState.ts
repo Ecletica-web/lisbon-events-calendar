@@ -1,9 +1,11 @@
+import { lisbonTodayKey } from '@/lib/lisbonDate'
+
 /**
  * View state represents the complete filter and view configuration
  */
 export interface ViewState {
   viewMode: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay'
-  dateFocus: string // ISO date string (YYYY-MM-DD)
+  dateFocus: string // ISO date string (YYYY-MM-DD) in Europe/Lisbon
   searchQuery: string
   selectedCategories: string[]
   selectedTags: string[]
@@ -20,7 +22,7 @@ export interface ViewState {
  */
 export const DEFAULT_VIEW_STATE: ViewState = {
   viewMode: 'timeGridDay',
-  dateFocus: new Date().toISOString().split('T')[0], // Today
+  dateFocus: lisbonTodayKey(), // Today in Europe/Lisbon (not UTC via toISOString)
   searchQuery: '',
   selectedCategories: [],
   selectedTags: [],
@@ -101,17 +103,17 @@ export function deserializeViewStateFromURL(
   }
   
   const categories = searchParams.get('cat')
-  if (categories) {
+  if (categories !== null) {
     state.selectedCategories = categories.split(',').filter(Boolean)
   }
   
   const tags = searchParams.get('tag')
-  if (tags) {
+  if (tags !== null) {
     state.selectedTags = tags.split(',').filter(Boolean)
   }
   
   const venues = searchParams.get('venue')
-  if (venues) {
+  if (venues !== null) {
     state.selectedVenues = venues.split(',').filter(Boolean)
   }
   
@@ -189,6 +191,6 @@ export function isViewStateDefault(state: ViewState): boolean {
     state.selectedVenues.length === 0 &&
     !state.toggles.freeOnly &&
     !state.toggles.excludeExhibitions &&
-    state.toggles.excludeContinuous
+    !state.toggles.excludeContinuous
   )
 }

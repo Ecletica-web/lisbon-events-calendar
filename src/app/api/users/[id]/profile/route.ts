@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase/server'
 import { ensureViewableProfileImageUrl } from '@/lib/profileImageUrls'
+import { profileDisplayName } from '@/lib/profileDisplayName'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,13 +23,16 @@ export async function GET(
     const authHeader = request.headers.get('authorization')
     const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
     if (bearer) {
-      const { data: { user } } = await supabaseServer.auth.getUser(bearer)
+      const {
+        data: { user },
+      } = await supabaseServer.auth.getUser(bearer)
       viewerId = user?.id ?? null
     }
 
     let profile: {
       id: string
       display_name: string | null
+      name?: string | null
       avatar_url: string | null
       bio: string | null
       username: string | null
@@ -40,7 +44,7 @@ export async function GET(
 
     const { data: profileRow, error: profileErr } = await supabaseServer
       .from('user_profiles')
-      .select('id, display_name, avatar_url, bio, username, cover_url, event_visibility, private_mode')
+      .select('id, display_name, name, avatar_url, bio, username, cover_url, event_visibility, private_mode')
       .eq('id', userId)
       .maybeSingle()
     profile = profileRow
@@ -49,12 +53,20 @@ export async function GET(
     // If no user_profiles row, try Auth Admin (user may exist but profile never created)
     if (!profile && !profileError) {
       try {
-        const { data: { user: authUser }, error: authErr } = await supabaseServer.auth.admin.getUserById(userId)
+        const {
+          data: { user: authUser },
+          error: authErr,
+        } = await supabaseServer.auth.admin.getUserById(userId)
         if (!authErr && authUser) {
-          const name = authUser.user_metadata?.name ?? authUser.user_metadata?.full_name ?? authUser.email ?? null
+          const name =
+            authUser.user_metadata?.name ??
+            authUser.user_metadata?.full_name ??
+            authUser.email ??
+            null
           profile = {
             id: authUser.id,
             display_name: name,
+            name: name,
             avatar_url: authUser.user_metadata?.avatar_url ?? null,
             bio: null,
             username: authUser.user_metadata?.user_name ?? null,
@@ -62,19 +74,16 @@ export async function GET(
             event_visibility: 'public',
             private_mode: false,
           }
-          // Create user_profiles row so future requests and profile edits work (service role bypasses RLS)
-          await supabaseServer
-            .from('user_profiles')
-            .upsert(
-              {
-                id: authUser.id,
-                email: authUser.email ?? null,
-                name: name,
-                display_name: name,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: 'id' }
-            )
+          await supabaseServer.from('user_profiles').upsert(
+            {
+              id: authUser.id,
+              email: authUser.email ?? null,
+              name: name,
+              display_name: name,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'id' }
+          )
         }
       } catch {
         // ignore; we'll return 404 below
@@ -89,8 +98,23 @@ export async function GET(
     const isOwner = viewerId === profile.id
     if (isPrivate && !isOwner) {
       return NextResponse.json(
-        { id: profile.id, isPrivate: true, displayName: null, avatarUrl: null, bio: null, username: null, coverUrl: null, eventVisibility: 'public', friendsCount: 0 },
-        { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', Pragma: 'no-cache' } }
+        {
+          id: profile.id,
+          isPrivate: true,
+          displayName: null,
+          avatarUrl: null,
+          bio: null,
+          username: null,
+          coverUrl: null,
+          eventVisibility: 'public',
+          friendsCount: 0,
+        },
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            Pragma: 'no-cache',
+          },
+        }
       )
     }
 
@@ -110,7 +134,7 @@ export async function GET(
     return NextResponse.json(
       {
         id: profile.id,
-        displayName: profile.display_name,
+        displayName: profileDisplayName(profile),
         avatarUrl,
         bio: profile.bio,
         username: profile.username,
@@ -127,7 +151,7 @@ export async function GET(
       }
     )
   } catch (e) {
-    console.error('Profile API error:', e)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Public profile error:', e)
+    return NextResponse.json({ error: 'Failed to load profile' }, { status: 500 })
   }
 }

@@ -34,6 +34,13 @@ import {
   type PersonaRulesInput,
 } from '@/lib/viewState'
 import {
+  addDaysKey,
+  lisbonDateKey,
+  lisbonTodayKey,
+  startOfNextMonthKey,
+} from '@/lib/lisbonDate'
+import { slugifyVenueSegment } from '@/lib/venuePath'
+import {
   getSavedViews,
   saveView,
   updateView,
@@ -73,7 +80,7 @@ function CalendarPageContent() {
     category: true,
     venues: false,
     promoters: false,
-    families: true,
+    families: false,
   })
   const toggleSidebarSection = (id: string) => {
     setSidebarOpen((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -98,7 +105,7 @@ function CalendarPageContent() {
   const [mobileListTimeRange, setMobileListTimeRange] = useState<MobileListTimeRange>('today')
   const [desktopListTimeRange, setDesktopListTimeRange] = useState<'all' | 'week' | 'month' | 'nextMonth'>('all')
   const [mobileNearMeEnabled, setMobileNearMeEnabled] = useState(false)
-  const [mobileRadiusKm, setMobileRadiusKm] = useState(2)
+  const [mobileRadiusKm, setMobileRadiusKm] = useState(10)
   const [mobileUserPos, setMobileUserPos] = useState<{ lat: number; lng: number } | null>(null)
   const [mobileLocError, setMobileLocError] = useState<string | null>(null)
   const [mobileLocLoading, setMobileLocLoading] = useState(false)
@@ -545,38 +552,33 @@ function CalendarPageContent() {
     [adjustedEvents, debouncedSearchQuery, selectedTags, selectedVenues, selectedPromoters, selectedCategories, freeOnly, excludeExhibitions, excludeContinuous]
   )
 
-  // Mobile list: date focus and calendar view from time range
+  // Mobile list: date focus and calendar view from time range (Europe/Lisbon keys)
   const { mobileListDateFocus, mobileListCalendarView, mobileListSkipDateFilter } = useMemo(() => {
-    const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const nextMonthFirst = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+    const todayKey = lisbonTodayKey()
     if (mobileListTimeRange === 'all') {
-      return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'dayGridMonth' as const, mobileListSkipDateFilter: true }
+      return { mobileListDateFocus: todayKey, mobileListCalendarView: 'dayGridMonth' as const, mobileListSkipDateFilter: true }
     }
     if (mobileListTimeRange === 'today') {
-      return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'timeGridDay' as const, mobileListSkipDateFilter: false }
+      return { mobileListDateFocus: todayKey, mobileListCalendarView: 'timeGridDay' as const, mobileListSkipDateFilter: false }
     }
     if (mobileListTimeRange === 'tomorrow') {
-      return { mobileListDateFocus: tomorrow.toISOString().split('T')[0], mobileListCalendarView: 'timeGridDay' as const, mobileListSkipDateFilter: false }
+      return { mobileListDateFocus: addDaysKey(todayKey, 1), mobileListCalendarView: 'timeGridDay' as const, mobileListSkipDateFilter: false }
     }
     if (mobileListTimeRange === 'week') {
-      return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'timeGridWeek' as const, mobileListSkipDateFilter: false }
+      return { mobileListDateFocus: todayKey, mobileListCalendarView: 'timeGridWeek' as const, mobileListSkipDateFilter: false }
     }
     if (mobileListTimeRange === 'nextMonth') {
-      return { mobileListDateFocus: nextMonthFirst.toISOString().split('T')[0], mobileListCalendarView: 'dayGridMonth' as const, mobileListSkipDateFilter: false }
+      return { mobileListDateFocus: startOfNextMonthKey(todayKey), mobileListCalendarView: 'dayGridMonth' as const, mobileListSkipDateFilter: false }
     }
-    return { mobileListDateFocus: today.toISOString().split('T')[0], mobileListCalendarView: 'dayGridMonth' as const, mobileListSkipDateFilter: false }
+    // month
+    return { mobileListDateFocus: todayKey, mobileListCalendarView: 'dayGridMonth' as const, mobileListSkipDateFilter: false }
   }, [mobileListTimeRange])
 
   // Desktop list: date focus and calendar view from time range (All | This week | This month | Next month)
   const { desktopListDateFocus, desktopListCalendarView, desktopListSkipDateFilter } = useMemo(() => {
-    const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const nextMonthFirst = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+    const todayKey = lisbonTodayKey()
     if (desktopListTimeRange === 'all') {
-      return { desktopListDateFocus: today.toISOString().split('T')[0], desktopListCalendarView: 'dayGridMonth' as const, desktopListSkipDateFilter: true }
+      return { desktopListDateFocus: todayKey, desktopListCalendarView: 'dayGridMonth' as const, desktopListSkipDateFilter: true }
     }
     if (desktopListTimeRange === 'week') {
       return { desktopListDateFocus: dateFocus, desktopListCalendarView: 'timeGridWeek' as const, desktopListSkipDateFilter: false }
@@ -587,7 +589,7 @@ function CalendarPageContent() {
     if (desktopListTimeRange === 'nextMonth') {
       return { desktopListDateFocus: dateFocus, desktopListCalendarView: 'dayGridMonth' as const, desktopListSkipDateFilter: false }
     }
-    return { desktopListDateFocus: today.toISOString().split('T')[0], desktopListCalendarView: 'dayGridMonth' as const, desktopListSkipDateFilter: true }
+    return { desktopListDateFocus: todayKey, desktopListCalendarView: 'dayGridMonth' as const, desktopListSkipDateFilter: true }
   }, [desktopListTimeRange, dateFocus])
 
   // Mobile list: venue coords map for Near me
@@ -595,32 +597,44 @@ function CalendarPageContent() {
     const m = new Map<string, { lat: number; lng: number }>()
     const norm = (s: string) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
     for (const v of venuesWithCoords) {
-      if (typeof v.latitude === 'number' && typeof v.longitude === 'number') {
-        m.set(v.venue_id, { lat: v.latitude, lng: v.longitude })
-        m.set(v.slug, { lat: v.latitude, lng: v.longitude })
-        m.set(norm(v.name), { lat: v.latitude, lng: v.longitude })
+      const lat = Number(v.latitude)
+      const lng = Number(v.longitude)
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        const coords = { lat, lng }
+        if (v.venue_id) m.set(v.venue_id, coords)
+        if (v.slug) {
+          m.set(v.slug, coords)
+          m.set(slugifyVenueSegment(v.slug), coords)
+        }
+        if (v.name) {
+          m.set(norm(v.name), coords)
+          m.set(slugifyVenueSegment(v.name), coords)
+        }
       }
     }
     return m
   }, [venuesWithCoords])
 
+  const getEventCoords = useCallback((e: NormalizedEvent): { lat: number; lng: number } | null => {
+    const norm = (s: string) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
+    const lat = Number(e.extendedProps?.latitude)
+    const lng = Number(e.extendedProps?.longitude)
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng }
+    const vid = e.extendedProps?.venueId
+    const vkey = e.extendedProps?.venueKey
+    const vname = e.extendedProps?.venueName
+    if (vid && venueCoordsMap.has(vid)) return venueCoordsMap.get(vid)!
+    if (vkey && venueCoordsMap.has(vkey)) return venueCoordsMap.get(vkey)!
+    if (vkey && venueCoordsMap.has(slugifyVenueSegment(vkey))) return venueCoordsMap.get(slugifyVenueSegment(vkey))!
+    if (vname && venueCoordsMap.has(norm(vname))) return venueCoordsMap.get(norm(vname))!
+    if (vname && venueCoordsMap.has(slugifyVenueSegment(vname))) return venueCoordsMap.get(slugifyVenueSegment(vname))!
+    return null
+  }, [venueCoordsMap])
+
   // Mobile list: events filtered by date range + Near me
   const mobileListEvents = useMemo(() => {
     let list = filteredEvents
     if (mobileNearMeEnabled && mobileUserPos) {
-      const norm = (s: string) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
-      const getEventCoords = (e: NormalizedEvent): { lat: number; lng: number } | null => {
-        const lat = e.extendedProps?.latitude
-        const lng = e.extendedProps?.longitude
-        if (typeof lat === 'number' && typeof lng === 'number') return { lat, lng }
-        const vid = e.extendedProps?.venueId
-        const vkey = e.extendedProps?.venueKey
-        const vname = e.extendedProps?.venueName
-        if (vid && venueCoordsMap.has(vid)) return venueCoordsMap.get(vid)!
-        if (vkey && venueCoordsMap.has(vkey)) return venueCoordsMap.get(vkey)!
-        if (vname && venueCoordsMap.has(norm(vname))) return venueCoordsMap.get(norm(vname))!
-        return null
-      }
       list = filteredEvents
         .map((e) => ({ event: e, coords: getEventCoords(e) }))
         .filter((x): x is { event: NormalizedEvent; coords: { lat: number; lng: number } } => x.coords !== null)
@@ -628,25 +642,12 @@ function CalendarPageContent() {
         .map((x) => x.event)
     }
     return list
-  }, [filteredEvents, mobileNearMeEnabled, mobileUserPos, mobileRadiusKm, venueCoordsMap])
+  }, [filteredEvents, mobileNearMeEnabled, mobileUserPos, mobileRadiusKm, getEventCoords])
 
   // Desktop list: same near-me filter as mobile when in list view
   const desktopListEvents = useMemo(() => {
     let list = filteredEvents
     if (mobileNearMeEnabled && mobileUserPos) {
-      const norm = (s: string) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
-      const getEventCoords = (e: NormalizedEvent): { lat: number; lng: number } | null => {
-        const lat = e.extendedProps?.latitude
-        const lng = e.extendedProps?.longitude
-        if (typeof lat === 'number' && typeof lng === 'number') return { lat, lng }
-        const vid = e.extendedProps?.venueId
-        const vkey = e.extendedProps?.venueKey
-        const vname = e.extendedProps?.venueName
-        if (vid && venueCoordsMap.has(vid)) return venueCoordsMap.get(vid)!
-        if (vkey && venueCoordsMap.has(vkey)) return venueCoordsMap.get(vkey)!
-        if (vname && venueCoordsMap.has(norm(vname))) return venueCoordsMap.get(norm(vname))!
-        return null
-      }
       list = filteredEvents
         .map((e) => ({ event: e, coords: getEventCoords(e) }))
         .filter((x): x is { event: NormalizedEvent; coords: { lat: number; lng: number } } => x.coords !== null)
@@ -654,7 +655,7 @@ function CalendarPageContent() {
         .map((x) => x.event)
     }
     return list
-  }, [filteredEvents, mobileNearMeEnabled, mobileUserPos, mobileRadiusKm, venueCoordsMap])
+  }, [filteredEvents, mobileNearMeEnabled, mobileUserPos, mobileRadiusKm, getEventCoords])
 
   const mobileRequestLocation = useCallback(() => {
     setMobileLocError(null)
@@ -683,19 +684,18 @@ function CalendarPageContent() {
       setShowListView(true)
       setMobileListTimeRange('today')
       setMobileNearMeEnabled(true)
-      setMobileRadiusKm(2)
+      setMobileRadiusKm(10)
       mobileRequestLocation()
     }
   }, [searchParams, mobileRequestLocation])
 
   const handleDesktopListTimeRangeChange = (r: 'all' | 'week' | 'month' | 'nextMonth') => {
     setDesktopListTimeRange(r)
-    const today = new Date()
-    const todayStr = today.toISOString().split('T')[0]
+    const todayKey = lisbonTodayKey()
     if (r === 'week' || r === 'month') {
-      setDateFocus(todayStr)
+      setDateFocus(todayKey)
     } else if (r === 'nextMonth') {
-      setDateFocus(new Date(today.getFullYear(), today.getMonth() + 1, 1).toISOString().split('T')[0])
+      setDateFocus(startOfNextMonthKey(todayKey))
     }
   }
 
@@ -763,7 +763,7 @@ function CalendarPageContent() {
 
   const handleDateChange = (dateInfo: any) => {
     const date = dateInfo.view.calendar.getDate()
-    setDateFocus(date.toISOString().split('T')[0])
+    setDateFocus(lisbonDateKey(date))
   }
 
   // Saved views handlers
@@ -1633,7 +1633,7 @@ function CalendarPageContent() {
                 }}
               events={filteredEvents}
               eventClick={handleEventClick}
-              firstDay={1} // Monday
+              firstDay={0} // Sunday (nightlife week starts Sunday 19:00)
               nowIndicator={true}
               timeZone="Europe/Lisbon"
               editable={false}

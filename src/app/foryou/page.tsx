@@ -26,11 +26,24 @@ import {
   type RecommendationSessionValue,
 } from '@/contexts/RecommendationSessionContext'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
+import AuthGate from '@/components/AuthGate'
+import {
+  getLisbonRangeBounds,
+  type TimeRangePreset,
+} from '@/lib/lisbonDate'
 
 const SWIPE_THRESHOLD = 80
 const SWIPE_EXIT_MS = 250
 /** Genuine impression: active card visible continuously for this long */
 const IMPRESSION_VISIBLE_MS = 1000
+
+const FORYOU_RANGES: { id: TimeRangePreset; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'today', label: 'Today' },
+  { id: 'tomorrow', label: 'Tomorrow' },
+  { id: 'week', label: 'Week' },
+  { id: 'month', label: 'Month' },
+]
 
 function SkeletonCard() {
   return (
@@ -62,6 +75,8 @@ export default function ForYouPage() {
   const [algorithmVersion, setAlgorithmVersion] = useState('rules_v1')
   const [telemetryEnabled, setTelemetryEnabled] = useState(false)
   const [recommendationItems, setRecommendationItems] = useState<RecommendationItemMeta[]>([])
+  const [passedIds, setPassedIds] = useState<Set<string>>(() => new Set())
+  const [timeRange, setTimeRange] = useState<TimeRangePreset>('all')
 
   const fetchFeed = useCallback(async () => {
     setLoading(true)
@@ -126,11 +141,21 @@ export default function ForYouPage() {
     fetchFeed()
   }, [fetchFeed])
 
+  const visibleEvents = useMemo(() => {
+    const bounds = getLisbonRangeBounds(timeRange)
+    return events.filter((e) => {
+      if (passedIds.has(e.id)) return false
+      if (!bounds) return true
+      const t = new Date(e.start).getTime()
+      return t >= bounds.start.getTime() && t <= bounds.end.getTime()
+    })
+  }, [events, passedIds, timeRange])
+
   // Genuine impression: only the active swipe card, after continuous visibility threshold
   useEffect(() => {
     if (!telemetryEnabled || !sessionId) return
-    if (currentCardIndex < 0 || currentCardIndex >= events.length) return
-    const eventId = events[currentCardIndex]?.id
+    if (currentCardIndex < 0 || currentCardIndex >= visibleEvents.length) return
+    const eventId = visibleEvents[currentCardIndex]?.id
     if (!eventId) return
 
     const timer = setTimeout(() => {
@@ -138,7 +163,7 @@ export default function ForYouPage() {
     }, IMPRESSION_VISIBLE_MS)
 
     return () => clearTimeout(timer)
-  }, [currentCardIndex, events, sessionId, telemetryEnabled])
+  }, [currentCardIndex, visibleEvents, sessionId, telemetryEnabled])
 
   const sessionValue: RecommendationSessionValue = useMemo(
     () => ({
@@ -150,17 +175,65 @@ export default function ForYouPage() {
     [sessionId, algorithmVersion, telemetryEnabled, recommendationItems]
   )
 
-  const activeEvent = currentCardIndex < events.length ? events[currentCardIndex] : null
+  const activeEvent = currentCardIndex < visibleEvents.length ? visibleEvents[currentCardIndex] : null
+
+  useEffect(() => {
+    setCurrentCardIndex(0)
+  }, [timeRange])
+
+  const advanceCard = useCallback(() => {
+    setCurrentCardIndex((i) => i + 1)
+  }, [])
+
+  const handlePass = useCallback(
+    (eventId: string) => {
+      trackRecommendationAction('pass', eventId)
+      setPassedIds((prev) => {
+        const next = new Set(prev)
+        next.add(eventId)
+        return next
+      })
+      advanceCard()
+    },
+    [advanceCard]
+  )
+
+  const handleLike = useCallback(
+    async (event: NormalizedEvent) => {
+      if (actions) {
+        const ok = await actions.likeEvent(event.id)
+        if (ok) trackRecommendationAction('like', event.id)
+      }
+      advanceCard()
+    },
+    [actions, advanceCard]
+  )
 
   return (
     <RecommendationSessionProvider value={sessionValue}>
       <div className="min-h-screen bg-pager-bg pb-28">
         <div className="max-w-2xl mx-auto px-4 pt-16 sm:pt-20">
-          <header className="mb-10 sm:mb-12">
+          <header className="mb-6 sm:mb-8">
             <h1 className="pager-heading mb-3">FOR YOU</h1>
             <p className="text-pager-fg-muted text-sm sm:text-base max-w-md leading-relaxed">
               Your personal event feed — venues you follow, promoters, personas, and friends. Swipe to like or pass.
             </p>
+            <div className="mt-4 flex border-2 border-pager-border overflow-x-auto">
+              {FORYOU_RANGES.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setTimeRange(r.id)}
+                  className={`px-3 py-1.5 text-xs font-medium uppercase tracking-wider whitespace-nowrap ${
+                    timeRange === r.id
+                      ? 'bg-pager-accent text-pager-accent-fg'
+                      : 'text-pager-fg-muted hover:text-pager-fg hover:bg-pager-muted'
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
           </header>
 
           {loading && events.length === 0 ? (
@@ -169,14 +242,13 @@ export default function ForYouPage() {
                 <SkeletonCard key={i} />
               ))}
             </div>
-          ) : events.length > 0 ? (
+          ) : visibleEvents.length > 0 || (events.length > 0 && currentCardIndex < visibleEvents.length) ? (
             <div className="relative" style={{ minHeight: '420px' }}>
-              {/* Next card peeking behind — never qualifies for impressions */}
-              {currentCardIndex + 1 < events.length && (
+              {currentCardIndex + 1 < visibleEvents.length && (
                 <div className="absolute inset-0 top-2 left-1 right-1 scale-[0.96] opacity-90 pointer-events-none" aria-hidden>
                   <FeedCard
-                    event={events[currentCardIndex + 1]}
-                    reasons={reasons[events[currentCardIndex + 1].id] || []}
+                    event={visibleEvents[currentCardIndex + 1]}
+                    reasons={reasons[visibleEvents[currentCardIndex + 1].id] || []}
                     onOpen={() => {}}
                     showSwipeButtons={false}
                   />
@@ -191,35 +263,35 @@ export default function ForYouPage() {
                     setSelectedEvent(activeEvent)
                     logActivity('view_event_modal', 'event', activeEvent.id, { title: activeEvent.title })
                   }}
-                  onLike={async () => {
-                    if (actions) {
-                      const ok = await actions.likeEvent(activeEvent.id)
-                      if (ok) trackRecommendationAction('like', activeEvent.id)
-                    }
-                    setCurrentCardIndex((i) => i + 1)
-                  }}
-                  onPass={() => {
-                    trackRecommendationAction('pass', activeEvent.id)
-                    setCurrentCardIndex((i) => i + 1)
-                  }}
+                  onLike={() => handleLike(activeEvent)}
+                  onPass={() => handlePass(activeEvent.id)}
+                  likeNeedsAuth={!user}
                   onHide={
                     FEATURE_FLAGS.RECOMMENDATION_HIDE
                       ? () => {
                           trackRecommendationAction('hide', activeEvent.id)
-                          setCurrentCardIndex((i) => i + 1)
+                          setPassedIds((prev) => {
+                            const next = new Set(prev)
+                            next.add(activeEvent.id)
+                            return next
+                          })
+                          advanceCard()
                         }
                       : undefined
                   }
                 />
               )}
-              {!loading && currentCardIndex >= events.length && events.length > 0 && (
+              {!loading && !activeEvent && events.length > 0 && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center rounded-none border border-pager-border bg-pager-elevated/30 backdrop-blur-sm py-12">
                   <p className="text-pager-fg-muted text-lg font-medium">You&apos;re all caught up</p>
                   <p className="text-pager-fg-faint text-sm mt-1">Come back later for more events</p>
                   <button
                     type="button"
-                    onClick={() => setCurrentCardIndex(0)}
-                    className="mt-6 px-5 py-2.5 rounded-none bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors"
+                    onClick={() => {
+                      setPassedIds(new Set())
+                      setCurrentCardIndex(0)
+                    }}
+                    className="mt-6 px-5 py-2.5 rounded-none bg-pager-accent text-pager-accent-fg font-medium transition-colors"
                   >
                     Browse again
                   </button>
@@ -278,6 +350,7 @@ function SwipeableFeedCard({
   onLike,
   onPass,
   onHide,
+  likeNeedsAuth = false,
 }: {
   event: NormalizedEvent
   reasons: string[]
@@ -285,6 +358,7 @@ function SwipeableFeedCard({
   onLike: () => void | Promise<void>
   onPass: () => void
   onHide?: () => void
+  likeNeedsAuth?: boolean
 }) {
   const [dragOffset, setDragOffset] = useState(0)
   const [isExiting, setIsExiting] = useState<'like' | 'pass' | null>(null)
@@ -339,15 +413,22 @@ function SwipeableFeedCard({
     if (!didMoveEnough.current && !isExiting) onOpen()
   }, [onOpen, isExiting])
 
+  const triggerLike = () => {
+    if (isExiting) return
+    setIsExiting('like')
+    setDragOffset(400)
+    setTimeout(() => void Promise.resolve(onLike()).then(() => {}), SWIPE_EXIT_MS)
+  }
+
+  const triggerPass = () => {
+    if (isExiting) return
+    setIsExiting('pass')
+    setDragOffset(-400)
+    setTimeout(onPass, SWIPE_EXIT_MS)
+  }
+
   return (
-    <div
-      className="relative w-full"
-      style={{ touchAction: 'pan-y' }}
-      onTouchStart={(e) => handleStart(e.touches[0].clientX)}
-      onTouchMove={(e) => handleMove(e.touches[0].clientX)}
-      onMouseDown={(e) => { e.preventDefault(); handleStart(e.clientX) }}
-      onMouseMove={(e) => e.buttons === 1 && handleMove(e.clientX)}
-    >
+    <div className="relative w-full" style={{ touchAction: 'pan-y' }}>
       <div
         className="relative transition-transform duration-200"
         style={{
@@ -360,8 +441,11 @@ function SwipeableFeedCard({
           reasons={reasons}
           onOpen={handleCardClick}
           showSwipeButtons
-          onLike={() => { if (!isExiting) { setIsExiting('like'); setDragOffset(400); setTimeout(() => void Promise.resolve(onLike()).then(() => {}), SWIPE_EXIT_MS) } }}
-          onPass={() => { if (!isExiting) { setIsExiting('pass'); setDragOffset(-400); setTimeout(onPass, SWIPE_EXIT_MS) } }}
+          likeNeedsAuth={likeNeedsAuth}
+          onDragStart={handleStart}
+          onDragMove={handleMove}
+          onLike={triggerLike}
+          onPass={triggerPass}
           onHide={onHide}
         />
         {!isExiting && isDragging && (
@@ -391,6 +475,9 @@ function FeedCard({
   onLike,
   onPass,
   onHide,
+  likeNeedsAuth = false,
+  onDragStart,
+  onDragMove,
 }: {
   event: NormalizedEvent
   reasons: string[]
@@ -399,6 +486,9 @@ function FeedCard({
   onLike?: () => void
   onPass?: () => void
   onHide?: () => void
+  likeNeedsAuth?: boolean
+  onDragStart?: (clientX: number) => void
+  onDragMove?: (clientX: number) => void
 }) {
   const p = event.extendedProps
   const start = new Date(event.start)
@@ -417,15 +507,37 @@ function FeedCard({
       ? p.descriptionShort.trim()
       : null
 
+  const likeButton = (
+    <button
+      type="button"
+      onMouseDown={(e) => { e.stopPropagation() }}
+      onTouchStart={(e) => { e.stopPropagation() }}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onLike?.() }}
+      className="w-14 h-14 sm:w-14 sm:h-14 rounded-none border-2 border-slate-500 bg-pager-elevated/80 text-pager-fg-muted hover:border-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-400 flex items-center justify-center transition-colors shadow-lg flex-shrink-0"
+      aria-label="Like"
+      title="Like"
+    >
+      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+      </svg>
+    </button>
+  )
+
   return (
     <article
-      className="group rounded-none bg-pager-elevated border border-pager-border overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-indigo-500/5 hover:border-pager-border transition-all duration-300 cursor-pointer"
+      className="group rounded-none bg-pager-elevated border border-pager-border overflow-hidden shadow-xl hover:shadow-2xl hover:border-pager-border transition-all duration-300 cursor-pointer"
       onClick={onOpen}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onOpen()}
     >
-      <div className="aspect-[4/3] relative bg-pager-elevated overflow-hidden">
+      <div
+        className="aspect-[4/3] relative bg-pager-elevated overflow-hidden"
+        onTouchStart={(e) => onDragStart?.(e.touches[0].clientX)}
+        onTouchMove={(e) => onDragMove?.(e.touches[0].clientX)}
+        onMouseDown={(e) => { onDragStart?.(e.clientX) }}
+        onMouseMove={(e) => e.buttons === 1 && onDragMove?.(e.clientX)}
+      >
         <EventImageThumb
           imageUrl={p.imageUrl}
           imageUrls={p.imageUrls}
@@ -435,23 +547,14 @@ function FeedCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
         <div className="absolute top-3 left-3 right-3 flex flex-wrap gap-1.5">
           {reasons.slice(0, 3).map((r) => (
-            <span
-              key={r}
-              className="px-2.5 py-1 rounded-none text-xs font-medium bg-white/15 text-white backdrop-blur-md border border-white/10"
-            >
-              {r}
-            </span>
+            <span key={r} className="px-2.5 py-1 rounded-none text-xs font-medium bg-white/15 text-white backdrop-blur-md border border-white/10">{r}</span>
           ))}
           {p.isFree === true && (
-            <span className="px-2.5 py-1 rounded-none text-xs font-semibold bg-emerald-500/90 text-white">
-              Free
-            </span>
+            <span className="px-2.5 py-1 rounded-none text-xs font-semibold bg-emerald-500/90 text-white">Free</span>
           )}
         </div>
         {priceLabel && p.isFree !== true && (
-          <div className="absolute top-3 right-3 px-2.5 py-1 rounded-none text-xs font-medium bg-black/50 text-pager-fg backdrop-blur-sm">
-            {priceLabel}
-          </div>
+          <div className="absolute top-3 right-3 px-2.5 py-1 rounded-none text-xs font-medium bg-black/50 text-pager-fg backdrop-blur-sm">{priceLabel}</div>
         )}
         <div className="absolute bottom-3 left-3 right-3">
           <h2 className="font-bold text-white text-lg sm:text-xl line-clamp-2 drop-shadow-lg">{event.title}</h2>
@@ -461,31 +564,23 @@ function FeedCard({
       <div className="p-4 sm:p-5 min-w-0">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-base sm:text-sm mb-3">
           <time dateTime={event.start} className="text-pager-fg-muted font-medium tabular-nums">
-            {start.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            {start.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Lisbon' })}
           </time>
-          <div className="flex flex-wrap gap-1.5">
-            {p.tags.slice(0, 4).map((tag) => (
-              <span
-                key={tag}
-                className="px-2.5 py-1 rounded-none text-xs sm:text-xs font-medium border"
-                style={{ borderColor: categoryColor, color: categoryColor }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
+          {p.category && (
+            <span className="px-2 py-0.5 rounded-none text-xs border" style={{ borderColor: categoryColor, color: categoryColor }}>{p.category}</span>
+          )}
         </div>
         {descriptionText && (
-          <p className="text-pager-fg-muted text-base sm:text-sm leading-relaxed line-clamp-4 mb-4">
-            {descriptionText}
-          </p>
+          <p className="text-pager-fg-muted text-base sm:text-sm leading-relaxed line-clamp-4 mb-4">{descriptionText}</p>
         )}
         {showSwipeButtons && (onPass != null || onLike != null) && (
           <div className="flex items-center justify-center gap-8 sm:gap-6 mb-5" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
+              onMouseDown={(e) => { e.stopPropagation() }}
+              onTouchStart={(e) => { e.stopPropagation() }}
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onPass?.() }}
-              className="w-14 h-14 sm:w-14 sm:h-14 rounded-none border-2 border-slate-500 bg-pager-elevated/80 text-pager-fg-muted hover:border-red-400 hover:bg-red-500/20 hover:text-red-400 flex items-center justify-center transition-colors shadow-lg flex-shrink-0"
+              className="w-14 h-14 rounded-none border-2 border-slate-500 bg-pager-elevated/80 text-pager-fg-muted hover:border-red-400 hover:bg-red-500/20 hover:text-red-400 flex items-center justify-center transition-colors shadow-lg flex-shrink-0"
               aria-label="Pass"
               title="Pass"
             >
@@ -493,20 +588,17 @@ function FeedCard({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <button
-              type="button"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onLike?.() }}
-              className="w-14 h-14 sm:w-14 sm:h-14 rounded-none border-2 border-slate-500 bg-pager-elevated/80 text-pager-fg-muted hover:border-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-400 flex items-center justify-center transition-colors shadow-lg flex-shrink-0"
-              aria-label="Like"
-              title="Like"
-            >
-              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </button>
+            {likeNeedsAuth ? (
+              <AuthGate action="likeEvent" id={event.id} displayName={event.title} asWrapper onAction={() => onLike?.()}>
+                {likeButton}
+              </AuthGate>
+            ) : (
+              likeButton
+            )}
             {onHide && (
               <button
                 type="button"
+                onMouseDown={(e) => { e.stopPropagation() }}
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); onHide() }}
                 className="text-xs text-pager-fg-faint hover:text-pager-fg-muted underline"
                 aria-label="Hide event"

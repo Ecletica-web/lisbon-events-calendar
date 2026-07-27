@@ -4,10 +4,7 @@ import path from 'path'
 export default defineConfig({
   test: {
     environment: 'node',
-    include: [
-      'src/lib/__tests__/recommendationEngine.test.ts',
-      'src/lib/__tests__/recommendationTelemetryClient.test.ts',
-    ],
+    include: ['src/lib/__tests__/**/*.test.ts'],
   },
   resolve: {
     alias: {

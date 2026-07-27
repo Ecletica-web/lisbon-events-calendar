@@ -4,6 +4,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase/server'
+import { profileDisplayName } from '@/lib/profileDisplayName'
+import { ensureViewableProfileImageUrl } from '@/lib/profileImageUrls'
 
 function getBearer(request: NextRequest): string | null {
   const authHeader = request.headers.get('authorization')
@@ -33,25 +35,40 @@ export async function GET(
     .eq('status', 'pending')
     .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
 
-  const incoming: { id: string; requesterId: string; displayName?: string; avatarUrl?: string; username?: string }[] = []
-  const outgoing: { id: string; addresseeId: string; displayName?: string; avatarUrl?: string; username?: string }[] = []
+  const incoming: {
+    id: string
+    requesterId: string
+    displayName?: string | null
+    avatarUrl?: string | null
+    username?: string | null
+  }[] = []
+  const outgoing: {
+    id: string
+    addresseeId: string
+    displayName?: string | null
+    avatarUrl?: string | null
+    username?: string | null
+  }[] = []
 
   if (rows) {
-    const idsToFetch = [...new Set(rows.flatMap((r) => [r.requester_id, r.addressee_id]).filter((id) => id !== userId))]
+    const idsToFetch = [
+      ...new Set(rows.flatMap((r) => [r.requester_id, r.addressee_id]).filter((id) => id !== userId)),
+    ]
     const { data: profiles } = await supabaseServer
       .from('user_profiles')
-      .select('id, display_name, avatar_url, username')
+      .select('id, display_name, name, avatar_url, username')
       .in('id', idsToFetch)
 
     const profileMap = new Map((profiles || []).map((p) => [p.id, p]))
 
     for (const r of rows) {
-      const profile = profileMap.get(r.requester_id === userId ? r.addressee_id : r.requester_id)
-      const p = profile ? {
-        displayName: profile.display_name,
-        avatarUrl: profile.avatar_url,
-        username: profile.username,
-      } : {}
+      const otherId = r.requester_id === userId ? r.addressee_id : r.requester_id
+      const profile = profileMap.get(otherId)
+      const p = {
+        displayName: profileDisplayName(profile),
+        avatarUrl: await ensureViewableProfileImageUrl(profile?.avatar_url ?? null),
+        username: profile?.username ?? null,
+      }
       if (r.addressee_id === userId) {
         incoming.push({ id: r.id, requesterId: r.requester_id, ...p })
       } else {

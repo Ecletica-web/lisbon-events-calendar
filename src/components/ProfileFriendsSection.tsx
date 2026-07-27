@@ -379,7 +379,8 @@ export default function ProfileFriendsSection({
                                   onFriendsCountChangeRef.current?.(next.length)
                                   return next
                                 })
-                                refreshFriends(false)
+                                setTab('friends')
+                                void refreshFriends(false)
                               }
                             }}
                           />

@@ -80,6 +80,7 @@ describe('viewState', () => {
         searchQuery: 'concert',
         selectedCategories: ['music'],
         selectedTags: ['rock', 'live'],
+        selectedVenues: [],
         toggles: {
           freeOnly: true,
           excludeExhibitions: false,
@@ -88,7 +89,6 @@ describe('viewState', () => {
       }
       const params = serializeViewStateToURL(state)
       expect(params).toEqual({
-        v: 'timeGridDay',
         d: '2024-02-20',
         q: 'concert',
         cat: 'music',

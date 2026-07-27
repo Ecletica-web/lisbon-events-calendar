@@ -271,7 +271,6 @@ export default function ProfilePage() {
                   alt=""
                   className="absolute inset-0 w-full h-full object-cover"
                   referrerPolicy="no-referrer"
-                  crossOrigin="anonymous"
                   onError={(e) => { e.currentTarget.style.display = 'none' }}
                 />
               )}
@@ -285,7 +284,6 @@ export default function ProfilePage() {
                     alt=""
                     className="w-24 h-24 sm:w-28 sm:h-28 rounded-none border-4 border-slate-900 object-cover bg-pager-muted flex-shrink-0 -mt-14 sm:-mt-16"
                     referrerPolicy="no-referrer"
-                    crossOrigin="anonymous"
                     onError={() => setAvatarError(true)}
                   />
                 ) : (
@@ -293,16 +291,13 @@ export default function ProfilePage() {
                     {(profileData?.displayName || user.name || user.email || '?')[0].toUpperCase()}
                   </div>
                 )}
-                <div className="flex-1 pb-1 -mt-8 sm:-mt-0">
+                <div className="flex-1 pb-1 sm:pt-2">
                   <h1 className="text-2xl sm:text-3xl font-bold text-white">
                     {profileData?.displayName || user.name || 'Profile'}
                   </h1>
                   {profileData?.username && (
                     <p className="text-pager-fg-muted">@{profileData.username}</p>
                   )}
-                  <p className="text-pager-fg-muted text-xs sm:text-sm mt-1 max-w-xl">
-                    Manage your profile, friends, follows, and event preferences. Add friends to see what they&apos;re going to and to chat or share events.
-                  </p>
                   <div className="flex items-start gap-2 mt-2">
                     <p className="text-pager-fg-muted text-sm max-w-xl flex-1">
                       {profileData?.bio || (
