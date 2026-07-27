@@ -569,14 +569,23 @@ export async function listPendingReviewQueue(limit = 5000): Promise<
 > {
   if (!isSupabaseStoreConfigured()) return []
   const sb = getSupabaseStore()
-  const { data, error } = await sb
-    .from('pipeline_review_queue')
-    .select('*')
-    .eq('review_status', 'pending')
-    .order('start_datetime', { ascending: true })
-    .limit(limit)
-  if (error) throw new Error(`listPendingReviewQueue: ${error.message}`)
-  return (data ?? []) as Array<Record<string, unknown>>
+  // PostgREST often caps a single response at 1000 rows — page explicitly.
+  const pageSize = 1000
+  const out: Array<Record<string, unknown>> = []
+  for (let from = 0; from < limit; from += pageSize) {
+    const to = Math.min(from + pageSize, limit) - 1
+    const { data, error } = await sb
+      .from('pipeline_review_queue')
+      .select('*')
+      .eq('review_status', 'pending')
+      .order('start_datetime', { ascending: true })
+      .range(from, to)
+    if (error) throw new Error(`listPendingReviewQueue: ${error.message}`)
+    const batch = (data ?? []) as Array<Record<string, unknown>>
+    out.push(...batch)
+    if (batch.length < pageSize) break
+  }
+  return out
 }
 
 export async function readRoutedSourceEventIds(): Promise<Set<string>> {
