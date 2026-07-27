@@ -127,6 +127,7 @@ npm run golden              # replay Testing CSVs (report only)
 # Flags (after --):
 #   --dry-run              skip remote writes where possible
 #   --handle=lux           restrict to one watchlist handle
+#   --handle=a,b,c         or a comma-separated set of handles
 #   --limit=20             max posts/events per Instagram handle (not a global total)
 #   --max-age-days=14      look back N days (overrides last-scrape incremental cutoff)
 #   --force-vision         run vision even when caption has all mandatory fields
@@ -194,16 +195,23 @@ During **`profile-images`**, the pipeline fetches Instagram profile pics for Fon
 
 ## Validation reason codes
 
-`missing_title` / `missing_or_invalid_start_datetime` → **fail**;
-`missing_venue_name_raw`, `low_confidence`,
-`program_undersplit`, `online_verification_*` → **review**.
-Past start datetimes are **rejected** for auto-pass (`past_event`). Canonical `venue_id` is **required** (`venue_unresolved` blocks). Promoter/editorial sources never become the venue via owner-handle fallback. Confidence is **calculated** (field evidence − conflict penalties), not `max(caption, vision)`.
+Hard **fail:** `missing_title`, `missing_or_invalid_start_datetime`.
 
-Hard gates also include: `end_before_start`, invalid/`24:00` ends, bad ticket URLs (`example.com`), free/price conflicts, tier conflicts, implausible duration (>36h), outside Lisbon metro when city is known.
+Soft **review** (blocks auto-pass): `missing_venue_name_raw`, `venue_unresolved`,
+`source_as_venue`, `past_event`, `end_before_start`, `invalid_end_datetime`,
+`zero_duration`, `implausible_duration`, `bad_ticket_url`, `price_free_conflict`,
+`tier_conflict`, `tier_empty_disagreement`, `critical_field_inferred`,
+`outside_service_area`, `low_confidence`, `program_undersplit`, `online_verification_*`.
 
-Auto-repair runs before validation (overnight end rollover, clear placeholder URLs, clear free+price conflicts).
+Past starts and unresolved venues are **rejected** for auto-pass. Promoter/editorial
+sources never become the venue via owner-handle fallback. Confidence is **calculated**
+(field evidence − conflict penalties), not `max(caption, vision)`.
 
-`npm run publish` copies only rows that pass `isPublishSafe` **and** are authorized (`publish_auth=human_approved` or clean Tier 5 verified). Quarantine existing Clean junk with:
+Auto-repair runs before validation (overnight end rollover, clear placeholder URLs,
+clear free+price conflicts).
+
+`npm run publish` copies only rows that pass `isPublishSafe` **and** are authorized
+(`publish_auth=human_approved` or clean Tier 5 verified). Quarantine existing Clean junk with:
 
 ```bash
 cd pipeline

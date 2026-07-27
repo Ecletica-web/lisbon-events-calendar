@@ -3,11 +3,14 @@
  */
 
 import { supabaseServer } from '@/lib/supabase/server'
+import { parseHandleList, serializeHandles } from '@/lib/parseHandles'
 
 function sb() {
   if (!supabaseServer) throw new Error('Supabase not configured')
   return supabaseServer
 }
+
+export { parseHandleList, serializeHandles }
 
 export async function getAdminHubCounts() {
   const client = sb()
@@ -173,6 +176,7 @@ export async function listPipelinePosts(opts: {
 
 export async function requeuePipelinePosts(opts: {
   handle?: string
+  handles?: string[] | string
   statuses?: Array<'processed' | 'needs_review' | 'discarded' | 'new'>
   postedSinceDays?: number
   scrapedSinceDays?: number
@@ -190,7 +194,12 @@ export async function requeuePipelinePosts(opts: {
     .in('processing_status', [...statuses])
     .order('posted_at', { ascending: false, nullsFirst: false })
 
-  if (opts.handle) q = q.ilike('owner_username', opts.handle.replace(/^@/, ''))
+  const handles = parseHandleList([...(opts.handles ? [opts.handles].flat() : []), opts.handle ?? ''])
+  if (handles.length === 1) {
+    q = q.ilike('owner_username', handles[0])
+  } else if (handles.length > 1) {
+    q = q.or(handles.map((h) => `owner_username.ilike."${h.replace(/"/g, '')}"`).join(','))
+  }
   if (opts.postedSinceDays != null && opts.postedSinceDays > 0) {
     const d = new Date()
     d.setUTCDate(d.getUTCDate() - opts.postedSinceDays)
@@ -258,9 +267,13 @@ export async function listReviewQueue(status: 'pending' | 'approved' | 'rejected
   let query = sb()
     .from('pipeline_review_queue')
     .select('*')
-    .order('created_at', { ascending: false })
     .limit(200)
   if (status !== 'all') query = query.eq('review_status', status)
+  // Pending: soonest events first for review recovery UX
+  query =
+    status === 'pending'
+      ? query.order('start_datetime', { ascending: true })
+      : query.order('created_at', { ascending: false })
   const { data, error } = await query
   if (error) throw new Error(error.message)
   return data ?? []

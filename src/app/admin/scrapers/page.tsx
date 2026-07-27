@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAdminAuthHeaders } from '@/lib/useAdminAuth'
 import { PipelineRunLogPanel } from '@/components/admin/PipelineRunLogPanel'
+import { parseHandleList, serializeHandles } from '@/lib/parseHandles'
 
 interface WatchlistRow {
   handle: string
@@ -37,6 +38,7 @@ export default function AdminScrapersPage() {
     'profile-images' | 'scrape' | 'extract' | 'verify' | 'full'
   >('scrape')
   const [handle, setHandle] = useState('')
+  const [handlePickerOpen, setHandlePickerOpen] = useState(false)
   const [limit, setLimit] = useState('')
   const [postMaxAgeDays, setPostMaxAgeDays] = useState('14')
   const [forceVision, setForceVision] = useState(false)
@@ -103,6 +105,36 @@ export default function AdminScrapersPage() {
     (selectedRun.status === 'queued' ||
       selectedRun.status === 'running' ||
       selectedRun.status === 'abort_requested')
+
+  const selectedHandles = useMemo(() => parseHandleList(handle), [handle])
+  const activeWatchlist = useMemo(
+    () =>
+      watchlist
+        .filter((w) => w.active && w.handle.trim())
+        .map((w) => ({
+          handle: w.handle.replace(/^@/, '').trim().toLowerCase(),
+          type: w.type,
+          notes: w.notes,
+        }))
+        .filter((w, i, arr) => arr.findIndex((x) => x.handle === w.handle) === i)
+        .sort((a, b) => a.handle.localeCompare(b.handle)),
+    [watchlist]
+  )
+
+  function toggleHandle(h: string) {
+    const set = new Set(selectedHandles)
+    if (set.has(h)) set.delete(h)
+    else set.add(h)
+    setHandle(serializeHandles([...set]) ?? '')
+  }
+
+  function selectAllActiveHandles() {
+    setHandle(serializeHandles(activeWatchlist.map((w) => w.handle)) ?? '')
+  }
+
+  function clearHandles() {
+    setHandle('')
+  }
 
   useEffect(() => {
     if (!isAdmin || !live) return
@@ -185,7 +217,9 @@ export default function AdminScrapersPage() {
       const body: Record<string, unknown> = { mode }
       if (mode === 'extract' || mode === 'full') body.forceVision = forceVision
       if (mode === 'profile-images' && forceProfileImages) body.forceProfileImages = true
-      if (handle.trim()) body.handle = handle.trim()
+      const handles = parseHandleList(handle)
+      if (handles.length === 1) body.handle = handles[0]
+      else if (handles.length > 1) body.handles = handles
       if (limit.trim() && mode !== 'profile-images') body.limit = Number(limit)
       if (postMaxAgeDays.trim() && (mode === 'scrape' || mode === 'full') && !fromApifyRun.trim()) {
         body.postMaxAgeDays = Number(postMaxAgeDays)
@@ -231,7 +265,9 @@ export default function AdminScrapersPage() {
         enqueueExtract,
         forceVision: enqueueExtract ? forceVision : false,
       }
-      if (handle.trim()) body.handle = handle.trim()
+      const handles = parseHandleList(handle)
+      if (handles.length === 1) body.handle = handles[0]
+      else if (handles.length > 1) body.handles = handles
       if (limit.trim()) body.limit = Number(limit)
       if (requeuePostedDays.trim()) body.postedSinceDays = Number(requeuePostedDays)
 
@@ -320,15 +356,42 @@ export default function AdminScrapersPage() {
               <option value="full">full (posts → extract → Tier 5)</option>
             </select>
           </label>
-          <label className="text-sm text-slate-300">
-            Handle (optional)
-            <input
-              className="block mt-1 bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white"
+          <label className="text-sm text-slate-300 min-w-[14rem] flex-1 max-w-md">
+            Handles (optional)
+            <textarea
+              className="block mt-1 w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white font-mono text-xs min-h-[2.75rem]"
               value={handle}
               onChange={(e) => setHandle(e.target.value)}
-              placeholder="luxfragil"
+              placeholder="luxfragil, lux, … (empty = all)"
+              rows={2}
             />
+            <span className="block mt-1 text-[11px] text-slate-500 leading-snug">
+              Comma or newline separated. Empty = all active Fontes IG.
+              {selectedHandles.length > 0 && (
+                <span className="text-slate-400"> · {selectedHandles.length} selected</span>
+              )}
+            </span>
           </label>
+          <div className="text-sm text-slate-300 space-y-1.5 pb-1">
+            <div className="flex flex-wrap gap-2 items-center">
+              <button
+                type="button"
+                onClick={() => setHandlePickerOpen((o) => !o)}
+                className="px-2.5 py-1.5 rounded border border-slate-600 bg-slate-900 text-slate-200 text-xs hover:bg-slate-800"
+              >
+                {handlePickerOpen ? 'Hide sources' : 'Pick from Fontes IG'}
+              </button>
+              {selectedHandles.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearHandles}
+                  className="px-2 py-1 rounded text-xs text-slate-400 hover:text-slate-200"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
           {(mode === 'scrape' || mode === 'extract' || mode === 'full' || mode === 'verify') && (
             <label className="text-sm text-slate-300">
               Limit / handle
@@ -428,6 +491,57 @@ export default function AdminScrapersPage() {
             Refresh
           </button>
         </div>
+        {handlePickerOpen && (
+          <div className="rounded border border-slate-700 bg-slate-900/60 p-3 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-slate-400">
+                Active Fontes IG sources — click to toggle. Empty selection still means all.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={selectAllActiveHandles}
+                  className="text-xs text-indigo-300 hover:underline"
+                  disabled={activeWatchlist.length === 0}
+                >
+                  Select all active
+                </button>
+                <button
+                  type="button"
+                  onClick={clearHandles}
+                  className="text-xs text-slate-400 hover:underline"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            {activeWatchlist.length === 0 ? (
+              <p className="text-xs text-slate-500">No active sources loaded.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto">
+                {activeWatchlist.map((w) => {
+                  const on = selectedHandles.includes(w.handle)
+                  return (
+                    <button
+                      key={w.handle}
+                      type="button"
+                      onClick={() => toggleHandle(w.handle)}
+                      title={w.notes || w.type}
+                      className={`px-2 py-1 rounded text-xs font-mono border transition-colors ${
+                        on
+                          ? 'bg-indigo-600/80 border-indigo-400 text-white'
+                          : 'bg-slate-800 border-slate-600 text-slate-300 hover:border-slate-400'
+                      }`}
+                    >
+                      @{w.handle}
+                      <span className="ml-1 opacity-60">{w.type === 'promoter' ? 'P' : 'V'}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="rounded-lg border border-amber-800/50 bg-amber-950/20 p-4 space-y-3">
@@ -435,7 +549,7 @@ export default function AdminScrapersPage() {
         <p className="text-sm text-slate-400 max-w-3xl">
           Posts already in Supabase (from Apify scrapes) keep their media/captions. Reset matching rows to{' '}
           <code className="text-amber-200/90">status=new</code>, then run extract (caption → Nemotron vision when
-          needed → Tier 5). Uses Handle / Limit-per-handle from above when set.
+          needed → Tier 5). Uses Handles / Limit-per-handle from above when set.
         </p>
         <div className="flex flex-wrap gap-4 items-end">
           <label className="text-sm text-slate-300">

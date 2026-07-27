@@ -60,7 +60,15 @@ async function executeRun(run: {
       ? params.pipelineCommand
       : run.mode
   const argv: string[] = [command]
-  if (typeof params.handle === 'string' && params.handle) argv.push(`--handle=${params.handle}`)
+  const handleParam =
+    typeof params.handle === 'string' && params.handle
+      ? params.handle
+      : Array.isArray(params.handles)
+        ? params.handles.map(String).filter(Boolean).join(',')
+        : typeof params.handles === 'string'
+          ? params.handles
+          : ''
+  if (handleParam) argv.push(`--handle=${handleParam}`)
   if (typeof params.limit === 'number' && params.limit > 0) argv.push(`--limit=${params.limit}`)
   const maxAge =
     typeof params.postMaxAgeDays === 'number'

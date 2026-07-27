@@ -4,6 +4,8 @@ import {
   enqueuePipelineRun,
   listPipelineRuns,
   requestAbortRun,
+  parseHandleList,
+  serializeHandles,
 } from '@/lib/adminPipeline'
 
 export const dynamic = 'force-dynamic'
@@ -49,7 +51,9 @@ export async function POST(request: NextRequest) {
     }
 
     const runParams: Record<string, unknown> = {}
-    if (body.handle) runParams.handle = String(body.handle).replace(/^@/, '').toLowerCase()
+    const handles = parseHandleList([body.handles, body.handle].filter((v) => v != null))
+    const handleParam = serializeHandles(handles)
+    if (handleParam) runParams.handle = handleParam
     if (body.limit != null && body.limit !== '') {
       const limit = Number(body.limit)
       if (Number.isFinite(limit) && limit > 0) runParams.limit = limit

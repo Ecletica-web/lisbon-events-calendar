@@ -31,7 +31,7 @@ Jobs longos: **worker local** (`npm run worker`), não Vercel.
 | `requeue` | Reset posts → `new` |
 | `publish` | Processed Events → Events Clean New (só linhas novas) |
 
-Flags úteis: `--dry-run`, `--handle=`, `--limit=`, `--max-age-days=`, `--force-vision`, `--skip-verify`, `--from-apify-run=`, `--sheets-only` (profile-images).
+Flags úteis: `--dry-run`, `--handle=a` ou `--handle=a,b,c`, `--limit=`, `--max-age-days=`, `--force-vision`, `--skip-verify`, `--from-apify-run=`, `--sheets-only` (profile-images).
 
 Admin `/admin/scrapers` enfileira em `pipeline_runs`; o worker faz claim e corre o mesmo CLI.
 
@@ -147,9 +147,11 @@ Auto-repair (antes da validação): overnight end rollover, `24:00`→dia seguin
 
 **Resolve** (`venue-resolve.ts`): Fontes IG Venues (SoT handles/names) + catálogo Venues. Ordem: extracted name → location → owner **só** se source type=`venue` e não há venue extraído. Promoter/editorial **nunca** vira venue via owner fallback. `venue_unresolved` bloqueia auto-pass.
 
-**Dedupe** (`dedupe.ts`): fingerprint djb2 de  
-`title_norm | YYYY-MM-DD | HH:mm(bucket 30min UTC) | venueId`  
-(igual ao loader da app). Batch: fica o de maior confidence; drop se já existe em Processed.
+**Dedupe** (`dedupe.ts` + app `eventsLoader`): fingerprint djb2 de  
+`source_post_id | YYYY-MM-DD | HH:mm(bucket 30min UTC) | title_norm | venueKey`  
+quando há `source_event_id`/`source_url`; senão legacy `title|date|time|venue`.  
+Batch: fica o de maior confidence; drop se já existe em Processed.  
+`reconcile-post-events` colapsa artist slides no mesmo venue+hora antes do fingerprint.
 
 ---
 
@@ -188,7 +190,7 @@ Credenciais mínimas: `APIFY_API_TOKEN`, `OPENAI_API_KEY`, `SUPABASE_URL` + serv
 | `cli/worker.ts` | Fila |
 | `scrapers/*` | Apify + transform |
 | `intelligence/*` | Tiers AI |
-| `qualification/*` | Mandatory fields, validate, venue, dedupe |
+| `qualification/*` | Mandatory fields, validate, venue, dedupe, auto-repair, publish-safe, reconcile, calculated confidence |
 | `sinks/supabase-store.ts` | Persistência pipeline |
 | `sinks/sheets-writer.ts` | Fontes + Processed + Clean |
 | `media/*` | Archive imagens evento + profile pics |

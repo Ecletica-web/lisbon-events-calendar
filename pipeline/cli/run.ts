@@ -1,8 +1,8 @@
 /**
  * Pipeline CLI.
  *
- *   npm run profile-images  [-- --handle=lux --force-venue-images --sheets-only]
- *   npm run scrape          [-- --handle=lux --dry-run --limit=10]
+ *   npm run profile-images  [-- --handle=lux,other --force-venue-images --sheets-only]
+ *   npm run scrape          [-- --handle=lux,other --dry-run --limit=10]
  *   npm run extract         [-- --limit=20 --dry-run --force-vision]
  *   npm run verify          [-- --limit=20 --dry-run]
  *   npm run full            [-- ...]   # posts scrape → extract (no profile images)
@@ -17,6 +17,7 @@
  */
 
 import { getConfig } from '../config'
+import { parseHandleList, serializeHandles } from '../lib/parse-handles'
 import { fetchApifyRunItems, scrapeInstagram } from '../scrapers/apify-client'
 import { transformInstagramApifyPost } from '../scrapers/instagram-transform'
 import { archiveImage } from '../media/media-archive'
@@ -63,7 +64,11 @@ import {
 
 export interface CliFlags {
   command: string
-  handle?: string
+  /**
+   * Restrict to one or more Instagram handles (from `--handle=a,b` or `--handles=a,b`).
+   * Empty = all active Fontes IG sources.
+   */
+  handles: string[]
   /** Max posts/events **per Instagram handle** (not a global run total). */
   limit?: number
   dryRun: boolean
@@ -101,6 +106,7 @@ export interface CliFlags {
 export function parseFlags(argv: string[]): CliFlags {
   const flags: CliFlags = {
     command: argv[0] ?? 'full',
+    handles: [],
     dryRun: false,
     forceVision: false,
     skipVerify: false,
@@ -124,7 +130,12 @@ export function parseFlags(argv: string[]): CliFlags {
       flags.fromApifyRun = arg.slice('--from-apify-run='.length).trim()
       flags.analyzeApifyBatch = true // reloading a batch implies analyze
     }
-    else if (arg.startsWith('--handle=')) flags.handle = arg.slice('--handle='.length).replace(/^@/, '').toLowerCase()
+    else if (arg.startsWith('--handle=') || arg.startsWith('--handles=')) {
+      const raw = arg.startsWith('--handles=')
+        ? arg.slice('--handles='.length)
+        : arg.slice('--handle='.length)
+      flags.handles = parseHandleList([...flags.handles, ...parseHandleList(raw)])
+    }
     else if (arg.startsWith('--limit=')) flags.limit = parseInt(arg.slice('--limit='.length), 10) || undefined
     else if (arg.startsWith('--max-age-days=')) {
       const n = parseInt(arg.slice('--max-age-days='.length), 10)
@@ -215,7 +226,10 @@ async function logRun(flags: CliFlags, line: string): Promise<void> {
 
 export async function commandProfileImages(flags: CliFlags): Promise<Record<string, unknown>> {
   let watchlist = await readWatchlist()
-  if (flags.handle) watchlist = watchlist.filter((w) => w.handle === flags.handle)
+  if (flags.handles.length > 0) {
+    const want = new Set(flags.handles)
+    watchlist = watchlist.filter((w) => want.has(w.handle))
+  }
   if (watchlist.filter((w) => w.active).length === 0) {
     await logRun(flags, '[profile-images] No active handles in Fontes IG (or --handle not found).')
     return { profiles_fetched: 0, archived: 0 }
@@ -239,7 +253,10 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
   const stats: Record<string, unknown> = { posts_scraped: 0, new_rows: 0 }
 
   let watchlist = await readWatchlist()
-  if (flags.handle) watchlist = watchlist.filter((w) => w.handle === flags.handle)
+  if (flags.handles.length > 0) {
+    const want = new Set(flags.handles)
+    watchlist = watchlist.filter((w) => want.has(w.handle))
+  }
   const handles = watchlist.filter((w) => w.active).map((w) => w.handle)
   if (handles.length === 0 && !flags.fromApifyRun) {
     await logRun(flags, 'No active handles in Watchlist tab (or --handle not found). Nothing to scrape.')
@@ -478,11 +495,11 @@ export async function commandRequeue(flags: CliFlags): Promise<Record<string, un
     undefined
   await logRun(
     flags,
-    `[requeue] handle=${flags.handle ?? '*'} statuses=${(flags.requeueStatuses ?? ['processed', 'needs_review', 'discarded']).join(',')}` +
+    `[requeue] handle=${flags.handles.length ? flags.handles.join(',') : '*'} statuses=${(flags.requeueStatuses ?? ['processed', 'needs_review', 'discarded']).join(',')}` +
       ` posted_since_days=${postedSince ?? 'any'} scraped_since_days=${flags.requeueScrapedSinceDays ?? 'any'} limit=${flags.limit != null ? `${flags.limit}/handle` : 'none'}`
   )
   const result = await requeuePipelinePosts({
-    handle: flags.handle,
+    handles: flags.handles,
     statuses: flags.requeueStatuses,
     postedSinceDays: postedSince,
     scrapedSinceDays: flags.requeueScrapedSinceDays,
@@ -505,7 +522,7 @@ export async function commandExtract(flags: CliFlags): Promise<Record<string, un
   }
 
   const pending = await readPendingPipelinePosts({
-    handle: flags.handle,
+    handles: flags.handles,
     // Fetch all candidates; apply per-handle limit below (DB limit would be global)
   })
 
@@ -701,8 +718,9 @@ export async function commandVerify(
   onlyRows?: ProcessedEventRow[]
 ): Promise<Record<string, unknown>> {
   let events = onlyRows ?? (await readProcessedEvents())
-  if (flags.handle) {
-    events = events.filter((e) => (e.source_name || '').toLowerCase() === flags.handle)
+  if (flags.handles.length > 0) {
+    const want = new Set(flags.handles)
+    events = events.filter((e) => want.has((e.source_name || '').replace(/^@/, '').toLowerCase()))
   }
 
   const already = flags.dryRun && onlyRows ? new Set<string>() : await readVerifiedEventIdsFromStore()
@@ -862,7 +880,7 @@ export async function runCommand(flags: CliFlags): Promise<Record<string, unknow
         (await createPipelineRun({
           mode: modeForDb,
           runParams: {
-            handle: flags.handle,
+            handle: serializeHandles(flags.handles),
             limit: flags.limit,
             forceVision: flags.forceVision,
             sheetsOnly: flags.sheetsOnly,

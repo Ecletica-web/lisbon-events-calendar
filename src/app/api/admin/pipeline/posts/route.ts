@@ -5,6 +5,8 @@ import {
   getPipelinePostDetail,
   listPipelinePosts,
   requeuePipelinePosts,
+  parseHandleList,
+  serializeHandles,
 } from '@/lib/adminPipeline'
 import { getSheetsEditUrl, readEventsRawFromSheets } from '@/lib/googleSheets'
 import { EVENTS_RAW_COLUMNS, projectRows } from '@/lib/pipelineSheetColumns'
@@ -126,8 +128,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'limit must be >= 1' }, { status: 400 })
     }
 
+    const handles = parseHandleList([body.handles, body.handle].filter((v) => v != null))
+    const handleParam = serializeHandles(handles)
+
     const result = await requeuePipelinePosts({
-      handle: body.handle ? String(body.handle).replace(/^@/, '').toLowerCase() : undefined,
+      handles,
       statuses,
       postedSinceDays: postedSinceDays != null ? Math.floor(postedSinceDays) : undefined,
       scrapedSinceDays: scrapedSinceDays != null ? Math.floor(scrapedSinceDays) : undefined,
@@ -137,7 +142,7 @@ export async function POST(request: NextRequest) {
     let run = null
     if (body.enqueueExtract) {
       const runParams: Record<string, unknown> = {}
-      if (body.handle) runParams.handle = String(body.handle).replace(/^@/, '').toLowerCase()
+      if (handleParam) runParams.handle = handleParam
       if (limit != null) runParams.limit = Math.floor(limit)
       if (body.forceVision) runParams.forceVision = true
       if (body.skipVerify) runParams.skipVerify = true

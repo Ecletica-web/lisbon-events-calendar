@@ -204,6 +204,7 @@ export async function readExistingPipelineSourceIds(): Promise<Set<string>> {
 
 export async function readPendingPipelinePosts(options?: {
   handle?: string
+  handles?: string[]
   limit?: number
 }): Promise<Array<EventsRawRow & { _db_id: string }>> {
   if (!isSupabaseStoreConfigured()) return []
@@ -214,7 +215,12 @@ export async function readPendingPipelinePosts(options?: {
     .eq('processing_status', 'new')
     .order('posted_at', { ascending: false, nullsFirst: false })
 
-  if (options?.handle) q = q.eq('owner_username', options.handle)
+  const handles = normalizeHandlesOption(options?.handles, options?.handle)
+  if (handles.length === 1) {
+    q = q.eq('owner_username', handles[0])
+  } else if (handles.length > 1) {
+    q = q.in('owner_username', handles)
+  }
   if (options?.limit) q = q.limit(options.limit)
 
   const { data, error } = await q
@@ -282,6 +288,7 @@ export async function updatePostProcessingStatus(
 
 export type RequeuePostOptions = {
   handle?: string
+  handles?: string[]
   /** Statuses to reset (default: processed, needs_review, discarded) */
   statuses?: ProcessingStatus[]
   /** Only posts with posted_at >= now − N days */
@@ -290,6 +297,22 @@ export type RequeuePostOptions = {
   scrapedSinceDays?: number
   limit?: number
   dryRun?: boolean
+}
+
+function normalizeHandlesOption(handles?: string[], handle?: string): string[] {
+  const raw = [...(handles ?? []), ...(handle ? [handle] : [])]
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const item of raw) {
+    const h = String(item || '')
+      .replace(/^@/, '')
+      .trim()
+      .toLowerCase()
+    if (!h || seen.has(h)) continue
+    seen.add(h)
+    out.push(h)
+  }
+  return out
 }
 
 /**
@@ -311,8 +334,12 @@ export async function requeuePipelinePosts(
     .in('processing_status', statuses)
     .order('posted_at', { ascending: false, nullsFirst: false })
 
-  if (options.handle) {
-    q = q.ilike('owner_username', options.handle.replace(/^@/, ''))
+  const handles = normalizeHandlesOption(options.handles, options.handle)
+  if (handles.length === 1) {
+    q = q.ilike('owner_username', handles[0])
+  } else if (handles.length > 1) {
+    // Quote values so handles with "." (e.g. club.lux) parse correctly in PostgREST or()
+    q = q.or(handles.map((h) => `owner_username.ilike."${h.replace(/"/g, '')}"`).join(','))
   }
   if (options.postedSinceDays != null && options.postedSinceDays > 0) {
     const d = new Date()
