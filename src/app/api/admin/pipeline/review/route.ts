@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import {
+  getReviewItem,
   listReviewQueue,
   resolveReviewItem,
   reviewToProcessedRow,
+  REVIEW_PAGE_SIZE_DEFAULT,
+  REVIEW_PAGE_SIZE_MAX,
+  type ReviewQueueStatus,
 } from '@/lib/adminPipeline'
 import {
   appendEventsCleanToSheets,
@@ -17,30 +21,46 @@ import { NEEDS_REVIEW_COLUMNS, projectRows } from '@/lib/pipelineSheetColumns'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+function parsePaging(url: URL): { page: number; pageSize: number } {
+  const page = Math.max(1, Number(url.searchParams.get('page') || '1') || 1)
+  const rawSize = Number(url.searchParams.get('pageSize') || String(REVIEW_PAGE_SIZE_DEFAULT))
+  const pageSize = Math.min(
+    Math.max(Number.isFinite(rawSize) ? rawSize : REVIEW_PAGE_SIZE_DEFAULT, 1),
+    REVIEW_PAGE_SIZE_MAX
+  )
+  return { page, pageSize }
+}
+
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin(request)
   if (!auth.ok) return auth.response
-  const status = (new URL(request.url).searchParams.get('status') || 'pending') as
-    | 'pending'
-    | 'approved'
-    | 'rejected'
-    | 'all'
+  const url = new URL(request.url)
+  const status = (url.searchParams.get('status') || 'pending') as ReviewQueueStatus
+  const { page, pageSize } = parsePaging(url)
+
   try {
-    const sbRows = await listReviewQueue(status)
-    let rows = projectRows(sbRows as Record<string, unknown>[], NEEDS_REVIEW_COLUMNS)
+    const listed = await listReviewQueue(status, { page, pageSize })
+    let rows = projectRows(listed.rows, NEEDS_REVIEW_COLUMNS)
+    let total = listed.total
     let source: 'supabase' | 'sheets' = 'supabase'
 
-    if (rows.length === 0 && (status === 'pending' || status === 'all')) {
-      const sheet = await readNeedsReviewFromSheets(200).catch(() => null)
+    if (rows.length === 0 && total === 0 && (status === 'pending' || status === 'all')) {
+      const sheet = await readNeedsReviewFromSheets(10_000).catch(() => null)
       if (sheet && sheet.rows.length > 0) {
         source = 'sheets'
-        rows = projectRows(sheet.rows, NEEDS_REVIEW_COLUMNS)
+        const all = projectRows(sheet.rows, NEEDS_REVIEW_COLUMNS)
+        total = sheet.total || all.length
+        const from = (page - 1) * pageSize
+        rows = all.slice(from, from + pageSize)
       }
     }
 
     return NextResponse.json({
       columns: [...NEEDS_REVIEW_COLUMNS],
       rows,
+      total,
+      page,
+      pageSize,
       source,
       sheetsUrl: getSheetsEditUrl(),
       canWriteSheets: isAppSheetsWriteConfigured(),
@@ -71,29 +91,24 @@ export async function POST(request: NextRequest) {
         ? (body.fieldEdits as Record<string, string>)
         : undefined
 
-    const pending = await listReviewQueue('pending')
-    const previous = pending.find((r) => r.review_id === String(body.reviewId))
+    const source = await getReviewItem(String(body.reviewId))
+    if (!source) {
+      return NextResponse.json({ error: 'Review item not found' }, { status: 404 })
+    }
+    if (source.review_status !== 'pending') {
+      return NextResponse.json({ error: 'Already resolved' }, { status: 409 })
+    }
 
     let processedAppended = false
     let cleanAppended = false
     let processedRow: Record<string, string> | null = null
 
     if (body.action === 'approved') {
-      const source =
-        previous ??
-        (await listReviewQueue('all')).find((r) => r.review_id === String(body.reviewId))
-      if (!source) {
-        return NextResponse.json({ error: 'Review item not found' }, { status: 404 })
-      }
-      if (source.review_status !== 'pending') {
-        return NextResponse.json({ error: 'Already resolved' }, { status: 409 })
-      }
       processedRow = reviewToProcessedRow(source as Record<string, unknown>, fieldEdits)
 
       if (isAppSheetsWriteConfigured()) {
         await appendProcessedToSheets(processedRow)
         processedAppended = true
-        // Also land on the live calendar sheet (Events Clean New)
         await appendEventsCleanToSheets(processedRow)
         cleanAppended = true
       }

@@ -8,6 +8,8 @@ import {
 } from '@/components/admin/ReviewEventEditCard'
 import { useAdminAuthHeaders } from '@/lib/useAdminAuth'
 
+const PAGE_SIZE = 25
+
 const EDIT_FIELDS: (keyof ReviewEditableFields)[] = [
   'description_short',
   'start_datetime',
@@ -90,18 +92,39 @@ export default function AdminEventReviewPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [downloadingFeedback, setDownloadingFeedback] = useState(false)
   const [lastProcessedRow, setLastProcessedRow] = useState<Record<string, string> | null>(null)
+  const [venueNames, setVenueNames] = useState<string[]>([])
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [pageSize, setPageSize] = useState(PAGE_SIZE)
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1)
 
   const load = useCallback(async () => {
     const headers = await getAuthHeaders()
-    const res = await fetch(`/api/admin/pipeline/review?status=${filter}`, { headers })
+    const res = await fetch(
+      `/api/admin/pipeline/review?status=${filter}&page=${page}&pageSize=${PAGE_SIZE}`,
+      { headers }
+    )
     const j = await res.json().catch(() => ({}))
     if (!res.ok) {
       setMessage(j.error || 'Load failed')
       return
     }
-    setRows((j.rows || []) as ReviewCardRow[])
+    const nextRows = (j.rows || []) as ReviewCardRow[]
+    const nextTotal = typeof j.total === 'number' ? j.total : nextRows.length
+    const nextPageSize = typeof j.pageSize === 'number' ? j.pageSize : PAGE_SIZE
+    setRows(nextRows)
+    setTotal(nextTotal)
+    setPageSize(nextPageSize)
     setSource(j.source === 'sheets' ? 'sheets' : 'supabase')
     setSheetsWriteMode(j.sheetsWriteMode === 'auto' ? 'auto' : 'manual')
+
+    const maxPage = Math.max(1, Math.ceil(nextTotal / nextPageSize) || 1)
+    if (page > maxPage) {
+      setPage(maxPage)
+      return
+    }
+
     setMessage(
       j.source === 'sheets'
         ? 'Showing Needs_Review sheet (Supabase review queue empty). Approve/reject requires Supabase items.'
@@ -109,11 +132,30 @@ export default function AdminEventReviewPage() {
           ? 'Sheets auto-write is off — Approve marks the item done; paste into Processed Events / Events Clean New yourself.'
           : null
     )
-  }, [getAuthHeaders, filter])
+  }, [getAuthHeaders, filter, page])
+
+  const loadVenues = useCallback(async () => {
+    const headers = await getAuthHeaders()
+    const res = await fetch('/api/admin/venues', { headers })
+    const j = await res.json().catch(() => ({}))
+    if (!res.ok) return
+    const names = Array.from(
+      new Set(
+        ((j.venues || []) as { name?: string }[])
+          .map((v) => (v.name || '').trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+    setVenueNames(names)
+  }, [getAuthHeaders])
 
   useEffect(() => {
     if (isAdmin) void load()
   }, [isAdmin, load])
+
+  useEffect(() => {
+    if (isAdmin) void loadVenues()
+  }, [isAdmin, loadVenues])
 
   const displayRows = useMemo(() => {
     if (filter !== 'pending') return rows
@@ -162,7 +204,6 @@ export default function AdminEventReviewPage() {
       const fieldEdits = effectiveEdits(row, edits)
       const fieldCorrections = buildFieldCorrections(row, edits)
 
-      // Persist corrections for learning before queue fields are overwritten
       await fetch('/api/admin/event-review/feedback', {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -239,7 +280,6 @@ export default function AdminEventReviewPage() {
         exported_at: new Date().toISOString(),
         source: 'event_review_feedback',
         count: feedback.length,
-        // quality_rating, notes, field_corrections — paste into the repo for prompt/scraper tuning
         feedback,
       }
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
@@ -264,15 +304,16 @@ export default function AdminEventReviewPage() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-400">
-        Edit title, datetime, venue, and description on each card. Corrections are saved to{' '}
-        <code className="text-slate-300">event_review_feedback</code> for later learning.
-        Download the full export (quality ratings, notes, field corrections) anytime to paste into the
-        repo for scraper / prompt improvements.
+        Edit title, datetime, venue (catalog pick or new name), and description on each card.
+        Corrections are saved to <code className="text-slate-300">event_review_feedback</code> for
+        later learning. Download the full export anytime to paste into the repo for scraper / prompt
+        improvements.
         {source === 'sheets' ? ' Sheet fallback.' : ' Supabase queue.'}{' '}
         {sheetsWriteMode === 'manual'
           ? 'Processed Events / Events Clean New are edited manually — Approve does not auto-append.'
           : 'Approve appends to Processed Events and Events Clean New (live calendar).'}
-        {filter === 'pending' ? ' Pending sorted by start datetime (soonest first).' : ''}
+        {filter === 'pending' ? ' Pending sorted by start datetime (soonest first).' : ''} Paginated
+        — every queue item is reachable.
       </p>
 
       <div className="flex flex-wrap gap-2 items-center justify-between">
@@ -281,7 +322,10 @@ export default function AdminEventReviewPage() {
             <button
               key={f}
               type="button"
-              onClick={() => setFilter(f)}
+              onClick={() => {
+                setFilter(f)
+                setPage(1)
+              }}
               className={`px-3 py-1.5 rounded text-sm ${
                 filter === f ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'
               }`}
@@ -332,7 +376,34 @@ export default function AdminEventReviewPage() {
         </div>
       )}
 
-      <p className="text-xs text-slate-500">{displayRows.length} event(s)</p>
+      <div className="flex flex-wrap gap-3 items-center justify-between">
+        <p className="text-xs text-slate-500">
+          {total === 0
+            ? '0 event(s)'
+            : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total}`}
+          {totalPages > 1 ? ` · page ${page}/${totalPages}` : ''}
+        </p>
+        {totalPages > 1 && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={page <= 1}
+              className="px-3 py-1.5 rounded bg-slate-700 text-sm text-white disabled:opacity-40"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              className="px-3 py-1.5 rounded bg-slate-700 text-sm text-white disabled:opacity-40"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
 
       {displayRows.length === 0 && <p className="text-slate-500 text-sm">No items ready to review.</p>}
 
@@ -348,6 +419,7 @@ export default function AdminEventReviewPage() {
               notes={state.notes}
               busy={busy === row.review_id}
               canResolve={canResolve}
+              venueNames={venueNames}
               onEdit={(field, value) => setEdit(row.review_id, field, value)}
               onQualityChange={(rating) => patchCard(row.review_id, { quality: rating })}
               onNotesChange={(n) => patchCard(row.review_id, { notes: n })}
@@ -366,6 +438,27 @@ export default function AdminEventReviewPage() {
           )
         })}
       </div>
+
+      {totalPages > 1 && displayRows.length > 0 && (
+        <div className="flex gap-2 justify-end">
+          <button
+            type="button"
+            disabled={page <= 1}
+            className="px-3 py-1.5 rounded bg-slate-700 text-sm text-white disabled:opacity-40"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Prev
+          </button>
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            className="px-3 py-1.5 rounded bg-slate-700 text-sm text-white disabled:opacity-40"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   )
 }

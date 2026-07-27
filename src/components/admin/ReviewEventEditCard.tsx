@@ -1,5 +1,7 @@
 'use client'
 
+import { VenueNameCombobox } from '@/components/admin/VenueNameCombobox'
+
 export type ReviewEditableFields = {
   description_short: string
   start_datetime: string
@@ -36,6 +38,8 @@ type Props = {
   notes: string
   busy: boolean
   canResolve: boolean
+  /** Canonical venue names for typeahead; free text still allowed for new venues. */
+  venueNames?: string[]
   onEdit: (field: keyof ReviewEditableFields, value: string) => void
   onQualityChange: (rating: number) => void
   onNotesChange: (notes: string) => void
@@ -62,6 +66,7 @@ export function ReviewEventEditCard({
   notes,
   busy,
   canResolve,
+  venueNames = [],
   onEdit,
   onQualityChange,
   onNotesChange,
@@ -73,6 +78,8 @@ export function ReviewEventEditCard({
   const status = row.review_status || 'pending'
   const pending = status === 'pending'
   const imageUrl = row.stored_image_url || row.thumbnail_url
+  const venueValue = fieldValue(edits, row, 'venue_name_raw')
+  const editable = pending && canResolve
 
   return (
     <article className="rounded-lg border border-slate-700 bg-slate-800/40 p-4 grid gap-4 md:grid-cols-[140px_1fr]">
@@ -163,7 +170,7 @@ export function ReviewEventEditCard({
             className="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-sm text-white"
             value={fieldValue(edits, row, 'description_short')}
             onChange={(ev) => onEdit('description_short', ev.target.value)}
-            disabled={!pending || !canResolve}
+            disabled={!editable}
           />
         </label>
 
@@ -173,17 +180,17 @@ export function ReviewEventEditCard({
             className="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-sm text-white"
             value={fieldValue(edits, row, 'start_datetime')}
             onChange={(ev) => onEdit('start_datetime', ev.target.value)}
-            disabled={!pending || !canResolve}
+            disabled={!editable}
           />
         </label>
 
         <label className="block text-xs text-slate-400">
           Venue
-          <input
-            className="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-sm text-white"
-            value={fieldValue(edits, row, 'venue_name_raw')}
-            onChange={(ev) => onEdit('venue_name_raw', ev.target.value)}
-            disabled={!pending || !canResolve}
+          <VenueNameCombobox
+            value={venueValue}
+            venueNames={venueNames}
+            disabled={!editable}
+            onChange={(v) => onEdit('venue_name_raw', v)}
           />
         </label>
 
@@ -194,7 +201,7 @@ export function ReviewEventEditCard({
             className="mt-1 w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-sm text-white resize-y"
             value={fieldValue(edits, row, 'description_long')}
             onChange={(ev) => onEdit('description_long', ev.target.value)}
-            disabled={!pending || !canResolve}
+            disabled={!editable}
           />
         </label>
 
