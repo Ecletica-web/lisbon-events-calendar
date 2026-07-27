@@ -136,10 +136,17 @@ export async function readPipelineWatchlist(): Promise<WatchlistEntry[]> {
   if (watchlistSource === 'fontes') return readWatchlistFromFontesSheets()
 
   const catalog = await readWatchlistFromCatalogSheets()
-  if (watchlistSource === 'catalog' || catalog.length > 0) return catalog
+  if (watchlistSource === 'catalog' || catalog.length > 0) {
+    if (catalog.length === 0) {
+      console.warn(
+        '[catalog-store] Venues/Promoters yielded 0 IG handles — check sheet tabs or NEXT_PUBLIC_VENUES_CSV_URL'
+      )
+    }
+    return catalog
+  }
 
   console.warn(
-    '[catalog-store] Sheets catalog empty — falling back to Fontes IG (set WATCHLIST_SOURCE=catalog after cutover)'
+    '[catalog-store] catalog empty with WATCHLIST_SOURCE=auto — falling back to Fontes IG'
   )
   return readWatchlistFromFontesSheets()
 }

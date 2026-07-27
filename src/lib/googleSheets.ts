@@ -3,7 +3,7 @@
  * Uses the same service-account env vars as the pipeline.
  * googleapis is loaded dynamically so Vercel/webpack does not bundle it at build time.
  *
- * Scrape SoT is Venues + Promoters (instagram_handle + is_active). Fontes IG is legacy fallback only.
+ * Scrape SoT is Venues + Promoters (instagram_handle + is_active). Fontes IG only if WATCHLIST_SOURCE=fontes.
  */
 
 import * as fs from 'fs'
@@ -214,55 +214,91 @@ async function readTabViaPublicCsv(tabName: string): Promise<Record<string, stri
   })
 }
 
+/** Published Venues/Promoters CSV export URLs (same SoT as the public catalog). */
+async function readWatchlistFromPublishedCsv(): Promise<WatchlistRow[]> {
+  const byHandle = new Map<string, WatchlistRow>()
+  const loads: Array<{ url: string | undefined; type: 'venue' | 'promoter' }> = [
+    { url: process.env.NEXT_PUBLIC_VENUES_CSV_URL?.trim(), type: 'venue' },
+    { url: process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL?.trim(), type: 'promoter' },
+  ]
+  for (const { url, type } of loads) {
+    if (!url) continue
+    try {
+      const res = await fetch(url, { cache: 'no-store' })
+      if (!res.ok) continue
+      let text = await res.text()
+      if (text.charCodeAt(0) === 0xfeff) text = text.slice(1)
+      const parsed = Papa.parse<Record<string, string>>(text, {
+        header: true,
+        skipEmptyLines: true,
+      })
+      for (const row of mapCatalogRowsToWatchlist(parsed.data || [], type)) {
+        if (!byHandle.has(row.handle)) byHandle.set(row.handle, row)
+      }
+    } catch {
+      /* skip failed CSV */
+    }
+  }
+  return [...byHandle.values()]
+}
+
+/**
+ * Scrape watchlist SoT: Venues + Promoters (Sheets tabs, then published CSV).
+ * Legacy Fontes IG only when WATCHLIST_SOURCE=fontes.
+ */
 export async function readWatchlistFromSheets(): Promise<WatchlistRow[]> {
-  const source = (process.env.WATCHLIST_SOURCE || 'auto').trim().toLowerCase()
+  const source = (process.env.WATCHLIST_SOURCE || 'catalog').trim().toLowerCase()
 
-  if (source !== 'fontes') {
-    const venues = await readTabRows(TAB_VENUES)
-    const promoters = await readTabRows(TAB_PROMOTERS)
-    const byHandle = new Map<string, WatchlistRow>()
-    for (const row of mapCatalogRowsToWatchlist(venues.rows, 'venue')) {
-      if (!byHandle.has(row.handle)) byHandle.set(row.handle, row)
+  if (source === 'fontes') {
+    const venues = await readTabRows(TAB_FONTES_VENUES)
+    const promoters = await readTabRows(TAB_FONTES_PROMOTERS)
+    if (venues.rows.length > 0 || promoters.rows.length > 0) {
+      const byHandle = new Map<string, WatchlistRow>()
+      for (const row of mapRowsToWatchlist(venues.rows, 'venue')) {
+        if (!byHandle.has(row.handle)) byHandle.set(row.handle, row)
+      }
+      for (const row of mapRowsToWatchlist(promoters.rows, 'promoter')) {
+        if (!byHandle.has(row.handle)) byHandle.set(row.handle, row)
+      }
+      return [...byHandle.values()]
     }
-    for (const row of mapCatalogRowsToWatchlist(promoters.rows, 'promoter')) {
-      if (!byHandle.has(row.handle)) byHandle.set(row.handle, row)
+    let rows: Record<string, string>[] = []
+    let apiError: string | null = venues.error || promoters.error
+    for (const tab of [TAB_WATCHLIST, TAB_WATCHLIST_LEGACY]) {
+      const got = await readTabRows(tab)
+      if (got.rows.length > 0) {
+        rows = got.rows
+        apiError = null
+        break
+      }
+      if (!apiError) apiError = got.error
     }
-    const catalog = [...byHandle.values()]
-    if (source === 'catalog' || catalog.length > 0) return catalog
+    const mapped = mapRowsToWatchlist(rows)
+    if (mapped.length === 0 && apiError) throw new Error(apiError)
+    return mapped
   }
 
-  // Legacy Fontes fallback (WATCHLIST_SOURCE=fontes, or auto with empty catalog)
-  const venues = await readTabRows(TAB_FONTES_VENUES)
-  const promoters = await readTabRows(TAB_FONTES_PROMOTERS)
-  if (venues.rows.length > 0 || promoters.rows.length > 0) {
-    const byHandle = new Map<string, WatchlistRow>()
-    for (const row of mapRowsToWatchlist(venues.rows, 'venue')) {
-      if (!byHandle.has(row.handle)) byHandle.set(row.handle, row)
-    }
-    for (const row of mapRowsToWatchlist(promoters.rows, 'promoter')) {
-      if (!byHandle.has(row.handle)) byHandle.set(row.handle, row)
-    }
-    return [...byHandle.values()]
+  const venues = await readTabRows(TAB_VENUES)
+  const promoters = await readTabRows(TAB_PROMOTERS)
+  const byHandle = new Map<string, WatchlistRow>()
+  for (const row of mapCatalogRowsToWatchlist(venues.rows, 'venue')) {
+    if (!byHandle.has(row.handle)) byHandle.set(row.handle, row)
   }
-
-  let rows: Record<string, string>[] = []
-  let apiError: string | null = venues.error || promoters.error
-
-  for (const tab of [TAB_WATCHLIST, TAB_WATCHLIST_LEGACY]) {
-    const got = await readTabRows(tab)
-    if (got.rows.length > 0) {
-      rows = got.rows
-      apiError = null
-      break
-    }
-    if (!apiError) apiError = got.error
+  for (const row of mapCatalogRowsToWatchlist(promoters.rows, 'promoter')) {
+    if (!byHandle.has(row.handle)) byHandle.set(row.handle, row)
   }
+  if (byHandle.size > 0) return [...byHandle.values()]
 
-  const mapped = mapRowsToWatchlist(rows)
-  if (mapped.length === 0 && apiError) {
-    throw new Error(apiError)
+  const fromCsv = await readWatchlistFromPublishedCsv()
+  if (fromCsv.length > 0) return fromCsv
+
+  const err = venues.error || promoters.error
+  if (err) {
+    throw new Error(
+      `${err}. Set NEXT_PUBLIC_VENUES_CSV_URL / NEXT_PUBLIC_PROMOTERS_CSV_URL or share the Venues/Promoters tabs.`
+    )
   }
-  return mapped
+  return []
 }
 
 /**

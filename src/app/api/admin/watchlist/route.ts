@@ -22,16 +22,21 @@ export async function GET(request: NextRequest) {
           sheetsUrl: getSheetsEditUrl(),
           canWrite: false,
           editHint:
-            'Edit scrape sources in /admin/venues and /admin/promoters (is_active + instagram_handle).',
+            'Scrape handles come from Supabase venues/promoters (instagram_handle + is_active). Edit in /admin/venues and /admin/promoters.',
         })
       }
     }
 
-    if (!resolveSpreadsheetId()) {
+    const hasSheet =
+      !!resolveSpreadsheetId() ||
+      !!process.env.NEXT_PUBLIC_VENUES_CSV_URL?.trim() ||
+      !!process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL?.trim()
+
+    if (!hasSheet) {
       return NextResponse.json(
         {
           error:
-            'No catalog — seed Supabase venues/promoters or set GOOGLE_SHEETS_ID / NEXT_PUBLIC_EVENTS_CSV_URL',
+            'No catalog — seed Supabase venues/promoters, set NEXT_PUBLIC_VENUES_CSV_URL, or GOOGLE_SHEETS_ID',
           rows: [],
           canWrite: false,
         },
@@ -46,7 +51,7 @@ export async function GET(request: NextRequest) {
       sheetsUrl: getSheetsEditUrl(),
       canWrite: false,
       editHint:
-        'Scrape list is derived from Venues + Promoters sheets (instagram_handle + is_active). Edit those tabs or use /admin/venues after seeding Supabase.',
+        'Scrape handles come from the Venues + Promoters sheets (instagram_handle + is_active), not Fontes IG. Edit those tabs or /admin/venues after seeding.',
     })
   } catch (err) {
     return NextResponse.json(

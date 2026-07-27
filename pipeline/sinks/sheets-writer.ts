@@ -163,7 +163,7 @@ export async function readTabSafe(tabName: string): Promise<Record<string, strin
   return readTabViaPublicCsv(tabName)
 }
 
-// ---- Watchlist (Venues + Promoters catalog SoT; Fontes fallback via WATCHLIST_SOURCE) ----
+// ---- Watchlist (Venues + Promoters catalog SoT; Fontes only if WATCHLIST_SOURCE=fontes) ----
 
 function dedupeWatchlist(entries: WatchlistEntry[]): WatchlistEntry[] {
   const byHandle = new Map<string, WatchlistEntry>()
@@ -180,7 +180,38 @@ function dedupeWatchlist(entries: WatchlistEntry[]): WatchlistEntry[] {
   return [...byHandle.values()]
 }
 
-/** Scrape set from Venues + Promoters sheets (instagram_handle + is_active). */
+async function readCatalogCsvUrl(
+  url: string | undefined,
+  forceType: 'venue' | 'promoter'
+): Promise<WatchlistEntry[]> {
+  if (!url?.trim()) return []
+  try {
+    const res = await fetch(url.trim(), {
+      headers: { 'User-Agent': 'LisbonEventsPipeline/1.0' },
+    })
+    if (!res.ok) return []
+    let text = await res.text()
+    if (text.charCodeAt(0) === 0xfeff) text = text.slice(1)
+    const rows =
+      Papa.parse<Record<string, string>>(text, {
+        header: true,
+        skipEmptyLines: true,
+      }).data ?? []
+    return rows
+      .map((r) => rowToCatalogWatchlistEntry(r, forceType))
+      .filter((e): e is NonNullable<typeof e> => e != null)
+      .map((e) => ({
+        handle: e.handle,
+        type: e.type as 'venue' | 'promoter',
+        active: e.active,
+        notes: e.notes,
+      }))
+  } catch {
+    return []
+  }
+}
+
+/** Scrape set from Venues + Promoters sheets / published CSV (instagram_handle + is_active). */
 export async function readWatchlistFromCatalogSheets(): Promise<WatchlistEntry[]> {
   const venueRows = await readTabSafe(TAB_VENUES)
   const promoterRows = await readTabSafe(TAB_PROMOTERS)
@@ -190,8 +221,8 @@ export async function readWatchlistFromCatalogSheets(): Promise<WatchlistEntry[]
   const promoters = promoterRows
     .map((r) => rowToCatalogWatchlistEntry(r, 'promoter'))
     .filter((e): e is NonNullable<typeof e> => e != null)
-  // Venues win on handle collision
-  return dedupeWatchlist([
+
+  const fromTabs = dedupeWatchlist([
     ...venues.map((e) => ({
       handle: e.handle,
       type: e.type as 'venue' | 'promoter',
@@ -204,6 +235,13 @@ export async function readWatchlistFromCatalogSheets(): Promise<WatchlistEntry[]
       active: e.active,
       notes: e.notes,
     })),
+  ])
+  if (fromTabs.length > 0) return fromTabs
+
+  const cfg = getConfig()
+  return dedupeWatchlist([
+    ...(await readCatalogCsvUrl(cfg.NEXT_PUBLIC_VENUES_CSV_URL, 'venue')),
+    ...(await readCatalogCsvUrl(cfg.NEXT_PUBLIC_PROMOTERS_CSV_URL, 'promoter')),
   ])
 }
 
@@ -252,7 +290,9 @@ export async function readWatchlistFromFontesSheets(): Promise<WatchlistEntry[]>
 
 /**
  * Scrape watchlist SoT.
- * Default WATCHLIST_SOURCE=auto: Venues+Promoters catalog first; Fontes only if catalog has zero handles.
+ * Default WATCHLIST_SOURCE=catalog: Venues + Promoters only.
+ * Set WATCHLIST_SOURCE=fontes for legacy Fontes IG tabs. `auto` still prefers catalog
+ * and only falls back to Fontes when the catalog has zero handles.
  */
 export async function readWatchlist(): Promise<WatchlistEntry[]> {
   const source = getWatchlistSource()
@@ -262,14 +302,14 @@ export async function readWatchlist(): Promise<WatchlistEntry[]> {
   if (source === 'catalog' || catalog.length > 0) {
     if (catalog.length === 0) {
       console.warn(
-        '[watchlist] WATCHLIST_SOURCE=catalog but Venues/Promoters yielded 0 IG handles'
+        '[watchlist] Venues/Promoters yielded 0 IG handles — set instagram_handle on catalog rows or NEXT_PUBLIC_VENUES_CSV_URL'
       )
     }
     return catalog
   }
 
   console.warn(
-    '[watchlist] catalog yielded 0 IG handles — falling back to Fontes IG (set WATCHLIST_SOURCE=catalog after cutover)'
+    '[watchlist] catalog empty with WATCHLIST_SOURCE=auto — falling back to Fontes IG (prefer WATCHLIST_SOURCE=catalog)'
   )
   return readWatchlistFromFontesSheets()
 }

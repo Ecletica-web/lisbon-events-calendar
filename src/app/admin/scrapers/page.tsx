@@ -349,7 +349,7 @@ export default function AdminScrapersPage() {
               rows={2}
             />
             <span className="block mt-1 text-[11px] text-slate-500 leading-snug">
-              Comma or newline separated. Empty = all active catalog handles.
+              Comma or newline separated. Empty = all active Venues/Promoters handles.
               {selectedHandles.length > 0 && (
                 <span className="text-slate-400"> · {selectedHandles.length} selected</span>
               )}
@@ -362,7 +362,7 @@ export default function AdminScrapersPage() {
                 onClick={() => setHandlePickerOpen((o) => !o)}
                 className="px-2.5 py-1.5 rounded border border-slate-600 bg-slate-900 text-slate-200 text-xs hover:bg-slate-800"
               >
-                {handlePickerOpen ? 'Hide sources' : 'Pick from catalog'}
+                {handlePickerOpen ? 'Hide sources' : 'Pick from Venues / Promoters'}
               </button>
               {selectedHandles.length > 0 && (
                 <button
@@ -478,7 +478,7 @@ export default function AdminScrapersPage() {
           <div className="rounded border border-slate-700 bg-slate-900/60 p-3 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-slate-400">
-                Active catalog sources — click to toggle. Empty selection still means all.
+                Active Venues/Promoters handles — click to toggle. Empty selection still means all.
               </p>
               <div className="flex gap-2">
                 <button
@@ -609,7 +609,7 @@ export default function AdminScrapersPage() {
       <section className="rounded-lg border border-slate-700 bg-slate-800/40 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h2 className="text-lg font-medium text-white">
-            Scrape catalog (read-only)
+            Venues / Promoters scrape list (read-only)
             {watchlist.length > 0 && (
               <span className="ml-2 text-sm font-normal text-slate-400">
                 {watchlist.length} sources

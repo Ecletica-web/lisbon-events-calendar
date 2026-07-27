@@ -81,15 +81,15 @@ const configSchema = z.object({
   NEXT_PUBLIC_PROMOTERS_CSV_URL: z.string().optional(),
 
   /**
-   * Scrape watchlist from Sheets: catalog (Venues+Promoters) | fontes (legacy) | auto (catalog then Fontes).
-   * Default auto — safe cutover; set catalog after diff-watchlist-sources is green.
+   * Scrape watchlist: catalog (Venues+Promoters SoT) | fontes (legacy) | auto (catalog, Fontes if empty).
+   * Default catalog — Fontes IG is not used unless explicitly requested.
    */
   WATCHLIST_SOURCE: z
     .string()
     .optional()
     .transform((v): 'catalog' | 'fontes' | 'auto' => {
-      const x = (v || 'auto').trim().toLowerCase()
-      return x === 'catalog' || x === 'fontes' ? x : 'auto'
+      const x = (v || 'catalog').trim().toLowerCase()
+      return x === 'fontes' || x === 'auto' ? x : 'catalog'
     }),
   /**
    * Catalog SoT: supabase | sheets | auto (Supabase if rows exist else Sheets).

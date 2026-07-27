@@ -1,5 +1,5 @@
 /**
- * Profile-image scraper — Instagram avatars for Fontes IG venues AND promoters.
+ * Profile-image scraper — Instagram avatars for Venues + Promoters catalog.
  * Archives to Supabase venue-images + _index.json / venue_profile_images,
  * then writes Venues + Promoters sheet primary_image_url.
  *
@@ -200,8 +200,8 @@ export async function pushStoredProfileImagesToSheets(options?: {
 }
 
 /**
- * Active venue + promoter handles from Fontes IG → Apify profiles → archive →
- * Supabase index → Venues/Promoters sheets.
+ * Active venue + promoter handles from Venues/Promoters catalog → Apify profiles →
+ * archive → Supabase index → Venues/Promoters sheets.
  */
 export async function syncProfileImages(
   watchlist: WatchlistEntry[],
@@ -280,7 +280,7 @@ export async function syncProfileImages(
 
   const allHandles = [...new Set([...venueHandles, ...promoterHandles])]
   if (allHandles.length === 0) {
-    await log('[profile-images] no active venue/promoter handles in Fontes IG — skip Apify')
+    await log('[profile-images] no active venue/promoter handles in catalog — skip Apify')
     return result
   }
 

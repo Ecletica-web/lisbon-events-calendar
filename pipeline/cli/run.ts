@@ -66,7 +66,7 @@ export interface CliFlags {
   command: string
   /**
    * Restrict to one or more Instagram handles (from `--handle=a,b` or `--handles=a,b`).
-   * Empty = all active Fontes IG sources.
+   * Empty = all active Venues/Promoters catalog handles.
    */
   handles: string[]
   /** Max posts/events **per Instagram handle** (not a global run total). */
@@ -231,7 +231,7 @@ export async function commandProfileImages(flags: CliFlags): Promise<Record<stri
     watchlist = watchlist.filter((w) => want.has(w.handle))
   }
   if (watchlist.filter((w) => w.active).length === 0) {
-    await logRun(flags, '[profile-images] No active handles in Fontes IG (or --handle not found).')
+    await logRun(flags, '[profile-images] No active handles in Venues/Promoters catalog (or --handle not found).')
     return { profiles_fetched: 0, archived: 0 }
   }
 
