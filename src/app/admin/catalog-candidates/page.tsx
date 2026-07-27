@@ -43,7 +43,9 @@ function draftFrom(c: Candidate): Draft {
 export default function AdminCatalogCandidatesPage() {
   const { getAuthHeaders, isAdmin } = useAdminAuthHeaders()
   const [rows, setRows] = useState<Candidate[]>([])
-  const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending')
+  const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'merged' | 'all'>(
+    'pending'
+  )
   const [kindFilter, setKindFilter] = useState<'all' | 'venue' | 'promoter'>('all')
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
   const [message, setMessage] = useState<string | null>(null)
@@ -76,6 +78,29 @@ export default function AdminCatalogCandidatesPage() {
   useEffect(() => {
     if (isAdmin) void load()
   }, [isAdmin, load])
+
+  async function runDedupe() {
+    setBusy('dedupe')
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/catalog-candidates', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'dedupe' }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setMessage(json.error || 'Dedupe failed')
+        return
+      }
+      setMessage(
+        `Dedupe: scanned ${json.scanned}, merged→catalog ${json.merged_catalog}, merged→candidate ${json.merged_candidate}. ${json.hint || ''}`
+      )
+      await load()
+    } finally {
+      setBusy(null)
+    }
+  }
 
   async function act(id: string, action: 'approve' | 'reject') {
     const d = drafts[id]
@@ -135,7 +160,7 @@ export default function AdminCatalogCandidatesPage() {
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
-        {(['pending', 'approved', 'rejected', 'all'] as const).map((s) => (
+        {(['pending', 'approved', 'rejected', 'merged', 'all'] as const).map((s) => (
           <button
             key={s}
             type="button"
@@ -162,12 +187,24 @@ export default function AdminCatalogCandidatesPage() {
         ))}
         <button
           type="button"
+          disabled={!!busy}
+          onClick={() => void runDedupe()}
+          className="px-3 py-1.5 rounded text-sm bg-amber-700 hover:bg-amber-600 text-white disabled:opacity-50"
+        >
+          {busy === 'dedupe' ? 'Deduping…' : 'Dedupe exact'}
+        </button>
+        <button
+          type="button"
           onClick={() => void load()}
           className="ml-auto px-3 py-1.5 rounded text-sm bg-slate-800 text-slate-300 hover:bg-slate-700"
         >
           Refresh
         </button>
       </div>
+      <p className="text-xs text-slate-500">
+        Exact handle/name merge in-app. Fuzzy + OpenAI:{' '}
+        <code className="text-slate-400">cd pipeline && npm run dedupe-catalog -- --apply</code>
+      </p>
 
       {message && <p className="text-sm text-amber-200/90">{message}</p>}
 

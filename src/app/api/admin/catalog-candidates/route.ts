@@ -4,6 +4,7 @@ import {
   listCatalogCandidates,
   approveCatalogCandidate,
   rejectCatalogCandidate,
+  cheapDedupePendingCatalogCandidates,
   type CatalogCandidateKind,
   type CatalogCandidateStatus,
 } from '@/lib/adminCatalogCandidates'
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
   const auth = await requireAdmin(request)
   if (!auth.ok) return auth.response
   const body = (await request.json().catch(() => null)) as {
-    action?: 'approve' | 'reject'
+    action?: 'approve' | 'reject' | 'dedupe'
     id?: string
     kind?: CatalogCandidateKind
     name?: string
@@ -48,13 +49,26 @@ export async function POST(request: NextRequest) {
     notes?: string
   } | null
 
-  if (!body?.id || !body.action) {
-    return NextResponse.json({ error: 'id and action required' }, { status: 400 })
+  if (!body?.action) {
+    return NextResponse.json({ error: 'action required' }, { status: 400 })
   }
 
   const resolvedBy = auth.email || 'admin'
 
   try {
+    if (body.action === 'dedupe') {
+      const stats = await cheapDedupePendingCatalogCandidates(resolvedBy)
+      return NextResponse.json({
+        ok: true,
+        ...stats,
+        hint: 'Exact/near-exact only. For OpenAI fuzzy pass: cd pipeline && npm run dedupe-catalog -- --apply',
+      })
+    }
+
+    if (!body.id) {
+      return NextResponse.json({ error: 'id required' }, { status: 400 })
+    }
+
     if (body.action === 'reject') {
       await rejectCatalogCandidate(body.id, resolvedBy, body.notes)
       return NextResponse.json({ ok: true })

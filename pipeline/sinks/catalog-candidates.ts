@@ -5,6 +5,10 @@
 
 import { normalizeIgHandle } from './fontes-ig'
 import { getSupabaseStore, isSupabaseStoreConfigured } from './supabase-store'
+import {
+  bumpPendingCandidate,
+  evaluateCatalogCandidateDuplicate,
+} from './catalog-candidate-dedupe'
 
 export type CatalogCandidateKind = 'venue' | 'promoter'
 
@@ -95,7 +99,7 @@ export async function loadKnownCatalogHandles(): Promise<Set<string>> {
 export async function upsertCatalogCandidateSighting(
   sighting: CatalogCandidateSighting,
   dryRun = false
-): Promise<'inserted' | 'bumped' | 'skipped' | 'dry_run'> {
+): Promise<'inserted' | 'bumped' | 'skipped' | 'merged' | 'dry_run'> {
   if (!isSupabaseStoreConfigured()) return 'skipped'
   const name = sighting.proposed_name.trim()
   if (!isPlausibleCatalogName(name) && !normalizeIgHandle(sighting.proposed_handle || '')) {
@@ -152,6 +156,64 @@ export async function upsertCatalogCandidateSighting(
     return 'bumped'
   }
 
+  // Fuzzy / LLM dedupe vs catalog + other pending candidates (different identity_key)
+  const decision = await evaluateCatalogCandidateDuplicate({
+    kind: sighting.kind,
+    proposed_name: name,
+    proposed_handle: handle || undefined,
+    evidence_summary: sighting.evidence_summary,
+    identity_key,
+    useLlm: true,
+  })
+
+  if (decision.action === 'merge_catalog') {
+    // Record as merged so we don't re-propose forever under this identity
+    const { error } = await sb.from('pipeline_catalog_candidates').insert({
+      kind: sighting.kind,
+      status: 'merged',
+      identity_key,
+      proposed_name: name,
+      proposed_handle: handle,
+      suggested_city: sighting.suggested_city?.trim() || null,
+      evidence_summary: sighting.evidence_summary?.trim() || null,
+      sample_source_url: sighting.sample_source_url || null,
+      sample_caption: (sighting.sample_caption || '').slice(0, 2000) || null,
+      sample_owner_username: sighting.sample_owner_username || null,
+      sample_venue_name_raw: sighting.sample_venue_name_raw || null,
+      last_source_event_id: sighting.source_event_id || null,
+      sighting_count: 1,
+      first_seen_at: now,
+      last_seen_at: now,
+      resolved_entity_id: decision.entity_id,
+      resolved_at: now,
+      resolved_by: 'catalog-dedupe',
+      reviewer_notes: `auto-dedupe → catalog ${decision.entity_id} (${decision.entity_name}) [${decision.method}] ${decision.reason}`.slice(
+        0,
+        1000
+      ),
+      updated_at: now,
+    })
+    if (error && !/duplicate|unique/i.test(error.message)) {
+      console.warn('[catalog-candidates] merge-catalog insert:', error.message)
+    }
+    return 'merged'
+  }
+
+  if (decision.action === 'merge_candidate') {
+    await bumpPendingCandidate(decision.candidate_id, {
+      proposed_name: name,
+      proposed_handle: handle,
+      evidence_summary: sighting.evidence_summary,
+      sample_source_url: sighting.sample_source_url,
+      sample_caption: sighting.sample_caption,
+      sample_owner_username: sighting.sample_owner_username,
+      sample_venue_name_raw: sighting.sample_venue_name_raw,
+      source_event_id: sighting.source_event_id,
+      suggested_city: sighting.suggested_city,
+    })
+    return 'merged'
+  }
+
   const { error } = await sb.from('pipeline_catalog_candidates').insert({
     kind: sighting.kind,
     status: 'pending',
@@ -171,7 +233,6 @@ export async function upsertCatalogCandidateSighting(
     updated_at: now,
   })
   if (error) {
-    // Race on unique key — treat as bump attempt
     if (/duplicate|unique/i.test(error.message)) {
       return 'bumped'
     }

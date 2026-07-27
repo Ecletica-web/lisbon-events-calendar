@@ -2,8 +2,8 @@
  * Rule validation with pipe-separated reason codes.
  * Routing: pass → Processed Events (status scheduled); review/fail → Needs_Review.
  *
- * Auto-repair runs before this module. Hard gates block auto-pass for past events,
- * unresolved venues, structural datetime issues, tier conflicts, and source-as-venue.
+ * Auto-repair runs before this module. Hard gates: missing title/start and past_event
+ * → fail (discard). Soft gates (unresolved venue, tier conflicts, …) → Needs_Review.
  */
 
 import type { ExtractedEvent, PostPattern, ValidationResult } from '../types'
@@ -170,8 +170,11 @@ export function validateEvent(event: ExtractedEvent, ctx: ValidateContext): Vali
     reasons.push(REASON.OUTSIDE_SERVICE_AREA)
   }
 
+  // past_event is a hard fail → discard (never Needs_Review / human queue)
   const hardFail =
-    reasons.includes(REASON.MISSING_START) || reasons.includes(REASON.MISSING_TITLE)
+    reasons.includes(REASON.MISSING_START) ||
+    reasons.includes(REASON.MISSING_TITLE) ||
+    reasons.includes(REASON.PAST_EVENT)
   if (hardFail) return { status: 'fail', reasons }
 
   if (reasons.length > 0) return { status: 'review', reasons }

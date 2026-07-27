@@ -7,27 +7,30 @@ import { z } from 'zod'
 import type { EventsRawRow, ExtractionResult, ExtractedEvent } from '../types'
 import { textChatJson, extractJson } from './vision-client'
 
+/** LLM often returns JSON null for omitted fields; .optional() alone rejects null. */
+const optStr = z.string().nullish()
+
 export const extractedEventSchema = z.object({
   title: z.string().min(1),
-  description_short: z.string().optional(),
-  description_long: z.string().optional(),
-  category: z.string().optional(),
-  tags: z.array(z.string()).default([]),
-  start_datetime: z.string().optional(),
-  end_datetime: z.string().optional(),
-  venue_name_raw: z.string().optional(),
+  description_short: optStr,
+  description_long: optStr,
+  category: optStr,
+  tags: z.array(z.string()).nullish().transform((t) => t ?? []),
+  start_datetime: optStr,
+  end_datetime: optStr,
+  venue_name_raw: optStr,
   price_min: z.number().nullish(),
   price_max: z.number().nullish(),
-  currency: z.string().optional(),
+  currency: optStr,
   is_free: z.boolean().nullish(),
-  ticket_url: z.string().optional(),
-  age_restriction: z.string().optional(),
+  ticket_url: optStr,
+  age_restriction: optStr,
   confidence_score: z.number().min(0).max(1),
 })
 
 export const extractionResponseSchema = z.object({
   events: z.array(extractedEventSchema).default([]),
-  extraction_notes: z.string().optional(),
+  extraction_notes: optStr,
 })
 
 const SYSTEM_PROMPT = `You extract structured event data from Instagram captions posted by Lisbon venues and promoters.
@@ -73,10 +76,21 @@ export async function broadEventExtraction(row: EventsRawRow): Promise<Extractio
   }
 
   const events: ExtractedEvent[] = result.data.events.map((e) => ({
-    ...e,
+    title: e.title,
+    description_short: e.description_short ?? undefined,
+    description_long: e.description_long ?? undefined,
+    category: e.category ?? undefined,
+    tags: e.tags.slice(0, 5).map((t) => t.toLowerCase().trim()).filter(Boolean),
+    start_datetime: e.start_datetime ?? undefined,
+    end_datetime: e.end_datetime ?? undefined,
+    venue_name_raw: e.venue_name_raw ?? undefined,
     price_min: e.price_min ?? undefined,
     price_max: e.price_max ?? undefined,
-    tags: e.tags.slice(0, 5).map((t) => t.toLowerCase().trim()).filter(Boolean),
+    currency: e.currency ?? undefined,
+    is_free: e.is_free ?? undefined,
+    ticket_url: e.ticket_url ?? undefined,
+    age_restriction: e.age_restriction ?? undefined,
+    confidence_score: e.confidence_score,
     extraction_source: 'caption' as const,
   }))
 

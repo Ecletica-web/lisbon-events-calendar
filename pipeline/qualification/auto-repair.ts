@@ -11,6 +11,7 @@ export type RepairCode =
   | 'cleared_placeholder_ticket_url'
   | 'cleared_free_price_conflict'
   | 'dropped_zero_duration_end'
+  | 'stripped_venue_floor_qualifier'
 
 export interface RepairResult {
   event: ExtractedEvent
@@ -19,6 +20,30 @@ export interface RepairResult {
 
 const PLACEHOLDER_HOST_RE =
   /(?:^|\.)example\.com$|(?:^|\.)example\.org$|(?:^|\.)placeholder\.|picsum\.photos|placehold\.it|\.\.\./i
+
+/** Floor / room labels that are not venues (Casa Capitão sótão, 1º andar, …). */
+const FLOOR_QUALIFIER_RE =
+  /^(?:r(?:es|és)?\s*d[eo]\s*ch[aã]o|r\s*\/?\s*c|cave|s[oó]t[aã]o|terra[cç]o|rooftop|mezanine|mezanino|sala\s+\w+|(?:1[oºª]?|primeiro|2[oºª]?|segundo|3[oºª]?|terceiro|4[oºª]?|quarto|5[oºª]?|quinto)\s*andar)$/i
+
+/**
+ * "Casa Capitão - Sótão" / "Lux, 1º andar" → parent venue name.
+ * Pure floor labels → empty string (caller may fall back to owner venue).
+ */
+export function stripVenueFloorQualifier(raw: string): { value: string; stripped: boolean } {
+  const s = raw.trim()
+  if (!s) return { value: '', stripped: false }
+  if (FLOOR_QUALIFIER_RE.test(s)) return { value: '', stripped: true }
+
+  const parts = s.split(/\s*[-–,|/]\s*/).map((p) => p.trim()).filter(Boolean)
+  if (parts.length < 2) return { value: s, stripped: false }
+
+  const last = parts[parts.length - 1]
+  if (FLOOR_QUALIFIER_RE.test(last) || /\b(?:andar|s[oó]t[aã]o|cave|terra[cç]o|rooftop)\b/i.test(last)) {
+    const parent = parts.slice(0, -1).join(' - ').trim()
+    return { value: parent, stripped: true }
+  }
+  return { value: s, stripped: false }
+}
 
 function parseDateParts(iso: string): { date: string; time: string } | null {
   const m = iso.trim().match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})/)
@@ -123,6 +148,14 @@ export function autoRepairEvent(input: ExtractedEvent): RepairResult {
   if (event.is_free === true && event.price_min != null && event.price_min > 0) {
     event.is_free = undefined
     repairs.push('cleared_free_price_conflict')
+  }
+
+  if (event.venue_name_raw?.trim()) {
+    const floor = stripVenueFloorQualifier(event.venue_name_raw)
+    if (floor.stripped) {
+      event.venue_name_raw = floor.value || undefined
+      repairs.push('stripped_venue_floor_qualifier')
+    }
   }
 
   return { event, repairs }

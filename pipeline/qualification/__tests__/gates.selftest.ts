@@ -69,6 +69,17 @@ function ev(partial: Partial<ExtractedEvent> & { title: string }): ExtractedEven
     now: new Date('2026-07-01'),
   })
   assert.ok(past.reasons.includes(REASON.PAST_EVENT))
+  assert.equal(past.status, 'fail')
+
+  const floor = autoRepairEvent(
+    ev({
+      title: 'Night',
+      start_datetime: future,
+      venue_name_raw: 'Casa Capitão - Sótão',
+    })
+  )
+  assert.ok(floor.repairs.includes('stripped_venue_floor_qualifier'))
+  assert.equal(floor.event.venue_name_raw, 'Casa Capitão')
 
   const unresolved = validateEvent(ev({ title: 'Ok', start_datetime: future, venue_name_raw: 'Somewhere' }), {
     events_in_post: 1,

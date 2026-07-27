@@ -25,7 +25,7 @@ import { broadEventExtraction } from './intelligence/broad-event-extraction'
 import { carouselEventVision } from './intelligence/carousel-event-vision'
 import { videoEventExtraction, isVideoPassEnabled } from './intelligence/video-event-extraction'
 import { mergeExtractions, type MergeExtractionsResult } from './intelligence/merge-extractions'
-import { validateEvent } from './qualification/validate-event'
+import { validateEvent, REASON } from './qualification/validate-event'
 import { resolveEventVenue } from './qualification/venue-resolve'
 import { autoRepairEvent } from './qualification/auto-repair'
 import { calculateConfidence, detectCriticalInference } from './qualification/calculated-confidence'
@@ -298,6 +298,7 @@ export async function processPost(
   const processed: ProcessedEventRow[] = []
   const needsReview: NeedsReviewRow[] = []
   const validationArtifacts: unknown[] = []
+  let pastEventDiscarded = 0
 
   for (let i = 0; i < merged.length; i++) {
     const repaired = autoRepairEvent(merged[i])
@@ -354,7 +355,7 @@ export async function processPost(
     })
 
     // Propose catalog candidates (separate from event review queue)
-    if (!venue.resolved) {
+    if (!venue.resolved && !validation.reasons.includes(REASON.PAST_EVENT)) {
       const rawName =
         event.venue_name_raw?.trim() ||
         venue.venue_name_raw?.trim() ||
@@ -381,6 +382,12 @@ export async function processPost(
           options.dryRun
         )
       }
+    }
+
+    // past_event → discard immediately (never Needs_Review)
+    if (validation.reasons.includes(REASON.PAST_EVENT)) {
+      pastEventDiscarded++
+      continue
     }
 
     if (validation.status !== 'pass') {
@@ -455,6 +462,23 @@ export async function processPost(
   }
 
   await persistTier(options, 'validation', { parsedJson: validationArtifacts })
+
+  // Only past_event candidates → discard the post (do not open review)
+  if (processed.length === 0 && needsReview.length === 0 && pastEventDiscarded > 0) {
+    if (options.postDbId) {
+      await updatePostProcessingStatus(options.postDbId, 'discarded', options.dryRun)
+    }
+    return {
+      discarded: true,
+      discardReason: `past_event (${pastEventDiscarded})`,
+      post_pattern: postPattern,
+      processed: [],
+      needsReview: [],
+      tiersRun,
+      events: merged,
+      finalStatus: 'discarded',
+    }
+  }
 
   const finalStatus: ProcessingStatus =
     processed.length > 0 && needsReview.length === 0

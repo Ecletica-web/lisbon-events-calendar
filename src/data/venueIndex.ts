@@ -10,7 +10,10 @@ function normalize(s: string): string {
     .trim()
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
+    // "BUS - Paragem Cultural" ↔ "Bus Paragem Cultural"
+    .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function normalizeHandle(h: string): string {

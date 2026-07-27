@@ -334,8 +334,8 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
     await logRun(flags, `[scrape] failed: ${error}`)
   }
 
-  // Safety net if Apify returns older posts than the cutoff
-  if (onlyPostsNewerThan && !flags.fromApifyRun) {
+  // Safety net if Apify returns older posts than the cutoff (also for --from-apify-run)
+  if (onlyPostsNewerThan) {
     const before = items.length
     const cutMs = Date.parse(onlyPostsNewerThan)
     if (Number.isFinite(cutMs)) {

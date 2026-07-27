@@ -19,14 +19,16 @@ const SLIDES_PER_CHUNK = 2
 const MAX_SLIDES = 10
 
 const visionEventSchema = extractedEventSchema.extend({
-  source_slide_indices: z.array(z.number()).default([]),
-  on_slide_text_evidence: z.string().optional(),
+  source_slide_indices: z.array(z.number()).nullish().transform((t) => t ?? []),
+  on_slide_text_evidence: z.string().nullish(),
 })
 
 const visionResponseSchema = z.object({
   events: z.array(visionEventSchema).default([]),
-  post_pattern: z.enum(['single_event', 'multi_event', 'monthly_program', 'announcement', 'recap', 'not_event']).optional(),
-  extraction_notes: z.string().optional(),
+  post_pattern: z
+    .enum(['single_event', 'multi_event', 'monthly_program', 'announcement', 'recap', 'not_event'])
+    .nullish(),
+  extraction_notes: z.string().nullish(),
 })
 
 const SYSTEM_PROMPT = `You extract structured event data from Instagram carousel slides (event flyers, monthly programs) from Lisbon venues.
@@ -147,11 +149,24 @@ export async function carouselEventVision(input: CarouselVisionInput): Promise<E
       if (parsed.data.extraction_notes) notes.push(parsed.data.extraction_notes)
       for (const e of parsed.data.events) {
         allEvents.push({
-          ...e,
+          title: e.title,
+          description_short: e.description_short ?? undefined,
+          description_long: e.description_long ?? undefined,
+          category: e.category ?? undefined,
+          tags: e.tags.slice(0, 5).map((t) => t.toLowerCase().trim()).filter(Boolean),
+          start_datetime: e.start_datetime ?? undefined,
+          end_datetime: e.end_datetime ?? undefined,
+          venue_name_raw: e.venue_name_raw ?? undefined,
           price_min: e.price_min ?? undefined,
           price_max: e.price_max ?? undefined,
-          tags: e.tags.slice(0, 5).map((t) => t.toLowerCase().trim()).filter(Boolean),
-          source_slide_indices: e.source_slide_indices.length > 0 ? e.source_slide_indices : slideIndices,
+          currency: e.currency ?? undefined,
+          is_free: e.is_free ?? undefined,
+          ticket_url: e.ticket_url ?? undefined,
+          age_restriction: e.age_restriction ?? undefined,
+          confidence_score: e.confidence_score,
+          source_slide_indices:
+            e.source_slide_indices.length > 0 ? e.source_slide_indices : slideIndices,
+          on_slide_text_evidence: e.on_slide_text_evidence ?? undefined,
           extraction_source: 'vision' as const,
         })
       }
