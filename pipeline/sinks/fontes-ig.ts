@@ -1,18 +1,16 @@
 /**
- * Shared Fontes IG ↔ watchlist mapping for the pipeline package.
+ * Watchlist mapping for the pipeline package.
  * Mirrors src/lib/fontesIgWatchlist.ts (kept local so pipeline stays standalone).
  *
- * Source of truth tabs:
- *   - Fontes IG - Venues
- *   - Fontes IG - Promoters
- * Combined "Fontes IG" is a convenience union for scraping.
+ * Primary SoT: Venues + Promoters catalog tabs (instagram_handle + is_active).
+ * Legacy fallback: Fontes IG - Venues / Fontes IG - Promoters / combined Fontes IG.
  */
 
 export type NormalizedWatchlistEntry = {
   handle: string
   type: 'venue' | 'promoter'
   active: boolean
-  /** Display name from Fontes (column Name) */
+  /** Display name */
   name?: string
   notes?: string
 }
@@ -44,6 +42,12 @@ export function normalizeIgHandle(raw: string): string {
   return h
 }
 
+/** Empty / missing → active. Falsey strings → inactive. */
+export function parseIsActive(raw: string): boolean {
+  if (!raw || !String(raw).trim()) return true
+  return !['false', '0', 'no', 'n', 'inactive', 'off'].includes(String(raw).trim().toLowerCase())
+}
+
 function inferType(venueTypeRaw: string, typeRaw: string): 'venue' | 'promoter' {
   const blob = `${typeRaw} ${venueTypeRaw}`.toLowerCase()
   if (/\bpromoter\b|\blabel\b|\bfestival\b/.test(blob)) return 'promoter'
@@ -51,11 +55,36 @@ function inferType(venueTypeRaw: string, typeRaw: string): 'venue' | 'promoter' 
   return 'venue'
 }
 
+/**
+ * Map a Venues or Promoters catalog row → watchlist entry.
+ * Requires non-empty instagram_handle; active from is_active (default true).
+ */
+export function rowToCatalogWatchlistEntry(
+  row: Record<string, string>,
+  forceType: 'venue' | 'promoter'
+): NormalizedWatchlistEntry | null {
+  const handle = normalizeIgHandle(
+    pick(row, 'instagram_handle', 'Handle / Website', 'handle', 'Handle', 'instagram')
+  )
+  if (!handle) return null
+
+  const name = pick(row, 'name', 'Name') || handle
+  const active = parseIsActive(pick(row, 'is_active', 'Active', 'active', 'enabled'))
+
+  return {
+    handle,
+    type: forceType,
+    active,
+    name,
+    notes: name,
+  }
+}
+
+/** Legacy Fontes IG row → watchlist entry. */
 export function rowToWatchlistEntry(
   row: Record<string, string>,
   forceType?: 'venue' | 'promoter'
 ): NormalizedWatchlistEntry | null {
-  // Fontes IG: column C = handles (@luxfragil, …)
   const handle = normalizeIgHandle(
     col(row, 2) ||
       pick(row, 'Handle / Website', 'handle', 'Handle', 'instagram', 'instagram_handle')
@@ -66,11 +95,9 @@ export function rowToWatchlistEntry(
   const venueType = pick(row, 'Venue Type', 'venue_type', 'type') || col(row, 3)
   const eventTypes = pick(row, 'Event Types', 'event_types', 'notes') || col(row, 4)
   const type = forceType ?? inferType(venueType, pick(row, 'type'))
-  const activeRaw = pick(row, 'Active', 'active', 'enabled') || col(row, 5)
-  const active =
-    activeRaw === ''
-      ? true
-      : !['false', '0', 'no', 'n', 'inactive', 'off'].includes(activeRaw.toLowerCase())
+  const active = parseIsActive(
+    pick(row, 'is_active', 'Active', 'active', 'enabled') || col(row, 5)
+  )
 
   return {
     handle,

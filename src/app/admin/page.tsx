@@ -8,6 +8,7 @@ interface HubCounts {
   queuedRuns: number
   pendingReviews: number
   postsThisWeek: number
+  pendingCatalogCandidates: number
   workerHeartbeatAt: string | null
 }
 
@@ -44,6 +45,11 @@ export default function AdminHubPage() {
   const cards = [
     { href: '/admin/scrapers', label: 'Queued runs', value: counts.queuedRuns },
     { href: '/admin/event-review', label: 'Pending reviews', value: counts.pendingReviews },
+    {
+      href: '/admin/catalog-candidates',
+      label: 'Catalog candidates',
+      value: counts.pendingCatalogCandidates ?? 0,
+    },
     { href: '/admin/events-raw', label: 'Posts this week', value: counts.postsThisWeek },
   ]
 
@@ -73,8 +79,17 @@ export default function AdminHubPage() {
       </div>
       <div className="text-sm text-slate-400 space-y-1">
         <p>
-          <strong className="text-slate-200">Fontes IG + Processed Events</strong> live in Google
-          Sheets (edit there or via Scrapers / Review approve).
+          <strong className="text-slate-200">Venues / Promoters</strong> catalogs drive scrape
+          handles — edit in{' '}
+          <Link href="/admin/venues" className="text-indigo-400 hover:underline">
+            Venues
+          </Link>{' '}
+          /{' '}
+          <Link href="/admin/promoters" className="text-indigo-400 hover:underline">
+            Promoters
+          </Link>{' '}
+          (or Sheets until seeded). <strong className="text-slate-200">Processed Events</strong>{' '}
+          stay in Google Sheets.
         </p>
         <p>
           <strong className="text-slate-200">Raw posts + AI tiers + review queue</strong> live in

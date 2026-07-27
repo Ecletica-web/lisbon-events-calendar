@@ -79,7 +79,7 @@ See [OAUTH_SETUP.md](../OAUTH_SETUP.md) for OAuth provider setup.
 
 ## 2. Database migrations (Supabase)
 
-If you use Supabase, run **all** migrations in `supabase/migrations/` **in numeric order** (001 → 023) in the Supabase SQL Editor.
+If you use Supabase, run **all** migrations in `supabase/migrations/` **in numeric order** (001 → 025) in the Supabase SQL Editor.
 
 | Migration | Purpose |
 |-----------|---------|
@@ -102,6 +102,9 @@ If you use Supabase, run **all** migrations in `supabase/migrations/` **in numer
 | 019_pipeline_store | pipeline_posts, extractions, review_queue, verifications, runs, config |
 | 020–022 | venue images / profile images / pipeline mode |
 | 023_recommendation_telemetry | recommendation_sessions, recommendation_events, ml_training_examples_v1 |
+| 024_user_bug_reports | user feedback |
+| 025_catalog_venues_promoters | `venues` + `promoters` catalog SoT (scrape + admin CRUD) |
+| 026_pipeline_catalog_candidates | Proposed venues/promoters from extract → `/admin/catalog-candidates` |
 
 Details: [SUPABASE_SETUP.md](../SUPABASE_SETUP.md). See [docs/FRIENDS_VS_FOLLOWS.md](FRIENDS_VS_FOLLOWS.md) for friends vs follow distinction.
 

@@ -35,12 +35,17 @@ import { computeFingerprint } from './qualification/dedupe'
 import { visionTriggerReason } from './qualification/mandatory-fields'
 import { getConfig } from './config'
 import { normalizeIgHandle } from './sinks/fontes-ig'
-import { readWatchlist } from './sinks/sheets-writer'
+import { readPipelineWatchlist } from './sinks/catalog-store'
 import {
   insertExtraction,
   updatePostProcessingStatus,
   type ProcessingStatus,
 } from './sinks/supabase-store'
+import {
+  loadKnownCatalogHandles,
+  parseMentionHandles,
+  upsertCatalogCandidateSighting,
+} from './sinks/catalog-candidates'
 
 let cachedSourceTypeByHandle: Map<string, 'venue' | 'promoter'> | null = null
 
@@ -48,7 +53,7 @@ async function lookupSourceType(ownerUsername: string): Promise<'venue' | 'promo
   const handle = normalizeIgHandle(ownerUsername || '')
   if (!handle) return 'venue'
   if (!cachedSourceTypeByHandle) {
-    const watchlist = await readWatchlist()
+    const watchlist = await readPipelineWatchlist()
     cachedSourceTypeByHandle = new Map(watchlist.map((w) => [w.handle, w.type]))
   }
   return cachedSourceTypeByHandle.get(handle) ?? 'venue'
@@ -268,6 +273,27 @@ export async function processPost(
 
   const sourceType = await lookupSourceType(row.owner_username)
 
+  // Unknown @mentions → promoter candidates (reviewer can flip kind on approve)
+  const knownHandles = await loadKnownCatalogHandles()
+  const ownerHandle = normalizeIgHandle(row.owner_username || '')
+  for (const mention of parseMentionHandles(row.mentions)) {
+    if (mention === ownerHandle) continue
+    if (knownHandles.has(mention)) continue
+    await upsertCatalogCandidateSighting(
+      {
+        kind: 'promoter',
+        proposed_name: mention,
+        proposed_handle: mention,
+        evidence_summary: `unknown @mention on post by @${ownerHandle || '?'} (${sourceType})`,
+        sample_source_url: row.source_url,
+        sample_caption: row.caption,
+        sample_owner_username: row.owner_username,
+        source_event_id: row.source_event_id,
+      },
+      options.dryRun
+    )
+  }
+
   // Validate + route each event
   const processed: ProcessedEventRow[] = []
   const needsReview: NeedsReviewRow[] = []
@@ -326,6 +352,36 @@ export async function processPost(
       venue_method: venue.method,
       conflicts: eventConflicts,
     })
+
+    // Propose catalog candidates (separate from event review queue)
+    if (!venue.resolved) {
+      const rawName =
+        event.venue_name_raw?.trim() ||
+        venue.venue_name_raw?.trim() ||
+        row.location_name?.trim() ||
+        ''
+      const rawAsHandle = normalizeIgHandle(rawName)
+      const isOwnerAsVenueNoise =
+        sourceType === 'promoter' &&
+        Boolean(ownerHandle) &&
+        (rawAsHandle === ownerHandle || normalizeIgHandle(row.owner_username) === rawAsHandle)
+      if (rawName && !isOwnerAsVenueNoise) {
+        await upsertCatalogCandidateSighting(
+          {
+            kind: 'venue',
+            proposed_name: rawName,
+            evidence_summary: `venue_unresolved from @${row.owner_username || '?'} (${validation.reasons.join('|') || 'n/a'})`,
+            sample_source_url: row.source_url,
+            sample_caption: row.caption,
+            sample_owner_username: row.owner_username,
+            sample_venue_name_raw: rawName,
+            source_event_id: row.source_event_id,
+            suggested_city: venue.city,
+          },
+          options.dryRun
+        )
+      }
+    }
 
     if (validation.status !== 'pass') {
       needsReview.push(toNeedsReviewRow(row, event, validation.status, validation.reasons, combinedRawText))

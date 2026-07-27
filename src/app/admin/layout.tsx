@@ -7,6 +7,9 @@ import { useAdminAuthHeaders } from '@/lib/useAdminAuth'
 const NAV = [
   { href: '/admin', label: 'Hub', exact: true },
   { href: '/admin/scrapers', label: 'Scrapers' },
+  { href: '/admin/venues', label: 'Venues' },
+  { href: '/admin/promoters', label: 'Promoters' },
+  { href: '/admin/catalog-candidates', label: 'Candidates' },
   { href: '/admin/events-raw', label: 'Events Raw' },
   { href: '/admin/event-review', label: 'Review' },
   { href: '/admin/processed', label: 'Processed' },

@@ -147,6 +147,8 @@ Auto-repair (antes da validação): overnight end rollover, `24:00`→dia seguin
 
 **Resolve** (`venue-resolve.ts`): Fontes IG Venues (SoT handles/names) + catálogo Venues. Ordem: extracted name → location → owner **só** se source type=`venue` e não há venue extraído. Promoter/editorial **nunca** vira venue via owner fallback. `venue_unresolved` bloqueia auto-pass.
 
+**Candidates** (`pipeline_catalog_candidates`): nomes de venue não resolvidos + `@mentions` desconhecidos → fila humana em `/admin/catalog-candidates` (aprovação escreve em `venues`/`promoters`). Separado da review de eventos.
+
 **Dedupe** (`dedupe.ts` + app `eventsLoader`): fingerprint djb2 de  
 `source_post_id | YYYY-MM-DD | HH:mm(bucket 30min UTC) | title_norm | venueKey`  
 quando há `source_event_id`/`source_url`; senão legacy `title|date|time|venue`.  

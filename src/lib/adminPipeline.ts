@@ -4,6 +4,7 @@
 
 import { supabaseServer } from '@/lib/supabase/server'
 import { parseHandleList, serializeHandles } from '@/lib/parseHandles'
+import { countPendingCatalogCandidates } from '@/lib/adminCatalogCandidates'
 
 function sb() {
   if (!supabaseServer) throw new Error('Supabase not configured')
@@ -16,7 +17,7 @@ export async function getAdminHubCounts() {
   const client = sb()
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
-  const [queued, pendingReview, postsWeek, config] = await Promise.all([
+  const [queued, pendingReview, postsWeek, config, pendingCandidates] = await Promise.all([
     client.from('pipeline_runs').select('id', { count: 'exact', head: true }).eq('status', 'queued'),
     client
       .from('pipeline_review_queue')
@@ -27,12 +28,14 @@ export async function getAdminHubCounts() {
       .select('id', { count: 'exact', head: true })
       .gte('scraped_at', weekAgo),
     client.from('pipeline_config').select('worker_heartbeat_at').eq('id', 'default').maybeSingle(),
+    countPendingCatalogCandidates(),
   ])
 
   return {
     queuedRuns: queued.count ?? 0,
     pendingReviews: pendingReview.count ?? 0,
     postsThisWeek: postsWeek.count ?? 0,
+    pendingCatalogCandidates: pendingCandidates,
     workerHeartbeatAt: config.data?.worker_heartbeat_at ?? null,
   }
 }
@@ -263,20 +266,56 @@ export async function getPipelinePostDetail(id: string) {
   return { post, extractions: extractions ?? [] }
 }
 
-export async function listReviewQueue(status: 'pending' | 'approved' | 'rejected' | 'all' = 'pending') {
-  let query = sb()
+export type ReviewQueueStatus = 'pending' | 'approved' | 'rejected' | 'all'
+
+export const REVIEW_PAGE_SIZE_DEFAULT = 25
+export const REVIEW_PAGE_SIZE_MAX = 100
+
+export async function getReviewItem(reviewId: string) {
+  const { data, error } = await sb()
     .from('pipeline_review_queue')
     .select('*')
-    .limit(200)
+    .eq('review_id', reviewId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+/** Paginated review queue. Pending sorted soonest-first; all items reachable via page. */
+export async function listReviewQueue(
+  status: ReviewQueueStatus = 'pending',
+  opts?: { page?: number; pageSize?: number }
+): Promise<{
+  rows: Record<string, unknown>[]
+  total: number
+  page: number
+  pageSize: number
+}> {
+  const pageSize = Math.min(
+    Math.max(opts?.pageSize ?? REVIEW_PAGE_SIZE_DEFAULT, 1),
+    REVIEW_PAGE_SIZE_MAX
+  )
+  const page = Math.max(opts?.page ?? 1, 1)
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+
+  let query = sb().from('pipeline_review_queue').select('*', { count: 'exact' })
   if (status !== 'all') query = query.eq('review_status', status)
   // Pending: soonest events first for review recovery UX
   query =
     status === 'pending'
-      ? query.order('start_datetime', { ascending: true })
+      ? query.order('start_datetime', { ascending: true, nullsFirst: false })
       : query.order('created_at', { ascending: false })
-  const { data, error } = await query
+  query = query.range(from, to)
+
+  const { data, error, count } = await query
   if (error) throw new Error(error.message)
-  return data ?? []
+  return {
+    rows: (data ?? []) as Record<string, unknown>[],
+    total: count ?? 0,
+    page,
+    pageSize,
+  }
 }
 
 export async function resolveReviewItem(params: {

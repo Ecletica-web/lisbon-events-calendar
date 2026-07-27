@@ -76,8 +76,32 @@ const configSchema = z.object({
   PIPELINE_VIDEO_WHISPER: boolFlag,
   PIPELINE_VIDEO_FRAMES: boolFlag,
 
-  // Venue index source (same CSVs the app uses)
+  // Venue index / catalog source (same CSVs the app uses)
   NEXT_PUBLIC_VENUES_CSV_URL: z.string().optional(),
+  NEXT_PUBLIC_PROMOTERS_CSV_URL: z.string().optional(),
+
+  /**
+   * Scrape watchlist from Sheets: catalog (Venues+Promoters) | fontes (legacy) | auto (catalog then Fontes).
+   * Default auto — safe cutover; set catalog after diff-watchlist-sources is green.
+   */
+  WATCHLIST_SOURCE: z
+    .string()
+    .optional()
+    .transform((v): 'catalog' | 'fontes' | 'auto' => {
+      const x = (v || 'auto').trim().toLowerCase()
+      return x === 'catalog' || x === 'fontes' ? x : 'auto'
+    }),
+  /**
+   * Catalog SoT: supabase | sheets | auto (Supabase if rows exist else Sheets).
+   * Default auto — do not flip worker to supabase until seed-catalog succeeds.
+   */
+  CATALOG_SOURCE: z
+    .string()
+    .optional()
+    .transform((v): 'sheets' | 'supabase' | 'auto' => {
+      const x = (v || 'auto').trim().toLowerCase()
+      return x === 'sheets' || x === 'supabase' ? x : 'auto'
+    }),
 
   // Thresholds
   PIPELINE_BROAD_CONFIDENCE_THRESHOLD: z.coerce.number().default(0.7),

@@ -1,6 +1,6 @@
 /**
- * Venue resolution — Fontes IG - Venues is the source of truth (name + IG handle).
- * Optional Venues CSV enriches address / venue_id when the handle matches.
+ * Venue resolution — Venues catalog sheet/CSV is the source of truth.
+ * Legacy Fontes IG only used when the catalog is empty (WATCHLIST_SOURCE=auto cutover).
  *
  * Owner-handle fallback is ONLY allowed when:
  *   - source watchlist type is `venue` (not promoter/editorial), AND
@@ -13,7 +13,8 @@ import Papa from 'papaparse'
 import type { Venue } from '@/models/Venue'
 import { buildVenueIndex, resolveVenue, type VenueIndex, type VenueResolution } from '@/data/venueIndex'
 import { getConfig } from '../config'
-import { normalizeIgHandle, slugifyName } from '../sinks/fontes-ig'
+import { normalizeIgHandle, parseIsActive, slugifyName } from '../sinks/fontes-ig'
+import { getCatalogSource, loadVenuesFromSupabase } from '../sinks/catalog-store'
 import { readFontesVenues, readTabSafe, TAB_VENUES } from '../sinks/sheets-writer'
 
 let cachedIndex: VenueIndex | null = null
@@ -36,6 +37,7 @@ function rowToVenue(row: Record<string, string>): Venue | null {
     latitude: parseFloat(row.lat ?? row.latitude ?? '') || undefined,
     longitude: parseFloat(row.lng ?? row.longitude ?? '') || undefined,
     tags: [],
+    is_active: parseIsActive(row.is_active ?? row.Active ?? ''),
   }
 }
 
@@ -64,70 +66,69 @@ async function loadVenuesSheetRows(): Promise<Venue[]> {
 }
 
 /**
- * Build index: Fontes IG - Venues first (correct handles), then merge Venues sheet
- * metadata when handles match. Sheet-only venues (no Fontes handle) are still indexed
- * by name for leftover catalog rows.
+ * Build index from Venues catalog. If catalog empty, synthesize from legacy Fontes
+ * (cutover safety only).
  */
 export async function loadVenueIndex(): Promise<VenueIndex | null> {
   if (cachedIndex) return cachedIndex
 
-  const fontes = await readFontesVenues()
+  let venues: Venue[] = []
+  const catalogSource = getCatalogSource()
+
+  if (catalogSource !== 'sheets') {
+    venues = await loadVenuesFromSupabase()
+    if (venues.length > 0) {
+      console.log(`[venue-resolve] index: ${venues.length} venues from Supabase catalog`)
+      cachedIndex = buildVenueIndex(venues)
+      return cachedIndex
+    }
+    if (catalogSource === 'supabase') {
+      console.warn('[venue-resolve] CATALOG_SOURCE=supabase but venues table empty')
+    }
+  }
+
   const sheetVenues = await loadVenuesSheetRows()
-  const byHandle = new Map<string, Venue>()
+  venues = sheetVenues
 
-  for (const s of sheetVenues) {
-    const h = normalizeIgHandle(s.instagram_handle || '')
-    if (h) byHandle.set(h, s)
-  }
-
-  const venues: Venue[] = []
-  const seenHandles = new Set<string>()
-
-  for (const f of fontes) {
-    if (!f.active || !f.handle) continue
-    seenHandles.add(f.handle)
-    const sheet = byHandle.get(f.handle)
-    const slug = slugifyName(f.name) || f.handle
-    venues.push({
-      venue_id: sheet?.venue_id || `fontes_${f.handle}`,
-      name: f.name || sheet?.name || f.handle,
-      slug: sheet?.slug || slug,
-      aliases: [
-        ...(sheet?.aliases || []),
-        f.handle,
-        f.name,
-      ].filter(Boolean) as string[],
-      instagram_handle: f.handle,
-      instagram_url: `https://www.instagram.com/${f.handle}/`,
-      venue_address: sheet?.venue_address,
-      neighborhood: sheet?.neighborhood,
-      city: sheet?.city || 'Lisbon',
-      latitude: sheet?.latitude,
-      longitude: sheet?.longitude,
-      tags: sheet?.tags || [],
-    })
-  }
-
-  for (const s of sheetVenues) {
-    const h = normalizeIgHandle(s.instagram_handle || '')
-    if (h && seenHandles.has(h)) continue
-    venues.push(s)
+  if (venues.length === 0) {
+    const fontes = await readFontesVenues()
+    venues = fontes
+      .filter((f) => f.handle)
+      .map((f) => {
+        const slug = slugifyName(f.name) || f.handle
+        return {
+          venue_id: `fontes_${f.handle}`,
+          name: f.name || f.handle,
+          slug,
+          aliases: [f.handle, f.name].filter(Boolean) as string[],
+          instagram_handle: f.handle,
+          instagram_url: `https://www.instagram.com/${f.handle}/`,
+          city: 'Lisbon',
+          tags: [],
+          is_active: f.active,
+        }
+      })
+    if (venues.length > 0) {
+      console.warn(
+        `[venue-resolve] Venues catalog empty — using ${venues.length} legacy Fontes identities`
+      )
+    }
   }
 
   if (venues.length === 0) {
-    console.warn('[venue-resolve] no venues from Fontes IG - Venues or Venues sheet')
+    console.warn('[venue-resolve] no venues from Venues catalog or Fontes fallback')
     return null
   }
 
+  const withHandle = venues.filter((v) => normalizeIgHandle(v.instagram_handle || '')).length
   console.log(
-    `[venue-resolve] index: ${fontes.filter((f) => f.active).length} Fontes venues` +
-      ` + ${sheetVenues.length} sheet rows → ${venues.length} indexed`
+    `[venue-resolve] index: ${venues.length} catalog venues (${withHandle} with IG handle)`
   )
   cachedIndex = buildVenueIndex(venues)
   return cachedIndex
 }
 
-/** Clear caches (tests / after Fontes updates). */
+/** Clear caches (tests / after catalog updates). */
 export function clearVenueResolveCache(): void {
   cachedIndex = null
   cachedSourceTypeByHandle = null

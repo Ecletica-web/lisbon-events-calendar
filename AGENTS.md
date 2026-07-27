@@ -28,14 +28,14 @@ Regenerate PDFs: `python scripts/md-to-replication-pdfs.py`
 
 ## One-paragraph essence
 
-Instagram watchlist (Google Sheets **Fontes IG**) → Apify scrape → tiered AI
+Instagram watchlist (**Venues** + **Promoters** catalogs — Sheets or Supabase `venues`/`promoters`) → Apify scrape → tiered AI
 extraction in `pipeline/` → **hard gates + calculated confidence** (auto-repair,
 canonical venue required, no promoter-as-venue) → high-confidence rows to
 **Processed Events**, soft failures to Supabase review → Tier 5 verify /
 human Tier 6 (`publish_auth=human_approved`) → `publish` only ships
 **mechanically safe + verified|human_approved** rows to **Events Clean New**
-CSV → Next.js calendar + For You. Supabase holds auth, social, and all
-pipeline artifacts; Sheets remain the human-editable calendar SoT.
+CSV → Next.js calendar + For You. Supabase holds auth, social, pipeline artifacts,
+and (after mig 025) catalog SoT; Sheets remain the human-editable calendar staging/live feed.
 
 ---
 
@@ -72,7 +72,7 @@ pipeline artifacts; Sheets remain the human-editable calendar SoT.
 ## End-to-end data flow
 
 ```
-Fontes IG Venues/Promoters → Apify → pipeline_posts
+Venues + Promoters catalog → Apify → pipeline_posts
          → Tier 0–4 (evidence-bound) + merge (min conf − conflicts)
          → reconcile lineup → auto-repair → venue resolve → validate
          → pass → Processed Events (publish_auth empty until verify/human)
@@ -122,8 +122,8 @@ Orchestrator: `pipeline/process-post.ts`.
 
 | Store | Holds |
 |-------|-------|
-| Sheets Fontes IG | Watchlist + venue-resolve SoT for handles |
-| Sheets Venues/Promoters | Catalog + `primary_image_url` |
+| Sheets Venues/Promoters | Catalog + scrape handles (`instagram_handle` + `is_active`) until Supabase seed |
+| Supabase `venues` / `promoters` | Catalog SoT after mig 025 + `seed-catalog` (`CATALOG_SOURCE`) |
 | Sheets Processed | Staging (auto-pass + approved) |
 | Sheets Events Clean New | Live calendar feed |
 | Supabase pipeline_* | Posts, extractions, review, verifications, runs, config |
@@ -171,8 +171,9 @@ CSV column contract: `docs/SCHEMA.md`. Pipeline runbook: `docs/PIPELINE.md`.
 | Scraping / AI | `pipeline/` (`process-post.ts`, `cli/run.ts`, `cli/worker.ts`) |
 | Publish gates / repair | `pipeline/qualification/publish-safe.ts`, `auto-repair.ts`, `validate-event.ts` |
 | Venue resolve (no promoter-as-venue) | `pipeline/qualification/venue-resolve.ts` |
-| IG sources SoT | Fontes IG tabs → `readWatchlist` / `venue-resolve.ts` |
+| IG sources SoT | Venues/Promoters → `readPipelineWatchlist` / `venue-resolve.ts`; admin `/admin/venues` + `/admin/promoters` |
 | Admin ops | `/admin`, `lib/adminPipeline.ts`, `lib/googleSheets.ts` |
+| Catalog candidates | `/admin/catalog-candidates`, `lib/adminCatalogCandidates.ts`, `pipeline/sinks/catalog-candidates.ts` |
 | User bug feedback | `components/FeedbackButton.tsx`, `lib/userBugReports.ts`, `/admin/bugs` |
 | Review recovery scripts | `pipeline/scripts/{quarantine,expire,re-resolve,unresolved-venues}*` |
 | Review feedback | `lib/adminEventReviewFeedback.ts`, `event_review_feedback` |

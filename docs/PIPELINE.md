@@ -9,8 +9,8 @@ tiered AI → validation. **Storage is split:**
 
 | Store | What lives there |
 |-------|------------------|
-| **Google Sheets** | **Fontes IG - Venues** + **Fontes IG - Promoters** (scrape + venue-resolve source of truth), Venues/Promoters catalog, **Processed Events** (staging), **Events Clean New** (live calendar CSV). Pipeline **writes** high-confidence auto-pass to Processed when `PIPELINE_SHEETS_WRITE=1` + service account (default on). Run `npm run publish` to copy novel Processed rows → Events Clean New. |
-| **Supabase** | Raw posts, every AI tier artifact, review queue, verifications, run queue/log, scraper config, image buckets, **`venue_profile_images`** (IG pics for `/venues` when Sheets write fails) |
+| **Google Sheets** | **Venues** + **Promoters** catalogs (`instagram_handle` + `is_active` = scrape SoT until Supabase seed), **Processed Events** (staging), **Events Clean New** (live calendar CSV). Legacy **Fontes IG** tabs are fallback only (`WATCHLIST_SOURCE=auto`). Pipeline **writes** high-confidence auto-pass to Processed when `PIPELINE_SHEETS_WRITE=1` + service account (default on). Run `npm run publish` to copy novel Processed rows → Events Clean New. |
+| **Supabase** | Raw posts, AI tiers, review, verifications, runs, image buckets, **`venue_profile_images`**, and (after migration **025** + seed) **`venues` / `promoters`** catalog SoT (`CATALOG_SOURCE=auto\|supabase`). Admin edits at `/admin/venues` and `/admin/promoters`. |
 
 The Next.js app consumes the published **Events Clean New** CSV and hosts `/admin`. Long jobs are
 **queued** in Supabase and executed by a local **`npm run worker`** (not on Vercel).
@@ -18,7 +18,7 @@ The Next.js app consumes the published **Events Clean New** CSV and hosts `/admi
 ## Architecture
 
 ```
-Fontes IG - Venues/Promoters ─→ Apify ─→ pipeline_posts (Supabase)
+Venues + Promoters (Sheets or Supabase catalog) ─→ Apify ─→ pipeline_posts (Supabase)
                                       │
                 Tier 0–4 (+ OCR / Whisper) → pipeline_extractions
                                       │
@@ -100,12 +100,16 @@ Admin can also enqueue runs via `/admin/scrapers` → `pipeline_runs` (status=`q
 
 | Tab | Purpose |
 |-----|---------|
-| **`Fontes IG - Venues`** | Source of truth for venue IG handles + names (scrape list + venue resolve). |
-| **`Fontes IG - Promoters`** | Source of truth for promoter IG handles (scrape list). |
-| `Fontes IG` / `Watchlist` | Combined fallback if the split tabs are empty/missing. |
-| `Venues` / `Promoters` | Catalog enrich (address, images). Handles should match Fontes; resolve prefers Fontes. |
+| **`Venues`** | Catalog + **scrape SoT** for venues (`instagram_handle` + `is_active`). Venue resolve index. |
+| **`Promoters`** | Catalog + **scrape SoT** for promoters (`instagram_handle` + `is_active`). |
+| `Fontes IG - Venues` / `Fontes IG - Promoters` | **Legacy fallback** only when `WATCHLIST_SOURCE=auto` and catalog has zero handles. Delete after `npm run diff-watchlist` is green and `WATCHLIST_SOURCE=catalog`. |
+| `Fontes IG` / `Watchlist` | Oldest combined Fontes fallback. |
 | `Processed Events` | Staging — pipeline auto-pass + approved review rows |
 | `Events Clean New` | Live calendar feed — publish with `npm run publish`; CSV → `NEXT_PUBLIC_EVENTS_CSV_URL` |
+
+After migration **025** + `npm run seed-catalog`, prefer Supabase `venues`/`promoters` (`CATALOG_SOURCE=auto|supabase`) and edit via `/admin/venues` + `/admin/promoters`.
+
+**Cutover (worker-safe):** keep `WATCHLIST_SOURCE=auto` and `CATALOG_SOURCE=auto` until `npm run diff-watchlist` exits 0; do **not** restart the worker onto `catalog`/`supabase` until that check passes.
 
 Legacy tabs (`Events_Raw`, `Needs_Review`, `Verification_Log`, `Run_Log`) are no longer
 written by the pipeline; use `npm run backfill` once to migrate old rows into Supabase.
@@ -122,6 +126,8 @@ npm run full                # scrape → extract (includes Tier 5 verify)
 npm run publish             # Processed Events → Events Clean New (novel rows only)
 npm run worker              # poll pipeline_runs forever (keep running on a workstation)
 npm run backfill            # one-off: Sheets legacy tabs → Supabase
+npm run diff-watchlist      # Fontes vs Venues/Promoters handle diff (exit 0 = ready for WATCHLIST_SOURCE=catalog)
+npm run seed-catalog        # Sheets/CSV Venues+Promoters → Supabase venues/promoters
 npm run golden              # replay Testing CSVs (report only)
 
 # Flags (after --):
@@ -206,6 +212,12 @@ Soft **review** (blocks auto-pass): `missing_venue_name_raw`, `venue_unresolved`
 Past starts and unresolved venues are **rejected** for auto-pass. Promoter/editorial
 sources never become the venue via owner-handle fallback. Confidence is **calculated**
 (field evidence − conflict penalties), not `max(caption, vision)`.
+
+Unresolved venues (and unknown `@mentions`) are also upserted into
+`pipeline_catalog_candidates` for human triage at **`/admin/catalog-candidates`**
+(approve → Supabase `venues` / `promoters`; does not auto-publish events).
+After approving venues, run `re-resolve-review-queue` (or re-extract) so pending
+events can attach.
 
 Auto-repair runs before validation (overnight end rollover, clear placeholder URLs,
 clear free+price conflicts).

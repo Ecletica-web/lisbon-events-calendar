@@ -23,6 +23,8 @@ export interface Venue {
   venue_url?: string
   instagram_url?: string
   tags: string[]
+  /** Default true. Inactive = keep in catalog, exclude from scrape when handle present. */
+  is_active?: boolean
   created_at?: string
   updated_at?: string
   _error?: string
