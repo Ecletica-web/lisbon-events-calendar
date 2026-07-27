@@ -49,6 +49,11 @@ export function normalizeVenue(raw: RawVenueRow, allowedVenueTags?: string[] | n
   const tags = normalizeVenueTags(venueTagsRaw, allowedVenueTags)
   const lat = normalizeNumber(raw.latitude ?? raw.lat)
   const lng = normalizeNumber(raw.longitude ?? raw.lng)
+  const isActiveRaw = getRaw(raw, 'is_active')
+  const is_active =
+    isActiveRaw === undefined || isActiveRaw === ''
+      ? true
+      : !['false', '0', 'no', 'n', 'inactive', 'off'].includes(isActiveRaw.toLowerCase())
 
   return {
     venue_id: id,
@@ -70,6 +75,7 @@ export function normalizeVenue(raw: RawVenueRow, allowedVenueTags?: string[] | n
     venue_url: getRaw(raw, 'venue_url') ?? undefined,
     instagram_url: getRaw(raw, 'instagram_url') ?? undefined,
     tags,
+    is_active,
     created_at: getRaw(raw, 'created_at') ?? undefined,
     updated_at: getRaw(raw, 'updated_at') ?? undefined,
   }

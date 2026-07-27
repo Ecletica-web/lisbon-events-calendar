@@ -1,11 +1,8 @@
 /**
  * Normalize a Sheets row into pipeline watchlist fields.
- * Supports:
- *   - legacy "Watchlist" tab: handle, type, active, notes
- *   - LEC "Fontes IG" / "Fontes IG - Venues" / "Fontes IG - Promoters":
- *     Name, Handle / Website, Venue Type, Event Types [, Active]
  *
- * Split Venues/Promoters tabs are the source of truth; pass forceType when reading them.
+ * Primary SoT: Venues / Promoters catalog tabs (instagram_handle + is_active).
+ * Legacy: Fontes IG tabs (Handle / Website + Active).
  */
 
 export type NormalizedWatchlistEntry = {
@@ -37,13 +34,17 @@ function col(row: Record<string, string>, index: number): string {
 function normalizeHandle(raw: string): string {
   let h = raw.trim()
   if (!h) return ''
-  // Ignore plain websites (no IG handle)
   if (/^https?:\/\//i.test(h) && !/instagram\.com/i.test(h)) return ''
   const igMatch = h.match(/instagram\.com\/([A-Za-z0-9._]+)/i)
   if (igMatch) h = igMatch[1]
   h = h.replace(/^@/, '').toLowerCase().split(/[/?#]/)[0]
   if (!h || /\s/.test(h) || /^https?:/i.test(h)) return ''
   return h
+}
+
+export function parseIsActive(raw: string): boolean {
+  if (!raw || !String(raw).trim()) return true
+  return !['false', '0', 'no', 'n', 'inactive', 'off'].includes(String(raw).trim().toLowerCase())
 }
 
 function inferType(venueTypeRaw: string, typeRaw: string): 'venue' | 'promoter' {
@@ -53,11 +54,35 @@ function inferType(venueTypeRaw: string, typeRaw: string): 'venue' | 'promoter' 
   return 'venue'
 }
 
+/** Map Venues / Promoters catalog row → watchlist entry. */
+export function rowToCatalogWatchlistEntry(
+  row: Record<string, string>,
+  forceType: 'venue' | 'promoter'
+): NormalizedWatchlistEntry | null {
+  const handle = normalizeHandle(
+    pick(row, 'instagram_handle', 'Handle / Website', 'handle', 'Handle', 'instagram')
+  )
+  if (!handle) return null
+
+  const name = pick(row, 'name', 'Name') || handle
+  const active = parseIsActive(pick(row, 'is_active', 'Active', 'active', 'enabled'))
+
+  return {
+    handle,
+    type: forceType,
+    active,
+    notes: name,
+    name,
+    venueType: forceType === 'promoter' ? 'Promoter' : 'Venue',
+    eventTypes: '',
+  }
+}
+
+/** Legacy Fontes IG row → watchlist entry. */
 export function rowToWatchlistEntry(
   row: Record<string, string>,
   forceType?: 'venue' | 'promoter'
 ): NormalizedWatchlistEntry | null {
-  // Fontes IG: column C = Handle / Website (prefer positional, then named headers)
   const handle = normalizeHandle(
     col(row, 2) ||
       pick(row, 'Handle / Website', 'handle', 'Handle', 'instagram', 'instagram_handle')
@@ -68,11 +93,9 @@ export function rowToWatchlistEntry(
   const venueType = pick(row, 'Venue Type', 'venue_type', 'type') || col(row, 3)
   const eventTypes = pick(row, 'Event Types', 'event_types', 'notes') || col(row, 4)
   const type = forceType ?? inferType(venueType, pick(row, 'type'))
-  const activeRaw = pick(row, 'Active', 'active', 'enabled') || col(row, 5)
-  const active =
-    activeRaw === ''
-      ? true
-      : !['false', '0', 'no', 'n', 'inactive', 'off'].includes(activeRaw.toLowerCase())
+  const active = parseIsActive(
+    pick(row, 'is_active', 'Active', 'active', 'enabled') || col(row, 5)
+  )
 
   return {
     handle,
@@ -85,7 +108,7 @@ export function rowToWatchlistEntry(
   }
 }
 
-/** Canonical Fontes IG header used when rewriting the tab from admin. */
+/** @deprecated Fontes rewrite header — admin no longer writes Fontes; kept for scripts. */
 export const FONTES_IG_HEADER = ['#', 'Name', 'Handle / Website', 'Venue Type', 'Event Types', 'Active']
 
 export function watchlistEntriesToFontesRows(
@@ -104,10 +127,9 @@ export function watchlistEntriesToFontesRows(
       const handle = normalizeHandle(e.handle)
       if (!handle) return null
       const name = (e.name || e.notes?.split(' · ')[0] || handle).trim()
-      const venueType =
-        e.venueType ||
-        (e.type === 'promoter' ? 'Promoter' : 'Venue')
-      const eventTypes = e.eventTypes || (e.notes?.includes(' · ') ? e.notes.split(' · ').slice(1).join(' · ') : '')
+      const venueType = e.venueType || (e.type === 'promoter' ? 'Promoter' : 'Venue')
+      const eventTypes =
+        e.eventTypes || (e.notes?.includes(' · ') ? e.notes.split(' · ').slice(1).join(' · ') : '')
       return [
         String(i + 1),
         name,

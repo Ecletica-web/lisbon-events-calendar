@@ -19,6 +19,7 @@ import {
   TAB_VENUES,
   updateSheetPrimaryImages,
 } from '../sinks/sheets-writer'
+import { updateCatalogPrimaryImages } from '../sinks/catalog-store'
 import {
   backfillVenueProfileImagesFromStorage,
   listStoredProfileImages,
@@ -56,6 +57,30 @@ async function pushUpdatesToSheets(
   }
 ): Promise<void> {
   const { dryRun, force, log, result } = options
+
+  if (!dryRun && venueUpdates.length > 0) {
+    try {
+      const sb = await updateCatalogPrimaryImages('venue', venueUpdates)
+      await log(`[profile-images] Supabase venues primary_image_url updated=${sb.updated} skipped=${sb.skipped}`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      result.errors.push(msg)
+      await log(`[profile-images] Supabase venues update failed: ${msg}`)
+    }
+  }
+
+  if (!dryRun && promoterUpdates.length > 0) {
+    try {
+      const sb = await updateCatalogPrimaryImages('promoter', promoterUpdates)
+      await log(
+        `[profile-images] Supabase promoters primary_image_url updated=${sb.updated} skipped=${sb.skipped}`
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      result.errors.push(msg)
+      await log(`[profile-images] Supabase promoters update failed: ${msg}`)
+    }
+  }
 
   if (venueUpdates.length > 0) {
     try {

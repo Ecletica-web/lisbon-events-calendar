@@ -18,8 +18,8 @@ import {
   TAB_PROMOTERS,
   TAB_VENUES,
   readTabSafe,
-  readWatchlist,
 } from '../sinks/sheets-writer'
+import { readPipelineWatchlist } from '../sinks/catalog-store'
 import { listStoredProfileImages } from '../sinks/supabase-store'
 import type { WatchlistEntry } from '../types'
 
@@ -129,7 +129,7 @@ async function main() {
   const dryRun = process.argv.includes('--dry-run')
   const stored = await listStoredProfileImages()
   const byHandle = new Map(stored.map((s) => [s.handle, s.primaryImageUrl]))
-  const watchlist = await readWatchlist()
+  const watchlist = await readPipelineWatchlist()
   const venuesSheet = await readTabSafe(TAB_VENUES)
 
   const fontesVenues = watchlist.filter((w) => w.active && w.type === 'venue')

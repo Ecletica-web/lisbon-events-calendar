@@ -38,8 +38,8 @@ import {
   readLastSuccessfulRunAt,
   readProcessedEvents,
   readProcessedFingerprints,
-  readWatchlist,
 } from '../sinks/sheets-writer'
+import { readPipelineWatchlist } from '../sinks/catalog-store'
 import { isSheetsWriteEnabled } from '../sinks/sheets-client'
 import {
   appendReviewQueue,
@@ -225,7 +225,7 @@ async function logRun(flags: CliFlags, line: string): Promise<void> {
 }
 
 export async function commandProfileImages(flags: CliFlags): Promise<Record<string, unknown>> {
-  let watchlist = await readWatchlist()
+  let watchlist = await readPipelineWatchlist()
   if (flags.handles.length > 0) {
     const want = new Set(flags.handles)
     watchlist = watchlist.filter((w) => want.has(w.handle))
@@ -252,7 +252,7 @@ export async function commandScrape(flags: CliFlags): Promise<Record<string, unk
   const cfg = getConfig()
   const stats: Record<string, unknown> = { posts_scraped: 0, new_rows: 0 }
 
-  let watchlist = await readWatchlist()
+  let watchlist = await readPipelineWatchlist()
   if (flags.handles.length > 0) {
     const want = new Set(flags.handles)
     watchlist = watchlist.filter((w) => want.has(w.handle))

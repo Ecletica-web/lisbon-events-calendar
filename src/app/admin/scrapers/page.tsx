@@ -66,13 +66,11 @@ export default function AdminScrapersPage() {
     const wlJson = await wl.json().catch(() => ({}))
     setWatchlist(Array.isArray(wlJson.rows) ? wlJson.rows : [])
     setSheetsUrl(wlJson.sheetsUrl || null)
-    setCanWriteSheets(!!wlJson.canWrite)
+    setCanWriteSheets(false)
     if (!wl.ok) {
-      setMessage(wlJson.error || `Fontes IG load failed (HTTP ${wl.status})`)
-    } else if (wlJson.canWrite === false) {
-      setMessage(
-        'Fontes IG is read-only here (no Sheets service account). Edit sources in Google Sheets; scrapes still read the public CSV.'
-      )
+      setMessage(wlJson.error || `Watchlist load failed (HTTP ${wl.status})`)
+    } else if (wlJson.editHint) {
+      setMessage(wlJson.editHint)
     } else {
       setMessage(null)
     }
@@ -145,24 +143,9 @@ export default function AdminScrapersPage() {
   }, [isAdmin, live, load])
 
   async function saveWatchlist() {
-    setBusy(true)
-    setMessage(null)
-    try {
-      const headers = await getAuthHeaders()
-      const res = await fetch('/api/admin/watchlist', {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows: watchlist }),
-      })
-      const j = await res.json()
-      if (!res.ok) throw new Error(j.error || 'Save failed')
-      setWatchlist(j.rows || [])
-      setMessage('Fontes IG saved to Google Sheets')
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Error')
-    } finally {
-      setBusy(false)
-    }
+    setMessage(
+      'Watchlist is read-only here. Edit Venues/Promoters in /admin/venues, /admin/promoters, or Google Sheets (instagram_handle + is_active).'
+    )
   }
 
   async function saveConfig() {
@@ -366,7 +349,7 @@ export default function AdminScrapersPage() {
               rows={2}
             />
             <span className="block mt-1 text-[11px] text-slate-500 leading-snug">
-              Comma or newline separated. Empty = all active Fontes IG.
+              Comma or newline separated. Empty = all active catalog handles.
               {selectedHandles.length > 0 && (
                 <span className="text-slate-400"> · {selectedHandles.length} selected</span>
               )}
@@ -379,7 +362,7 @@ export default function AdminScrapersPage() {
                 onClick={() => setHandlePickerOpen((o) => !o)}
                 className="px-2.5 py-1.5 rounded border border-slate-600 bg-slate-900 text-slate-200 text-xs hover:bg-slate-800"
               >
-                {handlePickerOpen ? 'Hide sources' : 'Pick from Fontes IG'}
+                {handlePickerOpen ? 'Hide sources' : 'Pick from catalog'}
               </button>
               {selectedHandles.length > 0 && (
                 <button
@@ -495,7 +478,7 @@ export default function AdminScrapersPage() {
           <div className="rounded border border-slate-700 bg-slate-900/60 p-3 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-slate-400">
-                Active Fontes IG sources — click to toggle. Empty selection still means all.
+                Active catalog sources — click to toggle. Empty selection still means all.
               </p>
               <div className="flex gap-2">
                 <button
@@ -626,7 +609,7 @@ export default function AdminScrapersPage() {
       <section className="rounded-lg border border-slate-700 bg-slate-800/40 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h2 className="text-lg font-medium text-white">
-            Fontes IG (Google Sheets)
+            Scrape catalog (read-only)
             {watchlist.length > 0 && (
               <span className="ml-2 text-sm font-normal text-slate-400">
                 {watchlist.length} sources
@@ -634,6 +617,12 @@ export default function AdminScrapersPage() {
             )}
           </h2>
           <div className="flex gap-2">
+            <a href="/admin/venues" className="text-sm text-indigo-400 hover:underline">
+              Edit venues
+            </a>
+            <a href="/admin/promoters" className="text-sm text-indigo-400 hover:underline">
+              Edit promoters
+            </a>
             {sheetsUrl && (
               <a
                 href={sheetsUrl}
@@ -646,12 +635,8 @@ export default function AdminScrapersPage() {
             )}
             <button
               type="button"
-              disabled={busy || !canWriteSheets}
-              title={
-                canWriteSheets
-                  ? undefined
-                  : 'Needs GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON'
-              }
+              disabled
+              title="Edit Venues/Promoters catalogs instead"
               onClick={() => void saveWatchlist()}
               className="px-3 py-1.5 rounded bg-emerald-700 text-white text-sm disabled:opacity-50"
             >

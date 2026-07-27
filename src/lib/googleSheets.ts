@@ -1,11 +1,9 @@
 /**
- * Google Sheets helpers for the Next.js admin (Fontes IG + Processed Events + Events Clean New).
+ * Google Sheets helpers for the Next.js admin (catalog watchlist + Processed Events + Events Clean New).
  * Uses the same service-account env vars as the pipeline.
  * googleapis is loaded dynamically so Vercel/webpack does not bundle it at build time.
  *
- * Fontes IG can be *read* via public CSV export when the sheet is shared as
- * "Anyone with the link" (same as the calendar CSV URLs). Writes still need a
- * service account.
+ * Scrape SoT is Venues + Promoters (instagram_handle + is_active). Fontes IG is legacy fallback only.
  */
 
 import * as fs from 'fs'
@@ -13,15 +11,18 @@ import Papa from 'papaparse'
 import type { sheets_v4 } from 'googleapis'
 import {
   FONTES_IG_HEADER,
+  rowToCatalogWatchlistEntry,
   rowToWatchlistEntry,
   watchlistEntriesToFontesRows,
 } from '@/lib/fontesIgWatchlist'
 
 const TAB_WATCHLIST = 'Fontes IG'
-/** Preferred source-of-truth tabs (type is forced from the tab name). */
+/** @deprecated Legacy Fontes tabs — fallback only */
 const TAB_FONTES_VENUES = 'Fontes IG - Venues'
 const TAB_FONTES_PROMOTERS = 'Fontes IG - Promoters'
 const TAB_WATCHLIST_LEGACY = 'Watchlist'
+const TAB_VENUES = 'Venues'
+const TAB_PROMOTERS = 'Promoters'
 const TAB_PROCESSED = 'Processed Events'
 const TAB_EVENTS_CLEAN = 'Events Clean New'
 
@@ -128,6 +129,28 @@ export interface WatchlistRow {
   rowIndex: number
 }
 
+function mapCatalogRowsToWatchlist(
+  rows: Record<string, string>[],
+  forceType: 'venue' | 'promoter'
+): WatchlistRow[] {
+  const out: WatchlistRow[] = []
+  rows.forEach((r, i) => {
+    const e = rowToCatalogWatchlistEntry(r, forceType)
+    if (!e) return
+    out.push({
+      handle: e.handle,
+      type: e.type,
+      active: e.active,
+      notes: e.notes,
+      name: e.name,
+      venueType: e.venueType,
+      eventTypes: e.eventTypes,
+      rowIndex: i + 2,
+    })
+  })
+  return out
+}
+
 function mapRowsToWatchlist(
   rows: Record<string, string>[],
   forceType?: 'venue' | 'promoter'
@@ -192,7 +215,23 @@ async function readTabViaPublicCsv(tabName: string): Promise<Record<string, stri
 }
 
 export async function readWatchlistFromSheets(): Promise<WatchlistRow[]> {
-  // Prefer split tabs (source of truth for type + handles)
+  const source = (process.env.WATCHLIST_SOURCE || 'auto').trim().toLowerCase()
+
+  if (source !== 'fontes') {
+    const venues = await readTabRows(TAB_VENUES)
+    const promoters = await readTabRows(TAB_PROMOTERS)
+    const byHandle = new Map<string, WatchlistRow>()
+    for (const row of mapCatalogRowsToWatchlist(venues.rows, 'venue')) {
+      if (!byHandle.has(row.handle)) byHandle.set(row.handle, row)
+    }
+    for (const row of mapCatalogRowsToWatchlist(promoters.rows, 'promoter')) {
+      if (!byHandle.has(row.handle)) byHandle.set(row.handle, row)
+    }
+    const catalog = [...byHandle.values()]
+    if (source === 'catalog' || catalog.length > 0) return catalog
+  }
+
+  // Legacy Fontes fallback (WATCHLIST_SOURCE=fontes, or auto with empty catalog)
   const venues = await readTabRows(TAB_FONTES_VENUES)
   const promoters = await readTabRows(TAB_FONTES_PROMOTERS)
   if (venues.rows.length > 0 || promoters.rows.length > 0) {
@@ -226,7 +265,10 @@ export async function readWatchlistFromSheets(): Promise<WatchlistRow[]> {
   return mapped
 }
 
-/** Replace Fontes IG tab contents (Fontes IG layout + Active column). */
+/**
+ * @deprecated Do not write Fontes IG — edit Venues/Promoters sheets or /admin/venues|/admin/promoters.
+ * Kept for emergency scripts; admin API returns 410.
+ */
 export async function writeWatchlistToSheets(
   entries: Array<{
     handle: string

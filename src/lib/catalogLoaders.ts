@@ -1,5 +1,5 @@
 /**
- * Server-only catalog loaders (CSV + Fontes IG type split).
+ * Server-only catalog loaders (Venues + Promoters CSVs / Supabase).
  * Do not import from client components — use fetchVenues / fetchPromoters instead.
  */
 
@@ -8,13 +8,10 @@ import { loadVenues } from '@/data/loaders/venuesLoader'
 import { loadPromoters } from '@/data/loaders/promotersLoader'
 import { loadVenueTags } from '@/data/loaders/venueTagsLoader'
 import { loadVenueProfileImageMap, mergeVenueProfileImages } from '@/lib/venueProfileImages'
-import {
-  filterVenuesByFontes,
-  loadFontesHandleSets,
-  resolvePromotersCatalog,
-} from '@/lib/catalogFontesSplit'
+import { loadCatalogVenues, loadCatalogPromoters, getCatalogSource } from '@/lib/adminCatalog'
 import type { VenueForDisplay } from '@/lib/eventsAdapter'
 import type { Promoter } from '@/models/Promoter'
+import type { Venue } from '@/models/Venue'
 
 function sanitizeImageUrl(url?: string): string | undefined {
   if (!url) return undefined
@@ -25,17 +22,35 @@ function sanitizeImageUrl(url?: string): string | undefined {
   return url
 }
 
+async function resolveVenuesList(allowedVenueTags: string[] | null): Promise<Venue[]> {
+  const source = getCatalogSource()
+  if (source !== 'sheets') {
+    const fromSb = await loadCatalogVenues({ activeOnly: false })
+    if (source === 'supabase' || fromSb.length > 0) return fromSb
+  }
+  const { venues } = await loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags)
+  return venues
+}
+
+async function resolvePromotersList(): Promise<Promoter[]> {
+  const source = getCatalogSource()
+  if (source !== 'sheets') {
+    const fromSb = await loadCatalogPromoters({ activeOnly: true })
+    if (source === 'supabase' || fromSb.length > 0) return fromSb
+  }
+  return loadPromoters(process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL)
+}
+
 export async function loadVenuesForDisplay(): Promise<VenueForDisplay[]> {
   const venueTagsUrl = process.env.NEXT_PUBLIC_VENUE_TAGS_CSV_URL
   const venueTags = venueTagsUrl ? await loadVenueTags(venueTagsUrl) : []
   const allowedVenueTags = venueTags.length > 0 ? venueTags : null
-  const [{ venues }, imageByHandle, fontes] = await Promise.all([
-    loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags),
+  const [venues, imageByHandle] = await Promise.all([
+    resolveVenuesList(allowedVenueTags),
     loadVenueProfileImageMap(),
-    loadFontesHandleSets(),
   ])
   const withImages = mergeVenueProfileImages(venues, imageByHandle)
-  const mapped = withImages.map((v) => ({
+  return withImages.map((v) => ({
     venue_id: v.venue_id,
     name: v.name,
     slug: v.slug,
@@ -49,34 +64,14 @@ export async function loadVenuesForDisplay(): Promise<VenueForDisplay[]> {
     latitude: v.latitude,
     longitude: v.longitude,
   }))
-  return filterVenuesByFontes(mapped, fontes)
 }
 
 export async function loadPromotersForDisplay(): Promise<Promoter[]> {
-  const venueTagsUrl = process.env.NEXT_PUBLIC_VENUE_TAGS_CSV_URL
-  const venueTags = venueTagsUrl ? await loadVenueTags(venueTagsUrl) : []
-  const allowedVenueTags = venueTags.length > 0 ? venueTags : null
-
-  const [csvPromoters, { venues }, imageByHandle, fontes] = await Promise.all([
-    loadPromoters(process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL),
-    loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags),
+  const [promoters, imageByHandle] = await Promise.all([
+    resolvePromotersList(),
     loadVenueProfileImageMap(),
-    loadFontesHandleSets(),
   ])
-
-  const venueLike = venues.map((v) => ({
-    venue_id: v.venue_id,
-    name: v.name,
-    slug: v.slug,
-    description_short: v.description_short,
-    primary_image_url: v.primary_image_url,
-    website_url: v.website_url,
-    instagram_handle: v.instagram_handle,
-    tags: v.tags ?? [],
-  }))
-
-  const resolved = resolvePromotersCatalog(csvPromoters, venueLike, fontes)
-  const withImages = mergeVenueProfileImages(resolved, imageByHandle)
+  const withImages = mergeVenueProfileImages(promoters, imageByHandle)
   return withImages.map((p) => ({
     ...p,
     primary_image_url: sanitizeImageUrl(p.primary_image_url),

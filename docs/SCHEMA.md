@@ -45,7 +45,8 @@ This document describes the **Event CSV** and **Venue CSV** schemas. Treat these
 | `source_url` | URL | No | Source page | `https://...` |
 | `source_event_id` | string | No | ID from source system | - |
 | `dedupe_key` | string | No | Manual dedupe key | - |
-| `confidence_score` | number | No | 0–1 confidence | `0.95` |
+| `confidence_score` | number | No | 0–1 **calculated** confidence (field evidence − conflict penalties) | `0.72` |
+| `publish_auth` | string | No | Pipeline publish gate: empty until authorized; `human_approved` after Tier 6; clean Tier 5 verified also authorizes by lookup | `human_approved` |
 | `last_seen_at` | ISO | No | Last seen in feed | - |
 | `created_at` | ISO | No | Created timestamp | - |
 | `updated_at` | ISO | No | Updated timestamp | - |
@@ -65,7 +66,8 @@ Live calendar CSV is **Events Clean New** (via `npm run publish` from Processed 
 | `extraction_source` | Which tier produced the row: `caption`, `vision`, or `merged` |
 | `on_slide_text_evidence` | Verbatim date/time text read on a carousel slide (debugging datetime conversion) |
 | `_raw_model_text` | Unparsed model output for prompt iteration |
-| `fingerprint` | Dedupe fingerprint (title \| date \| 30-min bucket \| venue_id) |
+| `fingerprint` | Dedupe fingerprint (`source_post` \| date \| 30-min bucket \| title \| venue when available) |
+| `publish_auth` | Empty on auto-pass; `human_approved` after Tier 6. Clean Tier 5 verified also authorizes publish via verification lookup |
 
 ---
 
@@ -77,7 +79,8 @@ Live calendar CSV is **Events Clean New** (via `npm run publish` from Processed 
 | `name` | string | Yes | Display name | `Lux Frágil` |
 | `slug` | string | No | URL slug (default: slugify name) | `lux-fragil` |
 | `aliases` | string | No | Pipe-separated aliases | `Musicbox|Music Box Lisboa` |
-| `instagram_handle` | string | No | Instagram handle (no @) | `luxfragil` |
+| `is_active` | bool/string | No | Default true. Inactive venues stay in catalog but are **not scraped** | `true` |
+| `instagram_handle` | string | No | Instagram handle (no @). Required to scrape | `luxfragil` |
 | `primary_image_url` | URL | No | Venue image | - |
 | `description_short` | string | No | Short description (~160 chars) | - |
 | `website_url` | URL | No | Venue website | - |
