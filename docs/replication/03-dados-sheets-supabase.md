@@ -1,6 +1,6 @@
-# City Pager — Dados: Google Sheets & Supabase
+# Terminus — Dados: Google Sheets & Supabase
 
-**Documento:** 3 de 5 — Storage & Contratos de Dados
+**Documento:** 3 de 6 — Storage & Contratos de Dados
 
 ---
 
@@ -20,8 +20,8 @@ Pipeline **escreve** Processed (staging) e, via `publish`, Clean (live). App **l
 
 | Tab | SoT? | Escrita | Leitura |
 |-----|------|---------|---------|
-| **Venues** | Sim (handles + catalog; `instagram_handle` + `is_active`) | Humano + profile-images | Scrape + resolve + app |
-| **Promoters** | Sim (handles + catalog) | Idem | Scrape + app |
+| **Venues** | Até seed Supabase; depois espelho/ops | Humano + profile-images + admin | Scrape + resolve + app (fallback CSV) |
+| **Promoters** | Idem | Idem | Scrape + app |
 | Fontes IG - Venues / Promoters | Fallback legado | — | Só se catálogo sem handles (`WATCHLIST_SOURCE=auto`) |
 | Fontes IG / Watchlist | Fallback combinado | — | Idem |
 | **Processed Events** | Staging | Pipeline auto-pass + review approve | `publish` (gated), admin |
@@ -91,7 +91,7 @@ Migrations em `supabase/migrations/` (correr **em ordem**).
 |-----|----------|
 | 001 | profiles, follow venues/promoters (legado), wishlist, likes |
 | 002 | `event_user_actions` (going, interested, saved, reminder) |
-| 003–010 | perfil extend, cover/username, storage, notifications, onboarding |
+| 003–010 | perfil extend (`display_name`, …), cover/username, storage, notifications, onboarding |
 | 011–013 | friend_requests + visibility + policies |
 | 012 | `user_interactions` (modelo unificado de actividade) |
 | 014 | drop user-to-user follows |
@@ -99,6 +99,11 @@ Migrations em `supabase/migrations/` (correr **em ordem**).
 | 018 | `event_review_feedback` |
 | 019 | **pipeline store** |
 | 020–022 | venue-images bucket, `venue_profile_images`, mode profile-images |
+| 023 | recommendation telemetry (`recommendation_sessions` / events) |
+| 024 | `user_bug_reports` → `/admin/bugs` |
+| 025 | **`venues` + `promoters` catalog SoT** |
+| 026 | `pipeline_catalog_candidates` → `/admin/catalog-candidates` |
+| 027 | `display_name` backfill + signup trigger sync |
 
 ### Conceitos sociais (as-built)
 
@@ -124,6 +129,8 @@ Migrations em `supabase/migrations/` (correr **em ordem**).
 | `pipeline_runs` | Fila de jobs: queued → running → success/error/aborted |
 | `pipeline_config` | JSON config + `worker_heartbeat_at` |
 | `venue_profile_images` | Mapa handle → URL (backup se Sheets falhar) |
+| `pipeline_catalog_candidates` | Propostas de venue/promoter (026) |
+| `venues` / `promoters` | Catalog SoT (025) + admin CRUD |
 
 ### Storage buckets
 
@@ -146,7 +153,7 @@ Migrations em `supabase/migrations/` (correr **em ordem**).
 | `publish` | Events Clean New | — |
 | `profile-images` | Venues/Promoters URLs | bucket + venue_profile_images |
 | App user | — | profiles, interactions, friends, chats |
-| Admin UI | Fontes watchlist (API) | runs, review, config |
+| Admin UI | — | venues/promoters CRUD, runs, review, config, candidates, bugs |
 
 Gate Sheets write: `PIPELINE_SHEETS_WRITE` (default on) + SA com acesso. Se write off, passes vão para review com hint de paste manual.
 
@@ -175,6 +182,7 @@ Gate Sheets write: `PIPELINE_SHEETS_WRITE` (default on) + SA com acesso. Se writ
 - Mesmo Sheets + Supabase service role
 - `APIFY_*`, `OPENAI_API_KEY`, vision/OCR opcionais
 - `EVENT_IMPORT_API_KEY`, `APP_BASE_URL`
+- `CATALOG_SOURCE=auto`, `WATCHLIST_SOURCE=catalog` (SoT catálogo vs Fontes legado)
 
 Checklist completo: `docs/SETUP.md`, `pipeline/.env.example`, `.env.example`.
 

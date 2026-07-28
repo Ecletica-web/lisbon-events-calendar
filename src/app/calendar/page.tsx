@@ -977,12 +977,12 @@ function CalendarPageContent() {
   }, [debouncedSearchQuery, selectedTags.length, selectedVenues.length, selectedPromoters.length, selectedCategories.length, freeOnly, excludeExhibitions, excludeContinuous])
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-pager-bg text-pager-fg">
+    <div className="min-h-screen min-h-[100dvh] bg-terminus-bg text-terminus-fg">
 
       {/* Shared view/persona banner */}
       {FEATURE_FLAGS.SHARED_VIEWS && sharedContext && (
-        <div className="bg-indigo-900/40 border-b border-indigo-700/50 px-4 py-2 flex flex-wrap items-center justify-between gap-2">
-          <span className="text-sm text-slate-200">
+        <div className="bg-terminus-muted border-b-2 border-terminus-strong px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+          <span className="text-sm text-terminus-fg">
             {sharedContext.type === 'view' ? 'View' : 'Persona'}{' '}
             {sharedContext.name && `"${sharedContext.name}"`}
             {sharedContext.by && ` by @${sharedContext.by}`}
@@ -991,14 +991,14 @@ function CalendarPageContent() {
             {session?.user && (
               <button
                 onClick={handleSaveView}
-                className="px-3 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
+                className="terminus-btn terminus-btn-primary px-3 py-1.5 text-xs uppercase tracking-wider"
               >
                 Save a copy
               </button>
             )}
             <button
               onClick={handleDismissSharedBanner}
-              className="px-3 py-1.5 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-slate-700/50 transition-colors"
+              className="terminus-btn terminus-btn-ghost px-3 py-1.5 text-xs uppercase tracking-wider text-terminus-fg-muted"
             >
               Dismiss
             </button>
@@ -1008,12 +1008,12 @@ function CalendarPageContent() {
 
       <div className="flex flex-col md:flex-row">
         {/* Left Sidebar */}
-        <div className={`relative transition-all duration-300 ${sidebarMinimized ? 'w-0 md:w-12' : 'w-full md:w-72'} border-r-0 md:border-r-2 border-b md:border-b-0 border-pager-strong bg-pager-bg ${sidebarMinimized ? 'overflow-visible md:overflow-visible' : 'p-3 md:p-6 max-h-[50vh] md:max-h-none md:min-h-[calc(100vh-120px)] overflow-y-auto'} flex-shrink-0 ${!sidebarMinimized ? 'z-50 md:z-auto fixed md:relative inset-y-0 left-0' : ''}`}>
+        <div className={`relative transition-all duration-300 ${sidebarMinimized ? 'w-0 md:w-12' : 'w-full md:w-72'} border-r-0 md:border-r-2 border-b md:border-b-0 border-terminus-strong bg-terminus-bg ${sidebarMinimized ? 'overflow-visible md:overflow-visible' : 'p-3 md:p-6 max-h-[50vh] md:max-h-none md:min-h-[calc(100vh-120px)] overflow-y-auto'} flex-shrink-0 ${!sidebarMinimized ? 'z-50 md:z-auto fixed md:relative inset-y-0 left-0' : ''}`}>
 
           {/* Minimize/Expand Button - Desktop only */}
           <button
             onClick={() => setSidebarMinimized(!sidebarMinimized)}
-            className={`hidden md:flex absolute top-4 ${sidebarMinimized ? 'right-2 md:right-1' : 'right-4'} z-[100] p-2 pager-btn items-center justify-center`}
+            className={`hidden md:flex absolute top-4 ${sidebarMinimized ? 'right-2 md:right-1' : 'right-4'} z-[100] p-2 terminus-btn items-center justify-center`}
             aria-label={sidebarMinimized ? 'Expand sidebar' : 'Minimize sidebar'}
           >
             <svg 
@@ -1047,70 +1047,62 @@ function CalendarPageContent() {
           
           {!sidebarMinimized && (
             <>
-          <p className="text-slate-400 text-xs mb-4 md:mb-2 leading-relaxed">
-            Browse and filter events in Lisbon. Tap an event for details, to save it, or to share with a friend.
-          </p>
           {/* Search Bar */}
           <div className="mb-4 md:mb-6">
-            <div className="text-xs md:text-sm font-semibold mb-2 md:mb-3 text-slate-200">Search Events</div>
+            <div className="font-pixel text-[9px] mb-2 text-terminus-fg">{'> SEARCH'}</div>
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Search events..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 border border-slate-600/50 rounded-lg px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm bg-slate-900/80 backdrop-blur-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all shadow-lg"
+                className="terminus-input flex-1 text-xs md:text-sm"
               />
               <button
                 onClick={handleClearFilters}
-                className="px-3 md:px-4 py-2 md:py-2.5 border border-slate-600/50 rounded-lg hover:bg-slate-700/80 text-xs md:text-sm whitespace-nowrap font-medium text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl bg-slate-800/80"
+                className="terminus-btn px-3 py-2 text-xs uppercase tracking-wider disabled:opacity-40"
                 disabled={activeFiltersCount === 0}
               >
                 Clear
               </button>
             </div>
             {!loading && (
-              <div className="text-xs text-slate-400 mt-2 font-medium space-y-1">
-                <div>
-                  {filteredEvents.length} of {events.length} events
-                  {activeFiltersCount > 0 && ` (${activeFiltersCount} filter${activeFiltersCount > 1 ? 's' : ''} active)`}
-                </div>
-                {lastUpdated && (
-                  <div>Last updated: {new Date(lastUpdated).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                )}
+              <div className="text-[10px] text-terminus-fg-faint mt-2 uppercase tracking-wider">
+                {filteredEvents.length}/{events.length}
+                {activeFiltersCount > 0 ? ` · ${activeFiltersCount} flt` : ''}
               </div>
             )}
           </div>
 
           <div className="mb-4 md:mb-6">
-            <div className="text-xs md:text-sm font-semibold mb-2 md:mb-3 text-slate-200">Filters</div>
-            <div className="space-y-2.5">
-              <label className="flex items-center gap-3 cursor-pointer group p-2 rounded-lg hover:bg-slate-700/50 transition-colors">
+            <div className="font-pixel text-[9px] mb-2 text-terminus-fg">{'> FILTERS'}</div>
+            <div className="space-y-1">
+              <label className="flex items-center gap-3 cursor-pointer group p-2 hover:bg-terminus-muted">
                 <input
                   type="checkbox"
                   checked={freeOnly}
                   onChange={(e) => setFreeOnly(e.target.checked)}
-                  className="rounded border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-4 h-4 cursor-pointer bg-slate-900"
+                  className="rounded-none border-terminus-strong text-terminus-fg focus:ring-terminus-accent w-4 h-4 cursor-pointer bg-terminus-bg"
                 />
-                <span className="text-xs md:text-sm text-slate-300 group-hover:text-white">Free events only</span>
+                <span className="text-xs md:text-sm text-terminus-fg-muted group-hover:text-terminus-fg">Free</span>
               </label>
-              <label className="flex items-center gap-3 cursor-pointer group p-2 rounded-lg hover:bg-slate-700/50 transition-colors">
+              <label className="flex items-center gap-3 cursor-pointer group p-2 hover:bg-terminus-muted">
                 <input
                   type="checkbox"
                   checked={excludeExhibitions}
                   onChange={(e) => setExcludeExhibitions(e.target.checked)}
-                  className="rounded border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-4 h-4 cursor-pointer bg-slate-900"
+                  className="rounded-none border-terminus-strong text-terminus-fg focus:ring-terminus-accent w-4 h-4 cursor-pointer bg-terminus-bg"
                 />
-                <span className="text-xs md:text-sm text-slate-300 group-hover:text-white">Exclude exhibitions</span>
+                <span className="text-xs md:text-sm text-terminus-fg-muted group-hover:text-terminus-fg">No exhibitions</span>
               </label>
-              <label className="flex items-center gap-3 cursor-pointer group p-2 rounded-lg hover:bg-slate-700/50 transition-colors">
+              <label className="flex items-center gap-3 cursor-pointer group p-2 hover:bg-terminus-muted">
                 <input
                   type="checkbox"
                   checked={excludeContinuous}
                   onChange={(e) => setExcludeContinuous(e.target.checked)}
-                  className="rounded border-slate-600 text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-4 h-4 cursor-pointer bg-slate-900"
+                  className="rounded-none border-terminus-strong text-terminus-fg focus:ring-terminus-accent w-4 h-4 cursor-pointer bg-terminus-bg"
                 />
-                <span className="text-xs md:text-sm text-slate-300 group-hover:text-white">Exclude continuous events</span>
+                <span className="text-xs md:text-sm text-terminus-fg-muted group-hover:text-terminus-fg">No continuous</span>
               </label>
             </div>
           </div>
@@ -1129,8 +1121,8 @@ function CalendarPageContent() {
                   onClick={() => setSelectedCategories([])}
                   className={`px-2.5 py-1 text-xs font-medium border-2 ${
                     selectedCategories.length === 0
-                      ? 'bg-pager-accent text-pager-accent-fg border-pager-strong'
-                      : 'bg-pager-elevated border-pager-border text-pager-fg-muted hover:border-pager-strong'
+                      ? 'bg-terminus-accent text-terminus-accent-fg border-terminus-strong'
+                      : 'bg-terminus-elevated border-terminus-border text-terminus-fg-muted hover:border-terminus-strong'
                   }`}
                 >
                   All Categories
@@ -1174,11 +1166,11 @@ function CalendarPageContent() {
                 placeholder="Search venues..."
                 value={venueSearchQuery}
                 onChange={(e) => setVenueSearchQuery(e.target.value)}
-                className="pager-input text-xs mb-2 py-1.5"
+                className="terminus-input text-xs mb-2 py-1.5"
               />
               <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
                 {filteredVenues.length === 0 ? (
-                  <p className="text-xs text-pager-fg-faint py-2">
+                  <p className="text-xs text-terminus-fg-faint py-2">
                     {venueSearchQuery.trim() ? 'No venues match your search' : 'No venues'}
                   </p>
                 ) : (
@@ -1189,7 +1181,7 @@ function CalendarPageContent() {
                         key={venue.key}
                         type="button"
                         onClick={() => handleVenueToggle(venue.key)}
-                        className={`pager-pill ${isSelected ? 'pager-pill-active' : ''}`}
+                        className={`terminus-pill ${isSelected ? 'terminus-pill-active' : ''}`}
                         title={venue.name}
                       >
                         <span className="line-clamp-1 max-w-[140px] md:max-w-[180px]">{venue.name}</span>
@@ -1202,7 +1194,7 @@ function CalendarPageContent() {
                 <button
                   type="button"
                   onClick={() => setSelectedVenues([])}
-                  className="mt-2 text-[10px] uppercase tracking-wider text-pager-fg-muted hover:text-pager-fg underline"
+                  className="mt-2 text-[10px] uppercase tracking-wider text-terminus-fg-muted hover:text-terminus-fg underline"
                 >
                   Clear venues
                 </button>
@@ -1224,11 +1216,11 @@ function CalendarPageContent() {
                 placeholder="Search promoters..."
                 value={promoterSearchQuery}
                 onChange={(e) => setPromoterSearchQuery(e.target.value)}
-                className="pager-input text-xs mb-2 py-1.5"
+                className="terminus-input text-xs mb-2 py-1.5"
               />
               <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
                 {filteredPromoters.length === 0 ? (
-                  <p className="text-xs text-pager-fg-faint py-2">
+                  <p className="text-xs text-terminus-fg-faint py-2">
                     {promoterSearchQuery.trim() ? 'No promoters match' : 'No promoters'}
                   </p>
                 ) : (
@@ -1243,7 +1235,7 @@ function CalendarPageContent() {
                         key={key}
                         type="button"
                         onClick={() => handlePromoterToggle(p)}
-                        className={`pager-pill ${isSelected ? 'pager-pill-active' : ''}`}
+                        className={`terminus-pill ${isSelected ? 'terminus-pill-active' : ''}`}
                         title={p.name}
                       >
                         <span className="line-clamp-1 max-w-[140px] md:max-w-[180px]">{p.name}</span>
@@ -1256,7 +1248,7 @@ function CalendarPageContent() {
                 <button
                   type="button"
                   onClick={() => setSelectedPromoters([])}
-                  className="mt-2 text-[10px] uppercase tracking-wider text-pager-fg-muted hover:text-pager-fg underline"
+                  className="mt-2 text-[10px] uppercase tracking-wider text-terminus-fg-muted hover:text-terminus-fg underline"
                 >
                   Clear promoters
                 </button>
@@ -1284,8 +1276,8 @@ function CalendarPageContent() {
 
           {/* Predefined Lisbon Personas — one-click vibe filters */}
           {FEATURE_FLAGS.PERSONAS && (
-            <div className="mb-4 border-t-2 border-pager-border pt-4">
-              <div className="text-xs font-semibold text-pager-fg mb-2 uppercase tracking-wider">Lisbon vibes</div>
+            <div className="mb-4 border-t-2 border-terminus-border pt-4">
+              <div className="text-xs font-semibold text-terminus-fg mb-2 uppercase tracking-wider">Lisbon vibes</div>
               <div className="space-y-1.5 max-h-48 overflow-y-auto">
                 {PREDEFINED_PERSONAS.map((p) => {
                   const isActive = activePredefinedPersonaId === p.id
@@ -1297,8 +1289,8 @@ function CalendarPageContent() {
                       title={p.description}
                       className={`w-full text-left px-2 py-2 text-xs border-2 ${
                         isActive
-                          ? 'bg-pager-accent text-pager-accent-fg border-pager-strong'
-                          : 'border-pager-border bg-pager-elevated text-pager-fg hover:border-pager-strong'
+                          ? 'bg-terminus-accent text-terminus-accent-fg border-terminus-strong'
+                          : 'border-terminus-border bg-terminus-elevated text-terminus-fg hover:border-terminus-strong'
                       }`}
                     >
                       {p.emoji ? `${p.emoji} ` : ''}
@@ -1311,7 +1303,7 @@ function CalendarPageContent() {
                 <button
                   type="button"
                   onClick={handleClearPersona}
-                  className="mt-2 text-[10px] uppercase tracking-wider text-pager-fg-muted hover:text-pager-fg underline"
+                  className="mt-2 text-[10px] uppercase tracking-wider text-terminus-fg-muted hover:text-terminus-fg underline"
                 >
                   Clear vibe
                 </button>
@@ -1321,12 +1313,12 @@ function CalendarPageContent() {
 
           {/* User-created Personas */}
           {FEATURE_FLAGS.PERSONAS && session?.user && (
-            <div className="mb-4 border-t-2 border-pager-border pt-4">
-              <div className="text-xs font-semibold text-pager-fg mb-2 uppercase tracking-wider">My Personas</div>
+            <div className="mb-4 border-t-2 border-terminus-border pt-4">
+              <div className="text-xs font-semibold text-terminus-fg mb-2 uppercase tracking-wider">My Personas</div>
               <button
                 type="button"
                 onClick={handleCreatePersona}
-                className="pager-btn w-full mb-2 px-3 py-2 text-xs uppercase tracking-wider"
+                className="terminus-btn w-full mb-2 px-3 py-2 text-xs uppercase tracking-wider"
               >
                 Create from current filters
               </button>
@@ -1342,7 +1334,7 @@ function CalendarPageContent() {
                     const p = personas.find((x) => x.id === id)
                     if (p) handleApplyPersona(p)
                   }}
-                  className="w-full border border-slate-600/50 rounded-lg px-3 py-2 text-sm bg-slate-900/80 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  className="terminus-input w-full text-sm"
                 >
                   <option value="">Apply saved persona...</option>
                   {personas.map((p) => (
@@ -1359,7 +1351,7 @@ function CalendarPageContent() {
               <div className="text-xs md:text-sm font-semibold text-slate-200">Saved Views</div>
               <button
                 onClick={() => setShowSavedViewsMenu(!showSavedViewsMenu)}
-                className="text-xs text-indigo-400 hover:text-indigo-300 font-medium px-2 py-1 rounded hover:bg-indigo-900/50 transition-colors"
+                className="text-xs terminus-link px-2 py-1"
               >
                 {showSavedViewsMenu ? 'Hide' : 'Show'}
               </button>
@@ -1413,7 +1405,7 @@ function CalendarPageContent() {
                             <>
                               <button
                                 onClick={() => handleLoadView(view)}
-                                className="flex-1 text-left text-xs text-indigo-400 hover:text-indigo-300 font-medium truncate hover:underline transition-colors"
+                                className="flex-1 text-left text-xs terminus-link font-medium truncate"
                               >
                                 {view.name}
                                 {view.isDefault && (
@@ -1518,14 +1510,14 @@ function CalendarPageContent() {
           <div className="hidden md:block">
               {/* View mode: Calendar vs List — always visible */}
               <div className="mb-4 flex flex-wrap items-center gap-3">
-                <div className="flex border-2 border-pager-strong" role="group" aria-label="View mode">
+                <div className="flex border-2 border-terminus-strong" role="group" aria-label="View mode">
                   <button
                     type="button"
                     onClick={() => setShowListView(false)}
                     className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider ${
                       !showListView
-                        ? 'bg-pager-accent text-pager-accent-fg'
-                        : 'bg-pager-bg text-pager-fg hover:bg-pager-muted'
+                        ? 'bg-terminus-accent text-terminus-accent-fg'
+                        : 'bg-terminus-bg text-terminus-fg hover:bg-terminus-muted'
                     }`}
                   >
                     Calendar
@@ -1533,10 +1525,10 @@ function CalendarPageContent() {
                   <button
                     type="button"
                     onClick={() => setShowListView(true)}
-                    className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider border-l-2 border-pager-strong ${
+                    className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider border-l-2 border-terminus-strong ${
                       showListView
-                        ? 'bg-pager-accent text-pager-accent-fg'
-                        : 'bg-pager-bg text-pager-fg hover:bg-pager-muted'
+                        ? 'bg-terminus-accent text-terminus-accent-fg'
+                        : 'bg-terminus-bg text-terminus-fg hover:bg-terminus-muted'
                     }`}
                   >
                     List
@@ -1566,16 +1558,16 @@ function CalendarPageContent() {
 
               {loading ? (
                 <div className="flex items-center justify-center h-96">
-                  <div className="text-pager-fg-muted">Loading events...</div>
+                  <div className="text-terminus-fg-muted">Loading events...</div>
                 </div>
               ) : filteredEvents.length === 0 ? (
                 <div className="flex items-center justify-center h-96">
                   <div className="text-center">
-                    <div className="text-pager-fg-muted text-lg mb-2">No events found</div>
+                    <div className="text-terminus-fg-muted text-lg mb-2">No events found</div>
                     {activeFiltersCount > 0 && (
                       <button
                         onClick={handleClearFilters}
-                        className="pager-link text-sm"
+                        className="terminus-link text-sm"
                       >
                         Clear filters to see all events
                       </button>
@@ -1670,7 +1662,7 @@ function CalendarPageContent() {
           </p>
           <Link
             href="/signup"
-            className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 shrink-0"
+            className="terminus-btn terminus-btn-primary px-3 py-1.5 text-sm shrink-0"
           >
             Sign up
           </Link>

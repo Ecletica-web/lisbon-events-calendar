@@ -1,6 +1,7 @@
 /**
  * List friends (accepted friend requests).
  * Auth required for own profile; uses service role after auth so RLS cannot empty the list.
+ * If friends_list_private and viewer !== owner → 403.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase/server'
@@ -23,12 +24,26 @@ export async function GET(
 
   if (!supabaseServer) return NextResponse.json({ friends: [] })
 
+  let viewerId: string | null = null
   const bearer = getBearer(request)
   if (bearer) {
     const { data: { user } } = await supabaseServer.auth.getUser(bearer)
-    // Viewing another user's friends is ok via service role; own list requires valid token
-    if (user && user.id !== userId) {
-      // still allow (public-ish friends list on profiles)
+    viewerId = user?.id ?? null
+  }
+
+  const isOwner = viewerId === userId
+  if (!isOwner) {
+    const { data: privacy } = await supabaseServer
+      .from('user_profiles')
+      .select('friends_list_private')
+      .eq('id', userId)
+      .maybeSingle()
+
+    if (privacy?.friends_list_private === true) {
+      return NextResponse.json(
+        { error: 'Friends list is private', friends: [] },
+        { status: 403 }
+      )
     }
   }
 

@@ -40,5 +40,9 @@ lisbon-events-calendar-*.json
 *.tsbuildinfo
 next-env.d.ts
 
+# Serwist (generated service worker)
+public/sw*
+public/swe-worker*
+
 # database files (MVP)
 /data

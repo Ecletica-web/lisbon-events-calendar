@@ -35,8 +35,8 @@ export const PREDEFINED_PERSONAS: PredefinedPersona[] = [
       'DJ Set',
       'Brunch',
     ],
-    accentColor: '#a78bfa',
-    bgStyle: 'linear-gradient(135deg, rgba(167,139,250,0.25) 0%, rgba(236,72,153,0.15) 100%)',
+    accentColor: '#000000',
+    bgStyle: 'linear-gradient(135deg, rgba(0,0,0,0.12) 0%, rgba(120,120,120,0.08) 100%)',
   },
   {
     id: 'alternative-girl',
@@ -57,8 +57,8 @@ export const PREDEFINED_PERSONAS: PredefinedPersona[] = [
       'Independent Cinema',
       'Art Collective',
     ],
-    accentColor: '#ec4899',
-    bgStyle: 'linear-gradient(135deg, rgba(236,72,153,0.2) 0%, rgba(107,114,128,0.2) 100%)',
+    accentColor: '#111111',
+    bgStyle: 'linear-gradient(135deg, rgba(17,17,17,0.15) 0%, rgba(80,80,80,0.1) 100%)',
   },
   {
     id: 'hipster',
@@ -78,8 +78,8 @@ export const PREDEFINED_PERSONAS: PredefinedPersona[] = [
       'Startup Event',
       'Film Screening',
     ],
-    accentColor: '#f59e0b',
-    bgStyle: 'linear-gradient(135deg, rgba(245,158,11,0.25) 0%, rgba(251,191,36,0.15) 100%)',
+    accentColor: '#333333',
+    bgStyle: 'linear-gradient(135deg, rgba(51,51,51,0.14) 0%, rgba(160,160,160,0.08) 100%)',
   },
   {
     id: 'sports-guy',
@@ -99,8 +99,8 @@ export const PREDEFINED_PERSONAS: PredefinedPersona[] = [
       'Basketball',
       'Sports',
     ],
-    accentColor: '#22c55e',
-    bgStyle: 'linear-gradient(135deg, rgba(34,197,94,0.2) 0%, rgba(16,185,129,0.15) 100%)',
+    accentColor: '#444444',
+    bgStyle: 'linear-gradient(135deg, rgba(68,68,68,0.14) 0%, rgba(140,140,140,0.08) 100%)',
   },
   {
     id: 'bookworm',
@@ -120,8 +120,8 @@ export const PREDEFINED_PERSONAS: PredefinedPersona[] = [
       'Philosophy',
       'Library',
     ],
-    accentColor: '#8b5cf6',
-    bgStyle: 'linear-gradient(135deg, rgba(139,92,246,0.25) 0%, rgba(244,114,182,0.15) 100%)',
+    accentColor: '#222222',
+    bgStyle: 'linear-gradient(135deg, rgba(34,34,34,0.14) 0%, rgba(100,100,100,0.08) 100%)',
   },
   {
     id: 'actress',
@@ -141,8 +141,8 @@ export const PREDEFINED_PERSONAS: PredefinedPersona[] = [
       'Live Show',
       'Art Opening',
     ],
-    accentColor: '#f472b6',
-    bgStyle: 'linear-gradient(135deg, rgba(244,114,182,0.25) 0%, rgba(232,121,249,0.15) 100%)',
+    accentColor: '#555555',
+    bgStyle: 'linear-gradient(135deg, rgba(85,85,85,0.14) 0%, rgba(180,180,180,0.08) 100%)',
   },
   {
     id: 'instagram-explorer',
@@ -162,8 +162,8 @@ export const PREDEFINED_PERSONAS: PredefinedPersona[] = [
       'DJ Set',
       'Trendy',
     ],
-    accentColor: '#e879f9',
-    bgStyle: 'linear-gradient(135deg, rgba(232,121,249,0.25) 0%, rgba(236,72,153,0.15) 100%)',
+    accentColor: '#666666',
+    bgStyle: 'linear-gradient(135deg, rgba(102,102,102,0.14) 0%, rgba(200,200,200,0.08) 100%)',
   },
   {
     id: 'raver',
@@ -183,8 +183,8 @@ export const PREDEFINED_PERSONAS: PredefinedPersona[] = [
       'Festival',
       'Underground',
     ],
-    accentColor: '#06b6d4',
-    bgStyle: 'linear-gradient(135deg, rgba(6,182,212,0.25) 0%, rgba(139,92,246,0.1) 100%)',
+    accentColor: '#000000',
+    bgStyle: 'linear-gradient(135deg, rgba(0,0,0,0.18) 0%, rgba(90,90,90,0.1) 100%)',
   },
   {
     id: 'sunset-romantic',
@@ -204,8 +204,8 @@ export const PREDEFINED_PERSONAS: PredefinedPersona[] = [
       'Wine Tasting',
       'Chill',
     ],
-    accentColor: '#f97316',
-    bgStyle: 'linear-gradient(135deg, rgba(249,115,22,0.25) 0%, rgba(251,146,60,0.15) 100%)',
+    accentColor: '#888888',
+    bgStyle: 'linear-gradient(135deg, rgba(136,136,136,0.14) 0%, rgba(220,220,220,0.08) 100%)',
   },
 ]
 

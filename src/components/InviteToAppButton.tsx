@@ -36,7 +36,7 @@ export default function InviteToAppButton({
     try {
       if (supportsShare()) {
         await navigator.share({
-          title: 'City Pager',
+          title: 'Terminus',
           text: profileUserId ? getFullProfileInviteText(url) : getFullInviteText(),
           url,
         })
@@ -66,7 +66,7 @@ export default function InviteToAppButton({
       <button
         onClick={handleInvite}
         disabled={loading}
-        className={`text-sm text-indigo-400 hover:text-indigo-300 transition-colors ${className}`}
+        className={`text-sm terminus-link transition-colors ${className}`}
       >
         {loading ? '...' : copied ? 'Copied!' : linkLabel}
       </button>
@@ -77,7 +77,7 @@ export default function InviteToAppButton({
     <button
       onClick={handleInvite}
       disabled={loading}
-      className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:text-white transition-colors text-sm ${className}`}
+      className={`terminus-btn terminus-btn-ghost inline-flex items-center gap-2 px-3 py-2 text-sm ${className}`}
       title="Share the calendar with friends"
     >
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

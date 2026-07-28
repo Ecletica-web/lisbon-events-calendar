@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import {
-  loadCatalogVenues,
+  loadCatalogVenuesWithFallback,
   upsertVenue,
   setVenueActive,
   type VenueUpsertInput,
@@ -15,8 +15,10 @@ export async function GET(request: NextRequest) {
   if (!auth.ok) return auth.response
   try {
     const includeInactive = request.nextUrl.searchParams.get('all') === '1'
-    const venues = await loadCatalogVenues({ activeOnly: !includeInactive })
-    return NextResponse.json({ venues, total: venues.length })
+    const { rows: venues, source, warning } = await loadCatalogVenuesWithFallback({
+      activeOnly: !includeInactive,
+    })
+    return NextResponse.json({ venues, total: venues.length, source, warning })
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed', venues: [] },

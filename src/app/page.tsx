@@ -25,28 +25,28 @@ export default function HomePage() {
 
   if (isLoggedIn) {
     return (
-      <div className="min-h-screen bg-pager-bg flex items-center justify-center">
-        <div className="text-pager-fg-muted font-mono text-sm">Loading calendar...</div>
+      <div className="min-h-screen bg-terminus-bg flex items-center justify-center">
+        <div className="text-terminus-fg-muted font-mono text-sm">Loading calendar...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-pager-bg flex flex-col items-center justify-center px-4 pt-20 pb-24">
-      <h1 className="pager-heading text-center mb-4 pager-cursor">CITY PAGER</h1>
-      <p className="text-pager-fg-muted text-center max-w-md mb-8 text-sm">
+    <div className="min-h-screen bg-terminus-bg flex flex-col items-center justify-center px-4 pt-20 pb-24">
+      <h1 className="terminus-heading text-center mb-4 terminus-cursor">TERMINUS</h1>
+      <p className="text-terminus-fg-muted text-center max-w-md mb-8 text-sm">
         Lisbon events — venues, promoters, and what&apos;s on. Sign in for a personal feed.
       </p>
       <div className="flex flex-col sm:flex-row gap-3">
-        <Link href="/signup" className="pager-btn pager-btn-primary min-h-[48px] px-6 py-3 text-xs uppercase tracking-wider">
+        <Link href="/signup" className="terminus-btn terminus-btn-primary min-h-[48px] px-6 py-3 text-xs uppercase tracking-wider">
           Sign up
         </Link>
-        <Link href="/login" className="pager-btn min-h-[48px] px-6 py-3 text-xs uppercase tracking-wider">
+        <Link href="/login" className="terminus-btn min-h-[48px] px-6 py-3 text-xs uppercase tracking-wider">
           Log in
         </Link>
         <Link
           href="/calendar"
-          className="min-h-[48px] px-6 py-3 text-xs uppercase tracking-wider text-pager-fg-muted hover:text-pager-fg text-center flex items-center justify-center"
+          className="min-h-[48px] px-6 py-3 text-xs uppercase tracking-wider text-terminus-fg-muted hover:text-terminus-fg text-center flex items-center justify-center"
         >
           Browse calendar →
         </Link>

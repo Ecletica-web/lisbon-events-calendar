@@ -258,34 +258,42 @@ function ChatPageContent() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-pager-bg flex flex-col items-center justify-center p-6">
-        <p className="text-pager-fg-muted mb-4">Sign in to use Chat</p>
-        <Link href="/login" className="text-indigo-400 hover:underline">Log in</Link>
+      <div className="min-h-screen bg-terminus-bg text-terminus-fg flex flex-col items-center justify-center p-6">
+        <p className="font-pixel text-sm uppercase tracking-wider mb-2">{'> AUTH REQUIRED'}</p>
+        <p className="text-terminus-fg-muted text-xs font-mono uppercase tracking-wider mb-4">Sign in to use chat</p>
+        <Link href="/login" className="terminus-btn terminus-btn-primary text-xs uppercase tracking-wider">
+          Log in
+        </Link>
       </div>
     )
   }
 
+  const selectedChat = chats.find((c) => c.id === selectedId)
+  const selectedTitle = selectedChat
+    ? chatTitle(selectedChat, user.id)
+    : ''
+
   return (
-    <div className="min-h-screen bg-pager-bg flex flex-col pt-16 pb-8">
+    <div className="min-h-screen bg-terminus-bg text-terminus-fg flex flex-col pt-16 pb-8">
       <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col md:flex-row gap-0 md:gap-4 px-2">
-        <aside className="w-full md:w-72 flex-shrink-0 border border-pager-border rounded-none bg-pager-elevated/50 overflow-hidden flex flex-col max-h-[40vh] md:max-h-[calc(100vh-8rem)]">
-          <div className="p-3 border-b border-pager-border">
-            <h1 className="font-semibold text-white">Chats</h1>
-            <p className="text-pager-fg-muted text-xs mt-0.5">
-              Message a friend, create a group, or share events from the calendar.
+        <aside className="terminus-panel w-full md:w-72 flex-shrink-0 overflow-hidden flex flex-col max-h-[40vh] md:max-h-[calc(100vh-8rem)]">
+          <div className="p-3 border-b-2 border-terminus-strong">
+            <h1 className="font-pixel text-sm uppercase tracking-wider text-terminus-fg">{'> CHANNELS'}</h1>
+            <p className="text-terminus-fg-muted text-[10px] font-mono uppercase tracking-wider mt-1">
+              DM · group · share from calendar
             </p>
             <div className="flex flex-wrap gap-2 mt-3">
               <button
                 type="button"
                 onClick={() => openNewChat('dm')}
-                className="px-3 py-1.5 rounded-none bg-indigo-600 text-white hover:bg-indigo-500 text-xs font-medium"
+                className="terminus-btn terminus-btn-primary text-[10px] uppercase tracking-wider px-3 py-1.5"
               >
                 Message friend
               </button>
               <button
                 type="button"
                 onClick={() => openNewChat('group')}
-                className="px-3 py-1.5 rounded-none border border-pager-border text-pager-fg-muted hover:bg-pager-muted/80 text-xs font-medium"
+                className="terminus-btn terminus-btn-ghost text-[10px] uppercase tracking-wider px-3 py-1.5"
               >
                 New group
               </button>
@@ -293,21 +301,30 @@ function ChatPageContent() {
           </div>
           <ul className="overflow-y-auto flex-1">
             {loading ? (
-              <li className="p-4 text-pager-fg-faint text-sm">Loading...</li>
+              <li className="p-4 text-terminus-fg-faint text-xs font-mono uppercase tracking-wider">{'> LOADING...'}</li>
             ) : chats.length === 0 ? (
-              <li className="p-4 text-pager-fg-faint text-sm">No chats yet. Message a friend or create a group to start.</li>
+              <li className="p-4 text-terminus-fg-faint text-xs font-mono uppercase tracking-wider">
+                {'> NO CHANNELS — message a friend or create a group'}
+              </li>
             ) : (
               chats.map((chat) => (
                 <li key={chat.id}>
                   <button
                     type="button"
                     onClick={() => setSelectedId(chat.id)}
-                    className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-pager-muted ${selectedId === chat.id ? 'bg-pager-muted/80' : ''}`}
+                    className={`w-full text-left px-4 py-3 flex items-center gap-3 rounded-none border-b border-terminus-border hover:bg-terminus-muted ${selectedId === chat.id ? 'bg-terminus-muted' : ''}`}
                   >
-                    <span className="w-10 h-10 rounded-none bg-slate-600 flex items-center justify-center text-pager-fg font-medium flex-shrink-0">
+                    <span className="w-10 h-10 rounded-none border-2 border-terminus-strong bg-terminus-muted flex items-center justify-center text-terminus-fg font-pixel text-xs flex-shrink-0">
                       {chat.is_group ? '#' : (chatTitle(chat, user.id)[0] || '?').toUpperCase()}
                     </span>
-                    <span className="text-pager-fg truncate">{chatTitle(chat, user.id)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-terminus-fg font-mono text-sm truncate uppercase tracking-wide">
+                        {chatTitle(chat, user.id)}
+                      </span>
+                      <span className="block text-[10px] font-mono uppercase tracking-wider text-terminus-fg-faint">
+                        {chat.is_group ? 'GROUP' : 'DM'}
+                      </span>
+                    </span>
                   </button>
                 </li>
               ))
@@ -315,50 +332,66 @@ function ChatPageContent() {
           </ul>
         </aside>
 
-        <main className="flex-1 flex flex-col min-h-0 border border-pager-border rounded-none bg-pager-elevated/30 overflow-hidden mt-4 md:mt-0">
+        <main className="terminus-panel flex-1 flex flex-col min-h-0 overflow-hidden mt-4 md:mt-0">
           {selectedId ? (
             <>
-              <div className="p-3 border-b border-pager-border text-pager-fg font-medium">
-                {chatTitle(chats.find((c) => c.id === selectedId) ?? { id: '', name: null, is_group: false, created_at: '', updated_at: '', members: [] }, user.id)}
+              <div className="p-3 border-b-2 border-terminus-strong">
+                <p className="font-pixel text-xs uppercase tracking-wider text-terminus-fg">
+                  {`> ${selectedTitle || 'CHANNEL'}`}
+                </p>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-terminus-fg-faint mt-0.5">
+                  {selectedChat?.is_group ? 'GROUP CHANNEL' : 'DIRECT MESSAGE'}
+                </p>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-terminus-bg">
                 {loadingMessages ? (
-                  <p className="text-pager-fg-faint text-sm">Loading messages...</p>
+                  <p className="text-terminus-fg-faint text-xs font-mono uppercase tracking-wider">{'> LOADING MESSAGES...'}</p>
                 ) : messages.length === 0 ? (
-                  <p className="text-pager-fg-faint text-sm">No messages yet. Say hi!</p>
+                  <p className="font-pixel text-sm uppercase tracking-wider text-terminus-fg-muted">{'> NO MESSAGES'}</p>
                 ) : (
-                  messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={`flex ${m.senderId === user.id ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div className={`max-w-[80%] rounded-none px-4 py-2 ${m.senderId === user.id ? 'bg-indigo-600/80 text-white' : 'bg-pager-muted/80 text-pager-fg'}`}>
-                        {m.senderId !== user.id && m.senderName && (
-                          <p className="text-xs text-pager-fg-muted mb-0.5">{m.senderName}</p>
-                        )}
-                        <p className="text-sm whitespace-pre-wrap break-words">{m.content}</p>
+                  messages.map((m) => {
+                    const mine = m.senderId === user.id
+                    return (
+                      <div
+                        key={m.id}
+                        className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[80%] rounded-none px-3 py-2 ${
+                            mine
+                              ? 'bg-terminus-accent text-terminus-accent-fg'
+                              : 'border-2 border-terminus-strong bg-terminus-muted text-terminus-fg'
+                          }`}
+                        >
+                          {!mine && m.senderName && (
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-terminus-fg-muted mb-0.5">
+                              {m.senderName}
+                            </p>
+                          )}
+                          <p className="text-sm whitespace-pre-wrap break-words font-mono">{m.content}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
                 <div ref={messagesEndRef} />
               </div>
               <form
-                className="p-3 border-t border-pager-border flex gap-2"
+                className="p-3 border-t-2 border-terminus-strong flex gap-2 bg-terminus-elevated"
                 onSubmit={(e) => { e.preventDefault(); sendMessage() }}
               >
                 <input
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  className="flex-1 rounded-none px-4 py-2 bg-pager-elevated border border-pager-border text-pager-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  placeholder="> TYPE MESSAGE..."
+                  className="terminus-input flex-1 text-sm font-mono uppercase tracking-wide placeholder:normal-case"
                   disabled={sending}
                 />
                 <button
                   type="submit"
                   disabled={sending || !newMessage.trim()}
-                  className="px-4 py-2 rounded-none bg-indigo-600 text-white font-medium hover:bg-indigo-500 disabled:opacity-50"
+                  className="terminus-btn terminus-btn-primary text-xs uppercase tracking-wider px-4 py-2 disabled:opacity-50"
                 >
                   Send
                 </button>
@@ -366,12 +399,12 @@ function ChatPageContent() {
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-6 max-w-sm mx-auto">
-              <p className="text-pager-fg-faint text-sm mb-2">No chat selected</p>
-              <p className="text-pager-fg-muted text-xs mb-4">
-                Use <strong className="text-pager-fg-muted">Message friend</strong> to start a 1:1 chat, or <strong className="text-pager-fg-muted">New group</strong> to add several friends. You can also invite friends to events from the calendar via the share button on any event.
+              <p className="font-pixel text-sm uppercase tracking-wider text-terminus-fg mb-2">{'> SELECT CHANNEL'}</p>
+              <p className="text-terminus-fg-muted text-[10px] font-mono uppercase tracking-wider mb-4 leading-relaxed">
+                Message friend for 1:1 · New group for multi · Share events from calendar
               </p>
-              <Link href="/calendar" className="text-indigo-400 hover:text-indigo-300 text-sm font-medium">
-                Go to calendar →
+              <Link href="/calendar" className="terminus-link text-xs uppercase tracking-wider">
+                ← Calendar
               </Link>
             </div>
           )}
@@ -379,34 +412,39 @@ function ChatPageContent() {
       </div>
 
       {showNewChat && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={() => setShowNewChat(false)}>
-          <div className="bg-pager-elevated border border-pager-border rounded-none shadow-xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="p-4 border-b border-pager-border">
-              <h2 className="font-semibold text-white">
-                {newChatMode === 'dm' ? 'Message a friend' : 'New group chat'}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onClick={() => setShowNewChat(false)}>
+          <div className="terminus-panel max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b-2 border-terminus-strong">
+              <h2 className="font-pixel text-sm uppercase tracking-wider text-terminus-fg">
+                {newChatMode === 'dm' ? '> MESSAGE FRIEND' : '> NEW GROUP'}
               </h2>
               {newChatMode === 'dm' && (
-                <p className="text-pager-fg-muted text-xs mt-0.5">Choose a friend to start or open a direct chat.</p>
+                <p className="text-terminus-fg-muted text-[10px] font-mono uppercase tracking-wider mt-1">
+                  Choose a friend to open DM
+                </p>
               )}
               {newChatMode === 'group' && (
                 <input
                   type="text"
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="Group name (optional)"
-                  className="mt-2 w-full rounded-none px-3 py-2 bg-pager-bg border border-pager-border text-pager-fg placeholder-slate-500 text-sm"
+                  placeholder="GROUP NAME (OPTIONAL)"
+                  className="terminus-input mt-2 w-full text-sm font-mono uppercase tracking-wide"
                 />
               )}
             </div>
             <div className="p-2 overflow-y-auto max-h-60 flex-1 min-h-0">
               {newChatMode === 'group' && (
-                <p className="text-pager-fg-muted text-xs px-2 mb-2">Select friends to add to the group</p>
+                <p className="text-terminus-fg-muted text-[10px] font-mono uppercase tracking-wider px-2 mb-2">
+                  Select friends to add
+                </p>
               )}
               {friendsLoading ? (
-                <p className="text-pager-fg-faint text-sm p-4">Loading friends...</p>
+                <p className="text-terminus-fg-faint text-xs font-mono uppercase tracking-wider p-4">{'> LOADING FRIENDS...'}</p>
               ) : friends.length === 0 ? (
-                <p className="text-pager-fg-faint text-sm p-4">
-                  No friends yet. <Link href="/profile" className="text-indigo-400 hover:underline">Add friends from your profile</Link> first.
+                <p className="text-terminus-fg-faint text-xs font-mono uppercase tracking-wider p-4">
+                  {'> NO FRIENDS — '}
+                  <Link href="/profile" className="terminus-link">add from profile</Link>
                 </p>
               ) : newChatMode === 'dm' ? (
                 <ul className="space-y-0.5">
@@ -416,36 +454,54 @@ function ChatPageContent() {
                         type="button"
                         onClick={() => startDmWith(f)}
                         disabled={creating}
-                        className="w-full flex items-center gap-3 p-3 rounded-none hover:bg-pager-muted text-left disabled:opacity-50"
+                        className="w-full flex items-center gap-3 p-3 rounded-none hover:bg-terminus-muted text-left disabled:opacity-50"
                       >
-                        <span className="w-10 h-10 rounded-none bg-slate-600 flex items-center justify-center text-pager-fg font-medium flex-shrink-0">
+                        <span className="w-10 h-10 rounded-none border-2 border-terminus-strong bg-terminus-muted flex items-center justify-center text-terminus-fg font-pixel text-xs flex-shrink-0">
                           {(f.displayName || f.username || '?')[0].toUpperCase()}
                         </span>
-                        <span className="text-pager-fg">{f.displayName || f.username || 'Unknown'}</span>
+                        <span className="text-terminus-fg font-mono text-sm uppercase tracking-wide">
+                          {f.displayName || f.username || 'Unknown'}
+                        </span>
                       </button>
                     </li>
                   ))}
                 </ul>
               ) : (
                 friends.map((f) => (
-                  <label key={f.id} className="flex items-center gap-3 p-2 rounded-none hover:bg-pager-muted cursor-pointer">
-                    <input type="checkbox" checked={selectedFriendIds.has(f.id)} onChange={() => toggleFriend(f.id)} className="rounded border-pager-border text-indigo-600" />
-                    <span className="text-pager-fg">{f.displayName || f.username || 'Unknown'}</span>
+                  <label key={f.id} className="flex items-center gap-3 p-2 rounded-none hover:bg-terminus-muted cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedFriendIds.has(f.id)}
+                      onChange={() => toggleFriend(f.id)}
+                      className="rounded-none border-2 border-terminus-strong bg-terminus-bg text-terminus-accent accent-terminus-accent"
+                    />
+                    <span className="text-terminus-fg font-mono text-sm uppercase tracking-wide">
+                      {f.displayName || f.username || 'Unknown'}
+                    </span>
                   </label>
                 ))
               )}
             </div>
             {newChatMode === 'group' && (
-              <div className="p-4 border-t border-pager-border flex gap-2">
-                <button type="button" onClick={() => setShowNewChat(false)} className="flex-1 py-2 rounded-none border border-pager-border text-pager-fg-muted hover:bg-pager-muted">Cancel</button>
-                <button type="button" onClick={createGroup} disabled={selectedFriendIds.size === 0 || creating} className="flex-1 py-2 rounded-none bg-indigo-600 text-white font-medium hover:bg-indigo-500 disabled:opacity-50">
+              <div className="p-4 border-t-2 border-terminus-strong flex gap-2">
+                <button type="button" onClick={() => setShowNewChat(false)} className="terminus-btn terminus-btn-ghost flex-1 text-xs uppercase tracking-wider py-2">
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={createGroup}
+                  disabled={selectedFriendIds.size === 0 || creating}
+                  className="terminus-btn terminus-btn-primary flex-1 text-xs uppercase tracking-wider py-2 disabled:opacity-50"
+                >
                   {creating ? 'Creating...' : 'Create'}
                 </button>
               </div>
             )}
             {newChatMode === 'dm' && (
-              <div className="p-4 border-t border-pager-border">
-                <button type="button" onClick={() => setShowNewChat(false)} className="w-full py-2 rounded-none border border-pager-border text-pager-fg-muted hover:bg-pager-muted">Cancel</button>
+              <div className="p-4 border-t-2 border-terminus-strong">
+                <button type="button" onClick={() => setShowNewChat(false)} className="terminus-btn terminus-btn-ghost w-full text-xs uppercase tracking-wider py-2">
+                  Cancel
+                </button>
               </div>
             )}
           </div>
@@ -457,8 +513,8 @@ function ChatPageContent() {
 
 function ChatPageFallback() {
   return (
-    <div className="min-h-screen bg-pager-bg flex flex-col items-center justify-center p-6">
-      <p className="text-pager-fg-muted">Loading chat...</p>
+    <div className="min-h-screen bg-terminus-bg text-terminus-fg flex flex-col items-center justify-center p-6">
+      <p className="font-pixel text-sm uppercase tracking-wider text-terminus-fg-muted">{'> LOADING CHAT...'}</p>
     </div>
   )
 }

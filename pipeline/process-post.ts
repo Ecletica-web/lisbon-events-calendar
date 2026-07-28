@@ -49,14 +49,31 @@ import {
 
 let cachedSourceTypeByHandle: Map<string, 'venue' | 'promoter'> | null = null
 
-async function lookupSourceType(ownerUsername: string): Promise<'venue' | 'promoter'> {
-  const handle = normalizeIgHandle(ownerUsername || '')
-  if (!handle) return 'venue'
+async function ensureWatchlistCache(): Promise<Map<string, 'venue' | 'promoter'>> {
   if (!cachedSourceTypeByHandle) {
     const watchlist = await readPipelineWatchlist()
     cachedSourceTypeByHandle = new Map(watchlist.map((w) => [w.handle, w.type]))
   }
-  return cachedSourceTypeByHandle.get(handle) ?? 'venue'
+  return cachedSourceTypeByHandle
+}
+
+async function lookupSourceType(ownerUsername: string): Promise<'venue' | 'promoter'> {
+  const handle = normalizeIgHandle(ownerUsername || '')
+  if (!handle) return 'venue'
+  const map = await ensureWatchlistCache()
+  return map.get(handle) ?? 'venue'
+}
+
+/** When owner is a promoter, stamp Processed with promoter identity (not as venue). */
+function promoterFieldsFromOwner(
+  sourceType: 'venue' | 'promoter',
+  ownerUsername: string
+): { promoter_id: string; promoter_name: string } {
+  if (sourceType !== 'promoter') return { promoter_id: '', promoter_name: '' }
+  const handle = normalizeIgHandle(ownerUsername || '')
+  if (!handle) return { promoter_id: '', promoter_name: '' }
+  const name = ownerUsername?.replace(/^@/, '').trim() || handle
+  return { promoter_id: handle, promoter_name: name }
 }
 
 export interface ProcessPostOptions {
@@ -400,6 +417,7 @@ export async function processPost(
       event.venue_name_raw?.trim() ||
       (sourceType === 'venue' ? row.owner_username?.replace(/^@/, '') : '') ||
       ''
+    const { promoter_id, promoter_name } = promoterFieldsFromOwner(sourceType, row.owner_username || '')
     const fingerprint = computeFingerprint(
       event.title,
       event.start_datetime!,
@@ -447,6 +465,8 @@ export async function processPost(
       language: '',
       ticket_url: event.ticket_url ?? '',
       primary_image_url: row.stored_image_url || row.thumbnail_url,
+      promoter_id,
+      promoter_name,
       confidence_score: String(event.confidence_score),
       first_seen_at: timestamp,
       last_seen_at: timestamp,

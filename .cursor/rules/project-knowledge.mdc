@@ -1,0 +1,35 @@
+---
+description: Canonical project knowledge — always consult AGENTS.md and docs/replication before inventing architecture.
+alwaysApply: true
+---
+
+# Project self-knowledge
+
+Before answering architecture questions, designing features, or changing pipeline/data/social flows, **read the canonical docs** instead of guessing:
+
+1. **`AGENTS.md`** (repo root) — short map: stack, layers, data flow, where to find X.
+2. **`docs/replication/`** — full replication pack (Markdown sources + PDFs under `docs/replication/pdf/`):
+
+| Doc | When to open |
+|-----|----------------|
+| `01-visao-e-arquitectura.md` | Product vision, system layers, E2E flow, UX principles |
+| `02-pipeline-e-inteligencia.md` | Scrapers, AI tiers 0–6, models, worker, confidence |
+| `03-dados-sheets-supabase.md` | Sheets tabs, CSV contract, Supabase tables, images |
+| `04-produto-social-reco-ux.md` | Features, friends vs follows, For You scoring, UI |
+| `05-guia-replicacao.md` | Bootstrap / env / acceptance checklist |
+| `06-inteligencia-infraestrutura.md` | Deep dive: AI tiers, venue/promoter select, gates, For You |
+
+Prefer the **`.md` sources** when coding (searchable). PDFs are for sharing with humans.
+
+## Live runbooks (also authoritative)
+
+- `docs/PIPELINE.md` — scrape / extract / verify / publish / worker
+- `docs/SETUP.md` — env vars + migrations
+- `docs/SCHEMA.md` — CSV column contract
+- `docs/FRIENDS_VS_FOLLOWS.md` — social model
+
+## Behavior
+
+- Treat these docs as the project's description of itself. If code and docs disagree, **trust the code**, then update the docs (and regenerate PDFs via `python scripts/md-to-replication-pdfs.py` when replication content changes).
+- Do not invent alternate storage models, tier numbering, or social graphs that contradict `AGENTS.md` + `docs/replication/`.
+- When onboarding or explaining the repo, point people to `docs/replication/README.md` and the six PDFs.

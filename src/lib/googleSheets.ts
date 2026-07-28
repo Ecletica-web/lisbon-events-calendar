@@ -191,6 +191,13 @@ async function readTabRows(tabName: string): Promise<{ rows: Record<string, stri
   }
 }
 
+/** Admin/catalog fallback: Venues or Promoters tab via API or public CSV. */
+export async function readCatalogTabRows(
+  kind: 'venues' | 'promoters'
+): Promise<{ rows: Record<string, string>[]; error: string | null }> {
+  return readTabRows(kind === 'venues' ? TAB_VENUES : TAB_PROMOTERS)
+}
+
 /** Public gviz CSV export (works when sheet is link-shared, no service account). */
 async function readTabViaPublicCsv(tabName: string): Promise<Record<string, string>[]> {
   const id = resolveSpreadsheetId()

@@ -25,7 +25,7 @@ function sanitizeImageUrl(url?: string): string | undefined {
 async function resolveVenuesList(allowedVenueTags: string[] | null): Promise<Venue[]> {
   const source = getCatalogSource()
   if (source !== 'sheets') {
-    const fromSb = await loadCatalogVenues({ activeOnly: false })
+    const fromSb = await loadCatalogVenues({ activeOnly: true })
     if (source === 'supabase' || fromSb.length > 0) return fromSb
   }
   const { venues } = await loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL, allowedVenueTags)

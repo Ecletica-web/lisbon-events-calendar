@@ -80,19 +80,19 @@ export default function VenuesPage() {
     eventCountByVenue.get(v.venue_id) || eventCountByVenue.get(v.slug) || 0
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-pager-bg text-pager-fg">
+    <div className="min-h-screen min-h-[100dvh] bg-terminus-bg text-terminus-fg">
       <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6 pt-14 sm:pt-16 pb-[env(safe-area-inset-bottom)]">
-        <Link href="/calendar" className="pager-link text-xs uppercase tracking-wider mb-6 inline-block">
+        <Link href="/calendar" className="terminus-link text-xs uppercase tracking-wider mb-6 inline-block">
           ← Calendar
         </Link>
 
         <div className="flex items-end justify-between gap-4 mb-2 flex-wrap">
-          <h1 className="pager-heading">VENUES</h1>
-          <Link href="/promoters" className="text-[10px] uppercase tracking-wider text-pager-fg-muted hover:text-pager-fg underline">
+          <h1 className="terminus-heading">VENUES</h1>
+          <Link href="/promoters" className="text-[10px] uppercase tracking-wider text-terminus-fg-muted hover:text-terminus-fg underline">
             See promoters →
           </Link>
         </div>
-        <p className="text-pager-fg-muted text-sm mb-4 sm:mb-6 max-w-xl">
+        <p className="text-terminus-fg-muted text-sm mb-4 sm:mb-6 max-w-xl">
           Physical places — clubs, museums, theatres. Follow a venue for your For You feed.
         </p>
 
@@ -102,7 +102,7 @@ export default function VenuesPage() {
             placeholder="Search venues (name, neighborhood, tags)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pager-input"
+            className="terminus-input"
           />
           {allTags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
@@ -111,7 +111,7 @@ export default function VenuesPage() {
                   key={tag}
                   type="button"
                   onClick={() => toggleTag(tag)}
-                  className={`pager-pill ${selectedTags.includes(tag) ? 'pager-pill-active' : ''}`}
+                  className={`terminus-pill ${selectedTags.includes(tag) ? 'terminus-pill-active' : ''}`}
                 >
                   {tag}
                 </button>
@@ -121,7 +121,7 @@ export default function VenuesPage() {
         </div>
 
         {loading ? (
-          <div className="text-pager-fg-muted text-sm">Loading venues...</div>
+          <div className="text-terminus-fg-muted text-sm">Loading venues...</div>
         ) : (
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {filteredVenues.map((v) => {
@@ -130,9 +130,9 @@ export default function VenuesPage() {
                 <Link
                   key={v.venue_id}
                   href={`/venues/${encodeURIComponent(v.slug)}`}
-                  className="pager-panel block overflow-hidden hover:bg-pager-muted transition-colors"
+                  className="terminus-panel block overflow-hidden hover:bg-terminus-muted transition-colors"
                 >
-                  <div className="aspect-[16/10] bg-pager-muted flex-shrink-0 border-b-2 border-pager-strong">
+                  <div className="aspect-[16/10] bg-terminus-muted flex-shrink-0 border-b-2 border-terminus-strong">
                     <img
                       src={v.primary_image_url || '/lisboa.png'}
                       alt=""
@@ -143,26 +143,26 @@ export default function VenuesPage() {
                     />
                   </div>
                   <div className="p-3">
-                    <div className="text-[9px] uppercase tracking-widest text-pager-fg-faint mb-1">Venue</div>
-                    <h2 className="font-semibold text-base text-pager-fg">{v.name}</h2>
+                    <div className="text-[9px] uppercase tracking-widest text-terminus-fg-faint mb-1">Venue</div>
+                    <h2 className="font-semibold text-base text-terminus-fg">{v.name}</h2>
                     {(v.neighborhood || v.venue_address) && (
-                      <p className="text-pager-fg-muted text-xs mt-0.5">
+                      <p className="text-terminus-fg-muted text-xs mt-0.5">
                         {[v.neighborhood, v.venue_address].filter(Boolean).join(' · ')}
                       </p>
                     )}
                     {v.description_short && (
-                      <p className="text-pager-fg-muted text-xs mt-2 line-clamp-2">{v.description_short}</p>
+                      <p className="text-terminus-fg-muted text-xs mt-2 line-clamp-2">{v.description_short}</p>
                     )}
                     {v.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {v.tags.map((tag) => (
-                          <span key={tag} className="pager-pill">
+                          <span key={tag} className="terminus-pill">
                             {tag}
                           </span>
                         ))}
                       </div>
                     )}
-                    <p className="text-pager-fg-faint text-xs mt-2">
+                    <p className="text-terminus-fg-faint text-xs mt-2">
                       {count} upcoming {count === 1 ? 'event' : 'events'}
                     </p>
                   </div>
@@ -173,7 +173,7 @@ export default function VenuesPage() {
         )}
 
         {!loading && filteredVenues.length === 0 && (
-          <p className="text-pager-fg-muted text-sm">No venues match your filters.</p>
+          <p className="text-terminus-fg-muted text-sm">No venues match your filters.</p>
         )}
       </div>
     </div>

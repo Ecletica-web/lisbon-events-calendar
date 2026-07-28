@@ -24,9 +24,21 @@ const DEFAULT_PREFS: OnboardingPrefs = {
   nearMe: false,
 }
 
+const TOTAL_STEPS = 4
+
+/** Map internal step index → user-facing STEP n/N (intro = 0, hidden). */
+function displayStep(step: number): number | null {
+  if (step <= 0) return null
+  if (step === 1) return 1
+  if (step === 2) return 2
+  if (step === 4) return 3
+  if (step === 5) return 4
+  return null
+}
+
 const INTRO_PHASES: { text: string; displayMs: number; isFinal?: boolean }[] = [
   { text: 'Hey', displayMs: 1000 },
-  { text: 'Welcome to City Pager.', displayMs: 1500 },
+  { text: 'Welcome to Terminus.', displayMs: 1500 },
   { text: "We're happy you're here!", displayMs: 1200 },
   { text: 'We collect a lot of Lisbon events.', displayMs: 1500 },
   { text: 'Like...', displayMs: 1200 },
@@ -70,16 +82,30 @@ function IntroSequence({ onComplete }: { onComplete: () => void }) {
     <div className="text-center px-4 sm:px-6 md:px-8 w-full min-h-[50vh] flex flex-col items-center justify-center">
       <img
         src="/lisboa.png"
-        alt="City Pager"
-        className="w-full max-w-md sm:max-w-lg mx-auto rounded-xl object-contain mb-8 sm:mb-10 shadow-xl"
+        alt="Terminus"
+        className="w-full max-w-md sm:max-w-lg mx-auto rounded-none object-contain mb-8 sm:mb-10 border-2 border-terminus-border"
       />
       <p
-        className={`text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-relaxed transition-opacity duration-300 w-full max-w-4xl mx-auto ${
+        className={`font-pixel text-sm sm:text-base md:text-lg text-terminus-fg leading-relaxed transition-opacity duration-300 w-full max-w-3xl mx-auto ${
           visible ? 'opacity-100' : 'opacity-0'
         }`}
       >
         {phase.text}
       </p>
+    </div>
+  )
+}
+
+function StepHeader({ n, prompt }: { n: number; prompt: string }) {
+  return (
+    <div className="space-y-3 text-left w-full">
+      <p className="font-pixel text-[10px] sm:text-xs text-terminus-fg-muted uppercase tracking-wider">
+        STEP {n}/{TOTAL_STEPS}
+      </p>
+      <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-terminus-fg">
+        <span className="text-terminus-fg-muted mr-2">&gt;</span>
+        {prompt}
+      </h2>
     </div>
   )
 }
@@ -202,20 +228,22 @@ function OnboardingContent() {
     router.push(finalUrl)
   }
 
+  const stepN = displayStep(step)
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center pt-24">
-        <div className="text-slate-400">Loading...</div>
+      <div className="min-h-screen bg-terminus-bg flex items-center justify-center pt-24">
+        <div className="font-pixel text-[10px] text-terminus-fg-muted">&gt; loading...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-slate-900 text-slate-100 flex flex-col items-center justify-center px-4 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
+    <div className="min-h-screen min-h-[100dvh] bg-terminus-bg text-terminus-fg flex flex-col items-center justify-center px-4 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
       {step >= 0 && (
         <button
           onClick={handleSkip}
-          className="fixed right-4 sm:right-6 z-[100000] text-base sm:text-lg text-slate-400 hover:text-white transition-colors touch-manipulation px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700/80"
+          className="terminus-btn terminus-btn-ghost fixed right-4 sm:right-6 z-[100000] text-xs sm:text-sm touch-manipulation px-3 py-2"
           style={{ top: 'calc(5rem + env(safe-area-inset-top))' }}
         >
           Skip
@@ -226,9 +254,9 @@ function OnboardingContent() {
           <IntroSequence onComplete={() => setTimeout(() => setStep(1), 600)} />
         )}
 
-        {step === 1 && (
-          <div className="space-y-8 sm:space-y-10 text-center w-full max-w-md px-4">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">What brings you here?</h2>
+        {step === 1 && stepN && (
+          <div className="space-y-8 sm:space-y-10 w-full max-w-md px-4">
+            <StepHeader n={stepN} prompt="What brings you here?" />
             <div className="grid gap-2 sm:gap-3">
               {[
                 { id: 'now', label: 'I want to do something right now!' },
@@ -254,12 +282,12 @@ function OnboardingContent() {
                     }
                     setStep(2)
                   }}
-                  className={`w-full text-center p-4 min-h-[52px] sm:min-h-[56px] flex items-center justify-center rounded-xl border transition-all touch-manipulation text-base sm:text-lg ${
+                  className={`terminus-btn w-full text-center p-4 min-h-[52px] sm:min-h-[56px] text-sm sm:text-base touch-manipulation ${
                     prefs.intent === id
-                      ? 'border-indigo-500 bg-indigo-500/20 text-white'
+                      ? 'terminus-btn-primary'
                       : id === 'all'
-                        ? 'border-amber-600/60 bg-slate-800/40 text-amber-200/90 hover:border-amber-500 hover:text-amber-100 italic'
-                        : 'border-slate-700 bg-slate-800/60 text-slate-200 hover:border-slate-600'
+                        ? 'italic text-terminus-fg-muted'
+                        : ''
                   }`}
                 >
                   {label}
@@ -269,19 +297,19 @@ function OnboardingContent() {
           </div>
         )}
 
-        {step === 2 && !pickMode && (
-          <div className="space-y-8 text-center w-full max-w-md px-4">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">How do you want to customize?</h2>
+        {step === 2 && !pickMode && stepN && (
+          <div className="space-y-8 w-full max-w-md px-4">
+            <StepHeader n={stepN} prompt="How do you want to customize?" />
             <div className="grid gap-3">
               <button
                 onClick={() => { setPickMode('tags'); setStep(2) }}
-                className="w-full text-center p-4 min-h-[52px] rounded-xl border border-slate-700 bg-slate-800/60 text-slate-200 hover:border-slate-600 touch-manipulation text-base sm:text-lg"
+                className="terminus-btn w-full text-center p-4 min-h-[52px] touch-manipulation text-sm sm:text-base"
               >
                 Pick tags that interest me
               </button>
               <button
                 onClick={() => { setPickMode('vibe'); setStep(2) }}
-                className="w-full text-center p-4 min-h-[52px] rounded-xl border border-slate-700 bg-slate-800/60 text-slate-200 hover:border-slate-600 touch-manipulation text-base sm:text-lg"
+                className="terminus-btn w-full text-center p-4 min-h-[52px] touch-manipulation text-sm sm:text-base"
               >
                 Pick a vibe instead
               </button>
@@ -289,42 +317,48 @@ function OnboardingContent() {
           </div>
         )}
 
-        {step === 2 && pickMode === 'tags' && (
-          <div className="space-y-6 sm:space-y-8 text-center w-full max-w-lg px-4 sm:px-0">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">What interests you?</h2>
-            <p className="text-slate-400 text-base sm:text-lg">Pick a few tags</p>
-            <div className="space-y-5 sm:space-y-6 text-left max-h-[60vh] overflow-y-auto overscroll-contain pr-1 -mr-1">
+        {step === 2 && pickMode === 'tags' && stepN && (
+          <div className="space-y-6 sm:space-y-8 w-full max-w-lg px-4 sm:px-0">
+            <StepHeader n={stepN} prompt="What interests you?" />
+            <p className="text-terminus-fg-muted text-sm sm:text-base text-left">
+              <span className="text-terminus-fg-faint mr-1">&gt;</span>
+              Pick a few tags
+            </p>
+            <div className="terminus-panel p-4 space-y-5 sm:space-y-6 text-left max-h-[60vh] overflow-y-auto overscroll-contain">
               {ONBOARDING_TAG_GROUPS.map((group) => (
                 <div key={group.id}>
-                  <h3 className="text-base sm:text-lg font-medium text-slate-400 mb-2">{group.label}</h3>
-                  <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-                    {group.tags.map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => toggleTag(tag)}
-                        className={`px-3 py-2 min-h-[44px] rounded-lg text-base sm:text-lg transition-all touch-manipulation ${
-                          prefs.tags.includes(tag)
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                        }`}
-                      >
-                        {tag}
-                      </button>
-                    ))}
+                  <h3 className="font-pixel text-[9px] sm:text-[10px] text-terminus-fg-muted mb-2 uppercase tracking-wider">
+                    {group.label}
+                  </h3>
+                  <div className="flex flex-wrap gap-2 justify-start">
+                    {group.tags.map((tag) => {
+                      const selected = prefs.tags.includes(tag)
+                      return (
+                        <button
+                          key={tag}
+                          onClick={() => toggleTag(tag)}
+                          className={`terminus-pill min-h-[36px] px-3 py-1.5 text-xs sm:text-sm lowercase touch-manipulation ${
+                            selected ? 'terminus-pill-active bg-terminus-accent text-terminus-accent-fg' : ''
+                          }`}
+                        >
+                          {tag}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               ))}
             </div>
-            <div className="flex gap-3 justify-center pt-4 flex-wrap">
+            <div className="flex gap-3 justify-start pt-2 flex-wrap">
               <button
                 onClick={() => { setPickMode(null); setStep(2) }}
-                className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation text-base"
+                className="terminus-btn terminus-btn-ghost px-5 py-2.5 min-h-[44px] touch-manipulation text-sm"
               >
                 Back
               </button>
               <button
                 onClick={() => setStep(4)}
-                className="px-6 py-2.5 min-h-[44px] rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 touch-manipulation text-base"
+                className="terminus-btn terminus-btn-primary px-6 py-2.5 min-h-[44px] touch-manipulation text-sm"
               >
                 Next
               </button>
@@ -332,11 +366,14 @@ function OnboardingContent() {
           </div>
         )}
 
-        {step === 2 && pickMode === 'vibe' && (
-          <div className="space-y-6 sm:space-y-8 text-center w-full max-w-lg px-4 sm:px-0">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">Pick a vibe</h2>
-            <p className="text-slate-400 text-base sm:text-lg">We&apos;ll filter events to match</p>
-            <div className="grid gap-3 sm:gap-4 text-left max-h-[55vh] overflow-y-auto overscroll-contain pr-1 -mr-1">
+        {step === 2 && pickMode === 'vibe' && stepN && (
+          <div className="space-y-6 sm:space-y-8 w-full max-w-lg px-4 sm:px-0">
+            <StepHeader n={stepN} prompt="Pick a vibe" />
+            <p className="text-terminus-fg-muted text-sm sm:text-base text-left">
+              <span className="text-terminus-fg-faint mr-1">&gt;</span>
+              We&apos;ll filter events to match
+            </p>
+            <div className="grid gap-2 sm:gap-3 text-left max-h-[55vh] overflow-y-auto overscroll-contain">
               {PREDEFINED_PERSONAS.map((p) => (
                 <button
                   key={p.id}
@@ -347,22 +384,24 @@ function OnboardingContent() {
                     })
                     setStep(4)
                   }}
-                  className={`text-left p-4 min-h-[80px] rounded-xl border transition-all touch-manipulation text-base sm:text-lg ${
+                  className={`terminus-panel text-left p-4 min-h-[80px] touch-manipulation text-sm sm:text-base transition-colors ${
                     prefs.vibe === p.slug
-                      ? 'border-indigo-500 bg-indigo-500/20'
-                      : 'border-slate-700 bg-slate-800/60 hover:border-slate-600'
+                      ? 'bg-terminus-accent text-terminus-accent-fg'
+                      : 'hover:bg-terminus-muted'
                   }`}
                 >
-                  <span className="text-3xl mr-2">{p.emoji}</span>
-                  <span className="font-medium text-white">{p.name}</span>
-                  <p className="text-slate-400 mt-1">{p.description}</p>
+                  <span className="text-2xl mr-2">{p.emoji}</span>
+                  <span className="font-medium">{p.name}</span>
+                  <p className={`mt-1 text-sm ${prefs.vibe === p.slug ? 'opacity-80' : 'text-terminus-fg-muted'}`}>
+                    {p.description}
+                  </p>
                 </button>
               ))}
             </div>
-            <div className="flex gap-3 justify-center pt-4 flex-wrap">
+            <div className="flex gap-3 justify-start pt-2 flex-wrap">
               <button
                 onClick={() => { setPickMode(null); setStep(2) }}
-                className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation text-base"
+                className="terminus-btn terminus-btn-ghost px-5 py-2.5 min-h-[44px] touch-manipulation text-sm"
               >
                 Back
               </button>
@@ -370,43 +409,51 @@ function OnboardingContent() {
           </div>
         )}
 
-        {step === 4 && (
-          <div className="space-y-6 sm:space-y-8 text-center w-full max-w-md px-4 sm:px-0">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">Any preferences?</h2>
-            <div className="space-y-4 text-left max-w-sm mx-auto">
+        {step === 4 && stepN && (
+          <div className="space-y-6 sm:space-y-8 w-full max-w-md px-4 sm:px-0">
+            <StepHeader n={stepN} prompt="Any preferences?" />
+            <div className="space-y-2 text-left">
               {[
                 { key: 'freeOnly', label: 'Free events only' },
                 { key: 'englishFriendly', label: 'English-friendly events' },
-                { key: 'accessible', label: 'Accessible venues' },
+                { key: 'accessible', label: 'LGBTQIA-friendly' },
                 { key: 'avoidSoldOut', label: 'Avoid sold-out events' },
                 { key: 'nearMe', label: 'Events near me' },
-              ].map(({ key, label }) => (
-                <label
-                  key={key}
-                  className="flex items-center gap-3 cursor-pointer p-4 min-h-[52px] rounded-xl bg-slate-800/60 border border-slate-700 hover:border-slate-600 touch-manipulation"
-                >
-                  <input
-                    type="checkbox"
-                    checked={prefs[key as keyof OnboardingPrefs] as boolean}
-                    onChange={(e) =>
-                      updatePrefs({ [key]: e.target.checked } as Partial<OnboardingPrefs>)
-                    }
-                    className="rounded border-slate-600 text-indigo-600 w-5 h-5 min-w-[20px] min-h-[20px]"
-                  />
-                  <span className="text-slate-200 text-base sm:text-lg">{label}</span>
-                </label>
-              ))}
+              ].map(({ key, label }) => {
+                const checked = prefs[key as keyof OnboardingPrefs] as boolean
+                return (
+                  <label
+                    key={key}
+                    className={`terminus-panel flex items-center gap-3 cursor-pointer p-4 min-h-[52px] touch-manipulation ${
+                      checked ? 'bg-terminus-accent text-terminus-accent-fg' : 'hover:bg-terminus-muted'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) =>
+                        updatePrefs({ [key]: e.target.checked } as Partial<OnboardingPrefs>)
+                      }
+                      className="rounded-none border-2 border-terminus-border w-5 h-5 min-w-[20px] min-h-[20px] accent-terminus-fg"
+                    />
+                    <span className="text-sm sm:text-base">
+                      <span className="opacity-60 mr-1">&gt;</span>
+                      {label}
+                    </span>
+                  </label>
+                )
+              })}
             </div>
-            <div className="flex gap-3 justify-center pt-4 flex-wrap">
+            <div className="flex gap-3 justify-start pt-2 flex-wrap">
               <button
                 onClick={() => setStep(2)}
-                className="px-5 py-2.5 min-h-[44px] rounded-lg text-slate-400 hover:text-white touch-manipulation text-base"
+                className="terminus-btn terminus-btn-ghost px-5 py-2.5 min-h-[44px] touch-manipulation text-sm"
               >
                 Back
               </button>
               <button
                 onClick={() => setStep(5)}
-                className="px-6 py-2.5 min-h-[44px] rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 touch-manipulation text-base"
+                className="terminus-btn terminus-btn-primary px-6 py-2.5 min-h-[44px] touch-manipulation text-sm"
               >
                 Next
               </button>
@@ -414,21 +461,22 @@ function OnboardingContent() {
           </div>
         )}
 
-        {step === 5 && (
-          <div className="space-y-8 sm:space-y-10 text-center max-w-md px-4">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">You&apos;re all set</h2>
-            <p className="text-slate-400 text-base sm:text-lg">
+        {step === 5 && stepN && (
+          <div className="space-y-8 sm:space-y-10 w-full max-w-md px-4">
+            <StepHeader n={stepN} prompt="You're all set" />
+            <p className="text-terminus-fg-muted text-sm sm:text-base text-left">
+              <span className="text-terminus-fg-faint mr-1">&gt;</span>
               Your calendar, tailored to you.
             </p>
             <button
               onClick={handleEnterCalendar}
               disabled={submitting}
-              className="px-8 py-3 min-h-[52px] rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold text-base sm:text-lg hover:opacity-90 disabled:opacity-70 touch-manipulation"
+              className="terminus-btn terminus-btn-primary px-8 py-3 min-h-[52px] font-pixel text-[10px] sm:text-xs disabled:opacity-70 touch-manipulation"
             >
               {submitting ? 'Loading...' : 'Enter calendar'}
             </button>
-            <p className="text-base sm:text-lg text-slate-500">
-              <Link href="/calendar" className="text-slate-400 hover:text-white italic">
+            <p className="text-sm text-terminus-fg-faint text-left">
+              <Link href="/calendar" className="terminus-link italic">
                 Or see all events
               </Link>
             </p>
@@ -442,8 +490,8 @@ function OnboardingContent() {
 export default function OnboardingPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center pt-24">
-        <div className="text-slate-400">Loading...</div>
+      <div className="min-h-screen bg-terminus-bg flex items-center justify-center pt-24">
+        <div className="font-pixel text-[10px] text-terminus-fg-muted">&gt; loading...</div>
       </div>
     }>
       <OnboardingContent />

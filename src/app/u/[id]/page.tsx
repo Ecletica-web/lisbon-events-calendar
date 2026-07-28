@@ -21,6 +21,7 @@ interface ProfileData {
   friendsCount?: number
   eventVisibility?: 'public' | 'friends_only'
   isPrivate?: boolean
+  friendsListPrivate?: boolean
 }
 
 interface PublicProfileData {
@@ -130,19 +131,19 @@ export default function PublicProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-pager-bg flex items-center justify-center">
-        <div className="text-pager-fg-muted">Loading...</div>
+      <div className="min-h-screen bg-terminus-bg flex items-center justify-center">
+        <div className="text-terminus-fg-muted">Loading...</div>
       </div>
     )
   }
 
   if (error && !profileData && !publicData) {
     return (
-      <div className="min-h-screen bg-pager-bg flex flex-col items-center justify-center gap-4 p-4">
-        <p className="text-pager-fg-muted">{error}</p>
+      <div className="min-h-screen bg-terminus-bg flex flex-col items-center justify-center gap-4 p-4">
+        <p className="text-terminus-fg-muted">{error}</p>
         <div className="flex gap-4">
-          <a href="/calendar" className="pager-link">Back to Calendar</a>
-          <a href="/profile" className="text-pager-fg-muted hover:underline">My profile</a>
+          <a href="/calendar" className="terminus-link">Back to Calendar</a>
+          <a href="/profile" className="text-terminus-fg-muted hover:underline">My profile</a>
         </div>
       </div>
     )
@@ -152,22 +153,23 @@ export default function PublicProfilePage() {
     const isOwnProfile = currentUser?.id === profileData.id
     if (profileData.isPrivate && !isOwnProfile) {
       return (
-        <div className="min-h-screen bg-pager-bg flex flex-col items-center justify-center p-6">
-          <div className="rounded-2xl border border-pager-border bg-pager-elevated/50 p-8 max-w-md text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-pager-muted/80 flex items-center justify-center">
-              <svg className="w-8 h-8 text-pager-fg-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="min-h-screen bg-terminus-bg flex flex-col items-center justify-center p-6">
+          <div className="terminus-panel p-8 max-w-md text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-none border-2 border-terminus-strong bg-terminus-muted flex items-center justify-center">
+              <svg className="w-8 h-8 text-terminus-fg-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
-            <h1 className="text-xl font-semibold text-pager-fg mb-2">This profile is private</h1>
-            <p className="text-pager-fg-muted text-sm">This user has set their profile to private. You can&apos;t see their info.</p>
-            <Link href="/calendar" className="mt-6 inline-block pager-link font-medium">Back to Calendar</Link>
+            <h1 className="font-pixel text-[10px] sm:text-xs text-terminus-fg mb-2">{'> PRIVATE'}</h1>
+            <p className="text-terminus-fg-muted text-sm">This user has set their profile to private. You can&apos;t see their info.</p>
+            <Link href="/calendar" className="mt-6 inline-block terminus-link font-medium">Back to Calendar</Link>
           </div>
         </div>
       )
     }
+    const showFriends = isOwnProfile || !profileData.friendsListPrivate
     return (
-      <div className="min-h-screen bg-pager-bg text-pager-fg">
+      <div className="min-h-screen bg-terminus-bg text-terminus-fg">
         {imagePreviewUrl && (
           <div
             role="dialog"
@@ -179,13 +181,13 @@ export default function PublicProfilePage() {
             <img
               src={imagePreviewUrl}
               alt=""
-              className="max-w-full max-h-full object-contain rounded-lg shadow-xl"
+              className="max-w-full max-h-full object-contain rounded-none border-2 border-terminus-strong"
               onClick={(e) => e.stopPropagation()}
             />
             <button
               type="button"
               onClick={closeImagePreview}
-              className="absolute top-4 right-4 p-2 rounded-full bg-pager-elevated/90 text-pager-fg hover:bg-pager-muted focus:outline-none focus:ring-2 focus:ring-pager-accent"
+              className="absolute top-4 right-4 p-2 rounded-none border-2 border-terminus-strong bg-terminus-elevated text-terminus-fg hover:bg-terminus-muted focus:outline-none focus:ring-2 focus:ring-terminus-accent"
               aria-label="Close preview"
             >
               <span className="sr-only">Close</span>
@@ -193,16 +195,17 @@ export default function PublicProfilePage() {
             </button>
           </div>
         )}
-        <div className="max-w-2xl mx-auto">
-          <div className="-mx-4 sm:-mx-6 md:mx-0">
+        <div className="max-w-2xl mx-auto p-4 sm:p-6 md:p-8 pt-2">
+          <h1 className="font-pixel text-[10px] sm:text-xs text-terminus-fg mb-4 terminus-cursor">{'> PROFILE'}</h1>
+          <div className="-mx-4 sm:-mx-6 md:-mx-8">
             {/* Cover (z-0 so avatar strip sits on top) */}
-            <div className="relative z-0 h-32 sm:h-40 md:h-48 bg-pager-elevated overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
-              <div className="absolute inset-0 bg-pager-muted" />
+            <div className="relative z-0 h-32 sm:h-40 md:h-48 bg-terminus-elevated overflow-hidden border-b-2 border-terminus-strong">
+              <div className="absolute inset-0 bg-terminus-muted" />
               {profileData.coverUrl && (
                 <button
                   type="button"
                   onClick={() => setImagePreviewUrl(profileData.coverUrl!)}
-                  className="absolute inset-0 w-full h-full block focus:outline-none focus:ring-2 focus:ring-inset focus:ring-pager-accent"
+                  className="absolute inset-0 w-full h-full block focus:outline-none focus:ring-2 focus:ring-inset focus:ring-terminus-accent"
                 >
                   <img
                     src={profileData.coverUrl}
@@ -215,15 +218,15 @@ export default function PublicProfilePage() {
               )}
             </div>
             {/* Strip: avatar + name + actions (z-10 so avatar overlaps on top of cover) */}
-            <div className="relative z-10 bg-pager-bg px-4 sm:px-6 md:px-8 pt-0 pb-5 rounded-b-2xl border-b border-pager-border -mt-px">
+            <div className="relative z-10 bg-terminus-bg px-4 sm:px-6 md:px-8 pt-0 pb-5 border-b-2 border-terminus-border -mt-px">
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-                {/* Single avatar slot: image or initial */}
-                <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-slate-900 bg-pager-muted flex-shrink-0 -mt-14 sm:-mt-16 overflow-hidden flex items-center justify-center">
+                {/* Single avatar slot: image or initial — square, matches /profile */}
+                <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-none border-4 border-terminus-bg bg-terminus-muted flex-shrink-0 -mt-14 sm:-mt-16 overflow-hidden flex items-center justify-center">
                   {profileData.avatarUrl ? (
                     <button
                       type="button"
                       onClick={() => setImagePreviewUrl(profileData.avatarUrl!)}
-                      className="absolute inset-0 w-full h-full focus:outline-none focus:ring-2 focus:ring-pager-accent focus:ring-offset-2 focus:ring-offset-slate-900 rounded-full"
+                      className="absolute inset-0 w-full h-full focus:outline-none focus:ring-2 focus:ring-terminus-accent focus:ring-offset-2 focus:ring-offset-terminus-bg rounded-none"
                     >
                       <img
                         src={profileData.avatarUrl}
@@ -241,20 +244,20 @@ export default function PublicProfilePage() {
                   ) : null}
                   <span
                     data-avatar-fallback
-                    className={`text-3xl sm:text-4xl font-bold text-pager-fg-muted ${profileData.avatarUrl ? 'hidden' : ''}`}
+                    className={`text-3xl sm:text-4xl font-bold text-terminus-fg-muted ${profileData.avatarUrl ? 'hidden' : ''}`}
                   >
                     {(profileData.displayName || '?')[0].toUpperCase()}
                   </span>
                 </div>
                 <div className="flex-1 pb-1 min-w-0">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-white truncate">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-terminus-fg truncate">
                     {profileData.displayName || 'User'}
-                  </h1>
+                  </h2>
                   {profileData.username && (
-                    <p className="text-pager-fg-muted">@{profileData.username}</p>
+                    <p className="text-terminus-fg-muted font-mono text-sm">@{profileData.username}</p>
                   )}
                   {profileData.bio && (
-                    <p className="text-pager-fg-muted mt-2 text-sm max-w-xl">{profileData.bio}</p>
+                    <p className="text-terminus-fg-muted mt-2 text-sm max-w-xl">{profileData.bio}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap self-start sm:self-end">
@@ -266,7 +269,7 @@ export default function PublicProfilePage() {
                   {!isOwnProfile && currentUser && (
                     <Link
                       href={`/chat?with=${encodeURIComponent(profileData.id)}`}
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-600/50 text-pager-fg-muted hover:bg-pager-muted/80 hover:text-white text-sm font-medium transition-colors"
+                      className="inline-flex items-center gap-2 px-3 py-2 terminus-btn text-xs uppercase tracking-wider"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -279,31 +282,33 @@ export default function PublicProfilePage() {
               </div>
             </div>
           </div>
-          <div className="p-4 sm:p-6 md:p-8 pt-6">
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-4 text-pager-fg">Friends</h2>
-              <ProfileFriendsSection
-                userId={profileData.id}
-                friendsCount={profileData.friendsCount ?? 0}
-                isOwnProfile={false}
-                onFriendsCountChange={(count) => setProfileData((prev) => prev ? { ...prev, friendsCount: count } : prev)}
-              />
-            </div>
+          <div className="pt-6">
+            {showFriends && (
+              <div className="mb-8">
+                <h2 className="font-pixel text-[10px] sm:text-xs text-terminus-fg mb-4">{'> FRIENDS'}</h2>
+                <ProfileFriendsSection
+                  userId={profileData.id}
+                  friendsCount={profileData.friendsCount ?? 0}
+                  isOwnProfile={isOwnProfile}
+                  onFriendsCountChange={(count) => setProfileData((prev) => prev ? { ...prev, friendsCount: count } : prev)}
+                />
+              </div>
+            )}
             {eventsData && eventsData.visible && (eventsData.upcoming.length > 0 || eventsData.past.length > 0) && (
               <div className="mb-8">
-                <h2 className="text-xl font-semibold mb-4 text-pager-fg">Events</h2>
+                <h2 className="font-pixel text-[10px] sm:text-xs text-terminus-fg mb-4">{'> EVENTS'}</h2>
                 {eventsData.upcoming.length > 0 && (
                   <div className="mb-6">
-                    <h3 className="text-sm font-medium text-pager-fg-muted uppercase mb-3">Upcoming</h3>
+                    <h3 className="text-xs font-medium text-terminus-fg-muted uppercase tracking-wider mb-3">Upcoming</h3>
                     <ul className="space-y-2">
                       {eventsData.upcoming.slice(0, 10).map((e) => (
                         <li key={e.id}>
                           <button
                             onClick={() => setSelectedEvent(e)}
-                            className="w-full text-left p-3 rounded-lg bg-pager-elevated/60 border border-pager-border hover:border-indigo-500/50 hover:bg-pager-elevated transition-colors"
+                            className="w-full text-left p-3 terminus-panel hover:bg-terminus-muted transition-colors"
                           >
-                            <span className="font-medium text-pager-fg">{e.title}</span>
-                            <span className="text-pager-fg-muted text-sm block mt-1">
+                            <span className="font-medium text-terminus-fg">{e.title}</span>
+                            <span className="text-terminus-fg-muted text-sm block mt-1">
                               {e.start ? new Date(e.start).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
                             </span>
                           </button>
@@ -314,16 +319,16 @@ export default function PublicProfilePage() {
                 )}
                 {eventsData.past.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-medium text-pager-fg-muted uppercase mb-3">Past</h3>
+                    <h3 className="text-xs font-medium text-terminus-fg-muted uppercase tracking-wider mb-3">Past</h3>
                     <ul className="space-y-2">
                       {eventsData.past.slice(0, 10).map((e) => (
                         <li key={e.id}>
                           <button
                             onClick={() => setSelectedEvent(e)}
-                            className="w-full text-left p-3 rounded-lg bg-pager-elevated/60 border border-pager-border hover:border-indigo-500/50 hover:bg-pager-elevated transition-colors"
+                            className="w-full text-left p-3 terminus-panel hover:bg-terminus-muted transition-colors"
                           >
-                            <span className="font-medium text-pager-fg">{e.title}</span>
-                            <span className="text-pager-fg-muted text-sm block mt-1">
+                            <span className="font-medium text-terminus-fg">{e.title}</span>
+                            <span className="text-terminus-fg-muted text-sm block mt-1">
                               {e.start ? new Date(e.start).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : ''}
                             </span>
                           </button>
@@ -335,9 +340,9 @@ export default function PublicProfilePage() {
               </div>
             )}
             {eventsData && eventsData.visible && eventsData.upcoming.length === 0 && eventsData.past.length === 0 && (
-              <p className="text-pager-fg-faint text-sm mb-8">No events yet.</p>
+              <p className="text-terminus-fg-faint text-sm mb-8">No events yet.</p>
             )}
-            <a href="/calendar" className="pager-link">← Back to Calendar</a>
+            <a href="/calendar" className="terminus-link">← Back to Calendar</a>
           </div>
         </div>
         <EventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
@@ -348,20 +353,21 @@ export default function PublicProfilePage() {
   if (mode === 'public' && publicData) {
     const displayName = publicData.userName || publicData.userId
     return (
-      <div className="min-h-screen bg-pager-bg text-pager-fg">
+      <div className="min-h-screen bg-terminus-bg text-terminus-fg">
         <div className="max-w-2xl mx-auto p-6 pt-24">
-          <h1 className="text-2xl font-bold mb-2">@{displayName}</h1>
-          <p className="text-pager-fg-muted text-sm mb-8">Public views and personas</p>
+          <h1 className="font-pixel text-[10px] sm:text-xs text-terminus-fg mb-2">{'> PROFILE'}</h1>
+          <p className="text-terminus-fg font-mono text-sm mb-1">@{displayName}</p>
+          <p className="text-terminus-fg-muted text-sm mb-8">Public views and personas</p>
 
           {publicData.publicViews.length > 0 && (
             <section className="mb-8">
-              <h2 className="text-lg font-semibold mb-3">Shared Views</h2>
+              <h2 className="font-pixel text-[10px] text-terminus-fg mb-3">{'> SHARED VIEWS'}</h2>
               <ul className="space-y-2">
                 {publicData.publicViews.map((v) => (
                   <li key={v.id}>
                     <Link
                       href={`/v/${v.share_slug}`}
-                      className="block p-3 rounded-lg border border-pager-border hover:border-indigo-500 hover:bg-pager-elevated/50 transition-colors"
+                      className="block p-3 terminus-panel hover:bg-terminus-muted transition-colors"
                     >
                       {v.name}
                     </Link>
@@ -373,13 +379,13 @@ export default function PublicProfilePage() {
 
           {publicData.publicPersonas.length > 0 && (
             <section className="mb-8">
-              <h2 className="text-lg font-semibold mb-3">Personas</h2>
+              <h2 className="font-pixel text-[10px] text-terminus-fg mb-3">{'> PERSONAS'}</h2>
               <ul className="space-y-2">
                 {publicData.publicPersonas.map((p) => (
                   <li key={p.id}>
                     <Link
                       href={`/p/${p.share_slug}`}
-                      className="block p-3 rounded-lg border border-pager-border hover:border-indigo-500 hover:bg-pager-elevated/50 transition-colors"
+                      className="block p-3 terminus-panel hover:bg-terminus-muted transition-colors"
                     >
                       {p.title}
                     </Link>
@@ -390,11 +396,11 @@ export default function PublicProfilePage() {
           )}
 
           {publicData.publicViews.length === 0 && publicData.publicPersonas.length === 0 && (
-            <p className="text-pager-fg-faint">No public views or personas yet.</p>
+            <p className="text-terminus-fg-faint">No public views or personas yet.</p>
           )}
 
           <div className="mt-8">
-            <a href="/calendar" className="pager-link">
+            <a href="/calendar" className="terminus-link">
               ← Back to Calendar
             </a>
           </div>
@@ -404,9 +410,9 @@ export default function PublicProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-pager-bg flex flex-col items-center justify-center gap-4 p-4">
-      <p className="text-pager-fg-muted">Not found</p>
-      <a href="/calendar" className="pager-link">Go home</a>
+    <div className="min-h-screen bg-terminus-bg flex flex-col items-center justify-center gap-4 p-4">
+      <p className="text-terminus-fg-muted">Not found</p>
+      <a href="/calendar" className="terminus-link">Go home</a>
     </div>
   )
 }

@@ -5,9 +5,9 @@ export default function PublicProfileLayout({
 }) {
   return (
     <>
-      <div className="sticky top-0 z-[99998] shrink-0 bg-pager-bg/95 backdrop-blur border-b border-pager-border safe-area-inset-top">
+      <div className="sticky top-0 z-[99998] shrink-0 bg-terminus-bg/95 backdrop-blur border-b border-terminus-border safe-area-inset-top">
         <div className="max-w-2xl mx-auto px-4 py-2 flex items-center">
-          <a href="/calendar" className="pager-link text-sm font-medium">
+          <a href="/calendar" className="terminus-link text-sm font-medium">
             ← Back to Calendar
           </a>
         </div>

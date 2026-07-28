@@ -1,6 +1,7 @@
 /**
  * Tag families for sidebar filters, onboarding, and personas.
  * Keys are lowercase canonical forms (matched via toCanonicalTagKey).
+ * Near-dupes that canonicalize identically (hip-hop / hip hop) are omitted.
  */
 
 export interface TagFamily {
@@ -23,12 +24,9 @@ export const TAG_FAMILIES: TagFamily[] = [
       'techno',
       'electronic',
       'live',
-      'live concert',
       'indie',
-      'indie rock',
       'pop',
       'hip hop',
-      'hip-hop',
       'rap',
       'classical',
       'folk',
@@ -38,7 +36,6 @@ export const TAG_FAMILIES: TagFamily[] = [
       'acoustic',
       'post-punk',
       'alternative',
-      'dj set',
       'festival',
       'music',
     ],
@@ -62,19 +59,13 @@ export const TAG_FAMILIES: TagFamily[] = [
     label: 'Arts & Culture',
     tags: [
       'art',
-      'arts',
       'exhibition',
-      'art exhibition',
       'museum',
       'gallery',
       'theatre',
-      'theater',
       'performance',
-      'performance art',
       'experimental',
       'cultural',
-      'cultural event',
-      'art collective',
       'installation',
       'photography',
       'sculpture',
@@ -84,17 +75,17 @@ export const TAG_FAMILIES: TagFamily[] = [
   {
     id: 'cinema',
     label: 'Cinema',
-    tags: ['cinema', 'film', 'screening', 'film screening', 'movie'],
+    tags: ['cinema', 'film', 'screening', 'movie'],
   },
   {
     id: 'comedy',
     label: 'Comedy',
-    tags: ['comedy', 'standup', 'stand-up', 'stand up', 'improv'],
+    tags: ['comedy', 'stand up', 'improv'],
   },
   {
     id: 'dance',
     label: 'Dance & Performance',
-    tags: ['dance', 'ballet', 'contemporary dance', 'dança'],
+    tags: ['dance', 'ballet', 'contemporary dance'],
   },
   {
     id: 'food',
@@ -123,10 +114,8 @@ export const TAG_FAMILIES: TagFamily[] = [
       'fitness',
       'wellness',
       'outdoor',
-      'outdoor event',
       'surf',
       'sports',
-      'sport',
     ],
   },
   {
@@ -134,8 +123,6 @@ export const TAG_FAMILIES: TagFamily[] = [
     label: 'Literary & Talks',
     tags: [
       'literature',
-      'literary',
-      'literary event',
       'poetry',
       'book',
       'book launch',
@@ -151,9 +138,7 @@ export const TAG_FAMILIES: TagFamily[] = [
       'community',
       'social',
       'meetup',
-      'creative meetup',
       'pop-up',
-      'popup',
       'networking',
     ],
   },

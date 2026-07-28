@@ -122,10 +122,10 @@ export default function MobileDaySliders({
           {/* Day Header */}
           <div className="mb-3 px-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-bold text-pager-fg">
+              <h3 className="text-lg font-bold text-terminus-fg">
                 {day.label}
               </h3>
-              <span className="text-sm text-pager-fg-muted">
+              <span className="text-sm text-terminus-fg-muted">
                 {eventsByDay[index].length} event{eventsByDay[index].length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -136,7 +136,7 @@ export default function MobileDaySliders({
                 {selectedTags.map((tag) => (
                   <span
                     key={tag}
-                    className="pager-pill inline-flex items-center gap-1.5"
+                    className="terminus-pill inline-flex items-center gap-1.5"
                   >
                     {tag}
                     <button
@@ -181,8 +181,8 @@ export default function MobileDaySliders({
               skipFiltering={true}
             />
           ) : (
-            <div className="text-center py-6 px-4 border-2 border-pager-strong bg-pager-muted mx-4">
-              <div className="text-pager-fg-muted text-sm">
+            <div className="text-center py-6 px-4 border-2 border-terminus-strong bg-terminus-muted mx-4">
+              <div className="text-terminus-fg-muted text-sm">
                 {selectedTags.length > 0 || selectedCategories.length > 0 || freeOnly || excludeExhibitions || excludeContinuous
                   ? `No events for ${day.label.toLowerCase()} with current filters`
                   : `No events for ${day.label.toLowerCase()}`

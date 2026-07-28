@@ -129,21 +129,21 @@ export default function ProfileEditForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block mb-2 text-sm font-medium text-slate-200">Cover image</label>
+        <label className="block mb-2 text-sm font-medium text-terminus-fg">Cover image</label>
         {coverUrl && (
-          <div className="relative mb-2 rounded-lg overflow-hidden bg-slate-800 aspect-[3/1] max-h-32">
+          <div className="relative mb-2 rounded-none overflow-hidden bg-terminus-muted aspect-[3/1] max-h-32 border-2 border-terminus-strong">
             <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
             <button
               type="button"
               onClick={() => setCoverUrl('')}
-              className="absolute top-2 right-2 px-2 py-1 rounded bg-slate-900/80 text-slate-300 hover:bg-slate-800 text-xs"
+              className="absolute top-2 right-2 px-2 py-1 terminus-btn terminus-btn-ghost text-xs"
             >
               Remove
             </button>
           </div>
         )}
         {uploadSuccess === 'cover' && (
-          <p className="mb-2 text-sm text-green-400">Cover image uploaded. Save profile to keep changes.</p>
+          <p className="mb-2 text-sm text-terminus-fg-muted">Cover image uploaded. Save profile to keep changes.</p>
         )}
         <div className="flex gap-2">
           <input
@@ -160,22 +160,22 @@ export default function ProfileEditForm({
             type="button"
             onClick={() => coverInputRef.current?.click()}
             disabled={!!uploading}
-            className="px-3 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 text-sm font-medium disabled:opacity-50"
+            className="terminus-btn text-xs uppercase tracking-wider px-3 py-2 disabled:opacity-50"
           >
             {uploading === 'cover' ? 'Uploading...' : 'Upload from device'}
           </button>
         </div>
       </div>
       <div>
-        <label className="block mb-2 text-sm font-medium text-slate-200">Profile picture</label>
+        <label className="block mb-2 text-sm font-medium text-terminus-fg">Profile picture</label>
         <div className="flex items-center gap-4 mb-2">
           {avatarUrl && (
             <div className="relative flex-shrink-0">
-              <img src={avatarUrl} alt="Profile" className="w-16 h-16 rounded-full object-cover border-2 border-slate-600" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+              <img src={avatarUrl} alt="Profile" className="w-16 h-16 rounded-none object-cover border-2 border-terminus-strong" onError={(e) => { e.currentTarget.style.display = 'none' }} />
               <button
                 type="button"
                 onClick={() => setAvatarUrl('')}
-                className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs flex items-center justify-center"
+                className="absolute -top-1 -right-1 w-5 h-5 rounded-none bg-terminus-elevated border border-terminus-strong hover:bg-terminus-muted text-terminus-fg text-xs flex items-center justify-center"
                 title="Remove"
               >
                 ×
@@ -183,7 +183,7 @@ export default function ProfileEditForm({
             </div>
           )}
           {uploadSuccess === 'avatar' && (
-            <p className="text-sm text-green-400">Profile picture uploaded. Save profile to keep changes.</p>
+            <p className="text-sm text-terminus-fg-muted">Profile picture uploaded. Save profile to keep changes.</p>
           )}
           <div>
             <input
@@ -200,7 +200,7 @@ export default function ProfileEditForm({
               type="button"
               onClick={() => avatarInputRef.current?.click()}
               disabled={!!uploading}
-              className="px-3 py-2 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 text-sm font-medium disabled:opacity-50"
+              className="terminus-btn text-xs uppercase tracking-wider px-3 py-2 disabled:opacity-50"
             >
               {uploading === 'avatar' ? 'Uploading...' : 'Upload from device'}
             </button>
@@ -208,44 +208,44 @@ export default function ProfileEditForm({
         </div>
       </div>
       <div>
-        <label className="block mb-2 text-sm font-medium text-slate-200">Username <span className="text-slate-500 font-normal">(unique)</span></label>
+        <label className="block mb-2 text-sm font-medium text-terminus-fg">Username <span className="text-terminus-fg-faint font-normal">(unique)</span></label>
         <input
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
           placeholder="your_username"
           maxLength={30}
-          className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+          className="terminus-input"
         />
-        <p className="text-xs text-slate-500 mt-1">Unique across the app. 3–30 characters, letters, numbers, underscores only.</p>
+        <p className="text-xs text-terminus-fg-faint mt-1">Unique across the app. 3–30 characters, letters, numbers, underscores only.</p>
       </div>
       <div>
-        <label className="block mb-2 text-sm font-medium text-slate-200">Display name <span className="text-slate-500 font-normal">(first and last name)</span></label>
+        <label className="block mb-2 text-sm font-medium text-terminus-fg">Display name <span className="text-terminus-fg-faint font-normal">(first and last name)</span></label>
         <input
           type="text"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           placeholder="First and last name"
-          className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+          className="terminus-input"
         />
       </div>
       <div>
-        <label className="block mb-2 text-sm font-medium text-slate-200">Bio</label>
+        <label className="block mb-2 text-sm font-medium text-terminus-fg">Bio</label>
         <textarea
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           placeholder="Tell us about yourself..."
           maxLength={200}
           rows={3}
-          className="w-full border border-slate-600/50 rounded-lg px-4 py-3 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none"
+          className="terminus-input resize-none"
         />
-        <p className="text-xs text-slate-500 mt-1">{bio.length}/200</p>
+        <p className="text-xs text-terminus-fg-faint mt-1">{bio.length}/200</p>
       </div>
-      {error && <div className="text-red-400 text-sm">{error}</div>}
+      {error && <div className="text-terminus-fg-muted text-sm">{error}</div>}
       <button
         type="submit"
         disabled={loading}
-        className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors font-medium"
+        className="terminus-btn terminus-btn-primary px-4 py-2 text-xs uppercase tracking-wider disabled:opacity-50"
       >
         {loading ? 'Saving...' : 'Save profile'}
       </button>

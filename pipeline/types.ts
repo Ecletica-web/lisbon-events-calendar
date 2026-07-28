@@ -179,6 +179,9 @@ export interface ProcessedEventRow {
   language: string
   ticket_url: string
   primary_image_url: string
+  /** Set when scrape owner is a promoter watchlist entry */
+  promoter_id?: string
+  promoter_name?: string
   confidence_score: string
   first_seen_at: string
   last_seen_at: string

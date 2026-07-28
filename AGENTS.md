@@ -1,4 +1,4 @@
-# City Pager — AI & human context (replication entrypoint)
+# Terminus — AI & human context (replication entrypoint)
 
 Single entrypoint for understanding and **replicating** this codebase. Keep the
 "Where to find X" table current when adding major modules.
@@ -7,10 +7,10 @@ Single entrypoint for understanding and **replicating** this codebase. Keep the
 doc under `docs/replication/` (or the live runbook in `docs/`) before inventing
 architecture. Rule: `.cursor/rules/project-knowledge.mdc` (alwaysApply).
 
-**Product (UI brand):** City Pager / Pager  
-**Repo / package:** `lisbon-events-calendar` / `lisbon-events-calendar-site`
+**Product (UI brand):** Terminus  
+**Repo / package:** `terminus` / `lisbon-events-calendar-site`
 
-**Replication pack (shareable):** `docs/replication/` — five PDFs under
+**Replication pack (shareable):** `docs/replication/` — six PDFs under
 `docs/replication/pdf/` plus Markdown sources. Start with PDF 05 (bootstrap) and
 this file. Index: `docs/replication/README.md`.
 
@@ -21,6 +21,7 @@ this file. Index: `docs/replication/README.md`.
 | `03-Dados-Sheets-Supabase.pdf` | Sheets tabs, CSV contract, Supabase |
 | `04-Produto-Social-Reco-UX.pdf` | Features, friends, For You, UX |
 | `05-Guia-Replicacao.pdf` | End-to-end setup checklist |
+| `06-Inteligencia-Infraestrutura.pdf` | Deep dive: AI tiers, venue/promoter, gates, For You |
 
 Regenerate PDFs: `python scripts/md-to-replication-pdfs.py`
 
@@ -47,6 +48,7 @@ and (after mig 025) catalog SoT; Sheets remain the human-editable calendar stagi
 | Auth | **Supabase Auth** (primary); NextAuth fallback if Supabase unset |
 | User/social/pipeline DB | Supabase Postgres + Storage + RLS |
 | Public events | Published Google Sheets CSV (`NEXT_PUBLIC_EVENTS_CSV_URL`) |
+| PWA | Serwist service worker (`src/app/sw.ts`), `/offline`, icons in `public/icons/` |
 | Ingestion | `pipeline/` (own package, `tsx`); Apify + OpenAI + optional NIM vision / Whisper / DocAI |
 | Long jobs | Local `npm run worker` polling `pipeline_runs` (**not** on Vercel) |
 
@@ -57,7 +59,7 @@ and (after mig 025) catalog SoT; Sheets remain the human-editable calendar stagi
 | Layer | Path | Purpose |
 |-------|------|---------|
 | Pipeline | `pipeline/` | Scrape (Apify) + tiers → Supabase bulk store + Sheets Processed; worker |
-| Admin | `src/app/admin/*`, `src/lib/admin*.ts` | Scrapers, Events Raw, Review, Processed (`ADMIN_EMAILS`) |
+| Admin | `src/app/admin/*`, `src/lib/admin*.ts` | Scrapers, Raw, Review, Processed, Venues, Promoters, Catalog candidates, Bugs (`ADMIN_EMAILS`) |
 | Data | `src/data/loaders/*`, `src/data/schema/*`, `venueIndex.ts` | CSV → normalized domain; column maps; venue resolve |
 | Adapter | `src/lib/eventsAdapter.ts` | Facade: `fetchEvents` / venues / promoters / `filterEvents`; `NormalizedEvent` |
 | API | `src/app/api/*` | Thin handlers → `lib/` or `data/` only |
@@ -138,7 +140,7 @@ CSV column contract: `docs/SCHEMA.md`. Pipeline runbook: `docs/PIPELINE.md`.
 
 | Route | Role |
 |-------|------|
-| `/` | Landing (City Pager brand) |
+| `/` | Landing (Terminus brand) |
 | `/calendar` | Main discovery (FullCalendar + filters + modal) |
 | `/foryou` | Swipe feed (`/api/foryou` + recommendation engine) |
 | `/venues`, `/promoters` | Catalog + follow |
@@ -146,13 +148,14 @@ CSV column contract: `docs/SCHEMA.md`. Pipeline runbook: `docs/PIPELINE.md`.
 | `/chat` | Friends DMs/groups |
 | `/onboarding` | Tags / vibe personas → prefs |
 | `/v/[slug]`, `/p/[slug]` | Shared saved view / persona |
-| `/admin/*` | Ops hub |
+| `/admin/*` | Ops hub (scrapers, raw, review, processed, venues, promoters, catalog-candidates, bugs) |
+| `/offline` | PWA offline fallback |
 
 **Social model:** mutual **friends** (`friend_requests`); **follow venues/promoters** are private discovery prefs; **no** user-to-user followers. See `docs/FRIENDS_VS_FOLLOWS.md`.
 
 **For You weights (approx):** followed venue +10, promoter +8, persona +6, friend going +5, saved tag +4, liked category +3, free +2; cold start = random upcoming.
 
-**UX:** IBM Plex Mono + Press Start 2P; day/night B&W pager tokens in `globals.css`; admin uses separate slate ops chrome.
+**UX:** IBM Plex Mono + Press Start 2P; day/night B&W terminus tokens in `globals.css`; admin uses separate slate ops chrome.
 
 ---
 
@@ -177,8 +180,9 @@ CSV column contract: `docs/SCHEMA.md`. Pipeline runbook: `docs/PIPELINE.md`.
 | User bug feedback | `components/FeedbackButton.tsx`, `lib/userBugReports.ts`, `/admin/bugs` |
 | Review recovery scripts | `pipeline/scripts/{quarantine,expire,re-resolve,unresolved-venues}*` |
 | Review feedback | `lib/adminEventReviewFeedback.ts`, `event_review_feedback` |
-| Env / migrations | `docs/SETUP.md`, `supabase/migrations/` (001→023) |
-| Replication PDFs | `docs/replication/pdf/` |
+| Env / migrations | `docs/SETUP.md`, `supabase/migrations/` (001→028) |
+| Intelligence deep dive | `docs/replication/06-inteligencia-infraestrutura.md` |
+| Replication PDFs | `docs/replication/pdf/` (01–06) |
 
 ---
 
@@ -186,7 +190,7 @@ CSV column contract: `docs/SCHEMA.md`. Pipeline runbook: `docs/PIPELINE.md`.
 
 1. `npm install` + `cd pipeline && npm install`
 2. Sheet + SA + published Clean/Venues CSV URLs
-3. Supabase migrations 001→022; set app + pipeline env
+3. Supabase migrations 001→028; set app + pipeline env; seed catalog (`npm run seed-catalog`)
 4. `npm run dev` + `cd pipeline && npm run worker`
 5. `profile-images` / `full` / `publish` → open `/calendar` and `/admin`
 

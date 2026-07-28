@@ -81,7 +81,7 @@ export default function EventShareButton({ eventId, eventTitle, eventUrl, classN
     }
   }
 
-  const btnClass = 'p-2 border-2 border-pager-strong text-pager-fg hover:bg-pager-muted transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center bg-pager-bg ' + className
+  const btnClass = 'p-2 border-2 border-terminus-strong text-terminus-fg hover:bg-terminus-muted transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center bg-terminus-bg ' + className
 
   return (
     <div className="relative inline-block" ref={menuRef} onClick={(e) => e.stopPropagation()}>
@@ -98,7 +98,7 @@ export default function EventShareButton({ eventId, eventTitle, eventUrl, classN
       </button>
       {open && (
         <div
-          className={`absolute right-0 py-2 pager-panel z-50 min-w-[200px] ${
+          className={`absolute right-0 py-2 terminus-panel z-50 min-w-[200px] ${
             placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
           }`}
         >
@@ -106,22 +106,22 @@ export default function EventShareButton({ eventId, eventTitle, eventUrl, classN
             href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 px-4 py-2 text-sm text-pager-fg hover:bg-pager-muted"
+            className="flex items-center gap-3 px-4 py-2 text-sm text-terminus-fg hover:bg-terminus-muted"
             onClick={() => {
               emitShare()
               setOpen(false)
             }}
           >
-            <span className="text-pager-fg">WhatsApp</span>
+            <span className="text-terminus-fg">WhatsApp</span>
             <span>Share via WhatsApp</span>
           </a>
           {user ? (
             <button
               type="button"
-              className="w-full flex items-center gap-3 px-4 py-2 text-sm text-pager-fg hover:bg-pager-muted text-left"
+              className="w-full flex items-center gap-3 px-4 py-2 text-sm text-terminus-fg hover:bg-terminus-muted text-left"
               onClick={() => { setOpen(false); setSendModalOpen(true) }}
             >
-              <svg className="w-4 h-4 text-pager-fg-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-terminus-fg-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
               Send to friend (in-app)
@@ -132,16 +132,16 @@ export default function EventShareButton({ eventId, eventTitle, eventUrl, classN
 
       {sendModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60" onClick={() => setSendModalOpen(false)}>
-          <div className="pager-panel max-w-sm w-full max-h-[70vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="p-4 border-b-2 border-pager-strong flex items-center justify-between">
-              <h3 className="font-semibold text-pager-fg">Send event to a friend</h3>
-              <button type="button" onClick={() => setSendModalOpen(false)} className="p-1 text-pager-fg-muted hover:text-pager-fg">×</button>
+          <div className="terminus-panel max-w-sm w-full max-h-[70vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b-2 border-terminus-strong flex items-center justify-between">
+              <h3 className="font-semibold text-terminus-fg">Send event to a friend</h3>
+              <button type="button" onClick={() => setSendModalOpen(false)} className="p-1 text-terminus-fg-muted hover:text-terminus-fg">×</button>
             </div>
             <div className="p-2 overflow-y-auto max-h-[50vh]">
               {loadingFriends ? (
-                <p className="text-pager-fg-faint text-sm p-4">Loading friends...</p>
+                <p className="text-terminus-fg-faint text-sm p-4">Loading friends...</p>
               ) : friends.length === 0 ? (
-                <p className="text-pager-fg-faint text-sm p-4">No friends yet. Add friends from your profile.</p>
+                <p className="text-terminus-fg-faint text-sm p-4">No friends yet. Add friends from your profile.</p>
               ) : (
                 <ul className="space-y-1">
                   {friends.map((f) => (
@@ -150,14 +150,14 @@ export default function EventShareButton({ eventId, eventTitle, eventUrl, classN
                         type="button"
                         onClick={() => handleSendToFriend(f.id)}
                         disabled={sendingTo !== null}
-                        className="w-full flex items-center gap-3 p-3 hover:bg-pager-muted text-left disabled:opacity-50"
+                        className="w-full flex items-center gap-3 p-3 hover:bg-terminus-muted text-left disabled:opacity-50"
                       >
-                        <span className="w-10 h-10 border-2 border-pager-strong bg-pager-muted flex items-center justify-center text-pager-fg font-medium flex-shrink-0">
+                        <span className="w-10 h-10 border-2 border-terminus-strong bg-terminus-muted flex items-center justify-center text-terminus-fg font-medium flex-shrink-0">
                           {(f.displayName || f.username || '?')[0].toUpperCase()}
                         </span>
-                        <span className="text-pager-fg truncate">{f.displayName || f.username || 'Unknown'}</span>
-                        {sent === f.id && <span className="text-pager-fg text-sm ml-auto">Sent</span>}
-                        {sendingTo === f.id && <span className="text-pager-fg-muted text-sm ml-auto">Sending...</span>}
+                        <span className="text-terminus-fg truncate">{f.displayName || f.username || 'Unknown'}</span>
+                        {sent === f.id && <span className="text-terminus-fg text-sm ml-auto">Sent</span>}
+                        {sendingTo === f.id && <span className="text-terminus-fg-muted text-sm ml-auto">Sending...</span>}
                       </button>
                     </li>
                   ))}

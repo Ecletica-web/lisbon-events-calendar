@@ -66,19 +66,19 @@ export default function PromotersPage() {
     : promoters
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-pager-bg text-pager-fg">
+    <div className="min-h-screen min-h-[100dvh] bg-terminus-bg text-terminus-fg">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pt-14 sm:pt-16 pb-[env(safe-area-inset-bottom)]">
-        <Link href="/calendar" className="pager-link text-xs uppercase tracking-wider mb-6 inline-block">
+        <Link href="/calendar" className="terminus-link text-xs uppercase tracking-wider mb-6 inline-block">
           ← Calendar
         </Link>
 
         <div className="flex items-end justify-between gap-4 mb-2 flex-wrap">
-          <h1 className="pager-heading">PROMOTERS</h1>
-          <Link href="/venues" className="text-[10px] uppercase tracking-wider text-pager-fg-muted hover:text-pager-fg underline">
+          <h1 className="terminus-heading">PROMOTERS</h1>
+          <Link href="/venues" className="text-[10px] uppercase tracking-wider text-terminus-fg-muted hover:text-terminus-fg underline">
             ← See venues
           </Link>
         </div>
-        <p className="text-pager-fg-muted text-sm mb-4 sm:mb-6 max-w-xl">
+        <p className="text-terminus-fg-muted text-sm mb-4 sm:mb-6 max-w-xl">
           Organisers and collectives — not venues. Sourced from Fontes IG - Promoters + the promoters catalog.
         </p>
 
@@ -87,13 +87,13 @@ export default function PromotersPage() {
           placeholder="Search promoters..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pager-input mb-6"
+          className="terminus-input mb-6"
         />
 
         {loading ? (
-          <div className="text-pager-fg-muted text-sm">Loading...</div>
+          <div className="text-terminus-fg-muted text-sm">Loading...</div>
         ) : filtered.length === 0 ? (
-          <p className="text-pager-fg-muted text-sm">
+          <p className="text-terminus-fg-muted text-sm">
             {promoters.length === 0
               ? 'No promoters found. Check Fontes IG - Promoters and NEXT_PUBLIC_PROMOTERS_CSV_URL.'
               : 'No promoters match your search.'}
@@ -110,24 +110,24 @@ export default function PromotersPage() {
                 <li key={p.promoter_id}>
                   <Link
                     href={`/promoters/${encodeURIComponent(p.slug)}`}
-                    className="pager-panel flex items-center gap-3 sm:gap-4 py-3 px-3 sm:px-4 hover:bg-pager-muted transition-colors"
+                    className="terminus-panel flex items-center gap-3 sm:gap-4 py-3 px-3 sm:px-4 hover:bg-terminus-muted transition-colors"
                   >
                     <img
                       src={sanitize(p.primary_image_url) || p.primary_image_url || '/lisboa.png'}
                       alt=""
-                      className="w-12 h-12 object-cover flex-shrink-0 border-2 border-pager-strong grayscale contrast-125"
+                      className="w-12 h-12 object-cover flex-shrink-0 border-2 border-terminus-strong grayscale contrast-125"
                       onError={(e) => {
                         e.currentTarget.src = '/lisboa.png'
                       }}
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="text-[9px] uppercase tracking-widest text-pager-fg-faint">Promoter</div>
+                      <div className="text-[9px] uppercase tracking-widest text-terminus-fg-faint">Promoter</div>
                       <span className="font-medium">{p.name}</span>
                       {p.description_short && (
-                        <p className="text-pager-fg-muted text-sm truncate">{p.description_short}</p>
+                        <p className="text-terminus-fg-muted text-sm truncate">{p.description_short}</p>
                       )}
                     </div>
-                    <span className="text-pager-fg-faint text-xs flex-shrink-0">
+                    <span className="text-terminus-fg-faint text-xs flex-shrink-0">
                       {count} upcoming
                     </span>
                   </Link>

@@ -138,7 +138,7 @@ export default function FeedbackButton() {
         type="button"
         onClick={openModal}
         data-feedback-ignore="true"
-        className="fixed z-[99990] pager-btn pager-btn-primary text-[10px] uppercase tracking-wider px-3 py-2.5 min-h-[44px] min-w-[44px] right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] sm:right-5 sm:bottom-5 shadow-[3px_3px_0_var(--pager-border-strong)]"
+        className="fixed z-[99990] terminus-btn terminus-btn-primary text-[10px] uppercase tracking-wider px-3 py-2.5 min-h-[44px] min-w-[44px] right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] sm:right-5 sm:bottom-5 shadow-[3px_3px_0_var(--terminus-border-strong)]"
         aria-label="Send feedback"
       >
         Feedback
@@ -155,34 +155,34 @@ export default function FeedbackButton() {
             aria-labelledby="feedback-title"
           >
             <div
-              className="pager-panel w-full max-w-md max-h-[90vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]"
+              className="terminus-panel w-full max-w-md max-h-[90vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-4 sm:p-5 space-y-4">
                 <div className="flex items-start justify-between gap-3">
-                  <h2 id="feedback-title" className="text-sm font-semibold text-pager-fg leading-relaxed">
+                  <h2 id="feedback-title" className="text-sm font-semibold text-terminus-fg leading-relaxed">
                     Report an issue
                   </h2>
                   <button
                     type="button"
                     onClick={close}
-                    className="pager-btn pager-btn-ghost text-xs px-2 py-1 min-h-[36px]"
+                    className="terminus-btn terminus-btn-ghost text-xs px-2 py-1 min-h-[36px]"
                     aria-label="Close"
                   >
                     Close
                   </button>
                 </div>
 
-                <p className="text-xs text-pager-fg-muted">
+                <p className="text-xs text-terminus-fg-muted">
                   A screenshot of what you see is attached when possible. Add a short note — that&apos;s enough.
                 </p>
 
-                <div className="border-2 border-pager-border bg-pager-bg-muted overflow-hidden min-h-[120px] flex items-center justify-center">
+                <div className="border-2 border-terminus-border bg-terminus-bg-muted overflow-hidden min-h-[120px] flex items-center justify-center">
                   {captureState === 'capturing' && (
-                    <span className="text-xs text-pager-fg-faint px-3 py-8">Capturing screen…</span>
+                    <span className="text-xs text-terminus-fg-faint px-3 py-8">Capturing screen…</span>
                   )}
                   {captureState === 'failed' && (
-                    <span className="text-xs text-pager-fg-faint px-3 py-8 text-center">
+                    <span className="text-xs text-terminus-fg-faint px-3 py-8 text-center">
                       Screenshot unavailable — your note will still be sent.
                     </span>
                   )}
@@ -193,7 +193,7 @@ export default function FeedbackButton() {
                 </div>
 
                 <div>
-                  <label htmlFor="feedback-desc" className="block text-xs uppercase tracking-wider text-pager-fg-muted mb-1">
+                  <label htmlFor="feedback-desc" className="block text-xs uppercase tracking-wider text-terminus-fg-muted mb-1">
                     What&apos;s wrong?
                   </label>
                   <textarea
@@ -203,20 +203,20 @@ export default function FeedbackButton() {
                     rows={4}
                     maxLength={2000}
                     placeholder="e.g. Calendar filters freeze when I pick a venue on iPhone"
-                    className="pager-input resize-y min-h-[96px]"
+                    className="terminus-input resize-y min-h-[96px]"
                     autoFocus
                   />
                 </div>
 
-                {error && <p className="text-xs text-pager-fg">{error}</p>}
-                {done && <p className="text-xs text-pager-fg">Thanks — sent.</p>}
+                {error && <p className="text-xs text-terminus-fg">{error}</p>}
+                {done && <p className="text-xs text-terminus-fg">Thanks — sent.</p>}
 
                 <div className="flex gap-2 pt-1">
                   <button
                     type="button"
                     disabled={sending || done || description.trim().length < 3}
                     onClick={() => void submit()}
-                    className="pager-btn pager-btn-primary flex-1 px-4 py-2.5 text-xs uppercase tracking-wider disabled:opacity-50"
+                    className="terminus-btn terminus-btn-primary flex-1 px-4 py-2.5 text-xs uppercase tracking-wider disabled:opacity-50"
                   >
                     {sending ? 'Sending…' : done ? 'Sent' : 'Send'}
                   </button>
@@ -224,7 +224,7 @@ export default function FeedbackButton() {
                     type="button"
                     onClick={() => void captureScreenshot()}
                     disabled={captureState === 'capturing' || sending}
-                    className="pager-btn pager-btn-ghost px-3 py-2.5 text-xs uppercase tracking-wider disabled:opacity-50"
+                    className="terminus-btn terminus-btn-ghost px-3 py-2.5 text-xs uppercase tracking-wider disabled:opacity-50"
                   >
                     Retake
                   </button>

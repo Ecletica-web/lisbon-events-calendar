@@ -43,7 +43,11 @@ export default function AdminVenuesPage() {
       return
     }
     setRows(json.venues || [])
-    setMessage(null)
+    setMessage(
+      json.warning
+        ? `${json.warning}${json.source === 'sheets' ? ` (source: Sheets/CSV, ${json.total ?? 0} rows)` : ''}`
+        : null
+    )
   }, [getAuthHeaders])
 
   useEffect(() => {

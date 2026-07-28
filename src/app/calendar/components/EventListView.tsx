@@ -49,11 +49,11 @@ function DateNav({
   onToday: () => void
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 flex-wrap bg-pager-bg border-2 border-pager-strong px-4 py-3">
+    <div className="flex items-center justify-between gap-4 flex-wrap bg-terminus-bg border-2 border-terminus-strong px-4 py-3">
       <div className="flex items-center gap-2">
         <button
           onClick={onPrev}
-          className="p-2 text-pager-fg hover:bg-pager-muted"
+          className="p-2 text-terminus-fg hover:bg-terminus-muted"
           aria-label="Previous period"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -62,20 +62,20 @@ function DateNav({
         </button>
         <button
           onClick={onNext}
-          className="p-2 text-pager-fg hover:bg-pager-muted"
+          className="p-2 text-terminus-fg hover:bg-terminus-muted"
           aria-label="Next period"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
-        <span className="text-sm font-semibold text-pager-fg min-w-[140px] text-center">
+        <span className="text-sm font-semibold text-terminus-fg min-w-[140px] text-center">
           {periodTitle}
         </span>
       </div>
       <button
         onClick={onToday}
-        className="pager-btn px-3 py-1.5 text-xs uppercase tracking-wider"
+        className="terminus-btn px-3 py-1.5 text-xs uppercase tracking-wider"
       >
         Today
       </button>
@@ -230,7 +230,7 @@ export default function EventListView({
           />
         )}
         <div className="flex items-center justify-center h-96">
-          <div className="text-pager-fg-muted">No events in this period</div>
+          <div className="text-terminus-fg-muted">No events in this period</div>
         </div>
       </div>
     )
@@ -249,17 +249,17 @@ export default function EventListView({
       {Array.from(eventsByDay.entries()).map(([dayKey, dayEvents]) => (
         <div
           key={dayKey}
-          className="border-2 border-pager-strong bg-pager-bg overflow-hidden"
+          className="border-2 border-terminus-strong bg-terminus-bg overflow-hidden"
         >
-          <div className="bg-pager-muted px-4 py-3 border-b-2 border-pager-strong">
+          <div className="bg-terminus-muted px-4 py-3 border-b-2 border-terminus-strong">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-pager-fg">{formatDate(dayKey)}</div>
-              <div className="text-xs text-pager-fg-faint">
+              <div className="text-sm font-semibold text-terminus-fg">{formatDate(dayKey)}</div>
+              <div className="text-xs text-terminus-fg-faint">
                 {dayEvents.length} event{dayEvents.length !== 1 ? 's' : ''}
               </div>
             </div>
           </div>
-          <div className="divide-y divide-pager-border">
+          <div className="divide-y divide-terminus-border">
             {dayEvents.map((event) => {
               const distanceKm = getEventDistanceKm(event)
               const priceStr = event.extendedProps.isFree === true
@@ -271,31 +271,31 @@ export default function EventListView({
                 <div
                   key={event.id}
                   onClick={() => onEventClick({ event })}
-                  className="px-4 py-4 min-h-[44px] hover:bg-pager-muted transition-colors cursor-pointer touch-manipulation"
+                  className="px-4 py-4 min-h-[44px] hover:bg-terminus-muted transition-colors cursor-pointer touch-manipulation"
                 >
                   <div className="flex items-start gap-3 md:gap-4">
                     <EventImageThumb
                       imageUrl={event.extendedProps.imageUrl}
                       imageUrls={event.extendedProps.imageUrls}
                       alt={event.title}
-                      className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20 border border-pager-border bg-pager-muted"
+                      className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20 border border-terminus-border bg-terminus-muted"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-0.5">
-                        <h3 className="text-base font-semibold text-pager-fg leading-tight">
+                        <h3 className="text-base font-semibold text-terminus-fg leading-tight">
                           {event.title}
                         </h3>
                         {priceStr && (
-                          <span className="flex-shrink-0 text-xs font-medium tabular-nums text-pager-fg-muted">
+                          <span className="flex-shrink-0 text-xs font-medium tabular-nums text-terminus-fg-muted">
                             {priceStr}
                           </span>
                         )}
                       </div>
-                      <div className="text-xs font-medium text-pager-fg-muted tabular-nums mb-1">
+                      <div className="text-xs font-medium text-terminus-fg-muted tabular-nums mb-1">
                         {formatTime(event)}
                       </div>
                       {distanceKm != null && (
-                        <div className="flex items-center gap-2 text-xs text-pager-fg-muted mb-1">
+                        <div className="flex items-center gap-2 text-xs text-terminus-fg-muted mb-1">
                           <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -307,7 +307,7 @@ export default function EventListView({
                         <div className="flex items-center gap-2 flex-wrap mb-2" onClick={(e) => e.stopPropagation()}>
                           <Link
                             href={venueHrefFromEvent(event)}
-                            className="text-sm pager-link"
+                            className="text-sm terminus-link"
                           >
                             {event.extendedProps.venueName}
                           </Link>
@@ -321,7 +321,7 @@ export default function EventListView({
                       )}
                       {event.extendedProps.category && (
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="pager-pill pager-pill-active">
+                          <span className="terminus-pill terminus-pill-active">
                             {event.extendedProps.category}
                           </span>
                         </div>

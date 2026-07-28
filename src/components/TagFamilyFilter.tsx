@@ -40,10 +40,10 @@ export default function TagFamilyFilter({
   if (!open) return null
 
   if (loading) {
-    return <div className="text-xs text-pager-fg-muted">Loading tags...</div>
+    return <div className="text-xs text-terminus-fg-muted">Loading tags...</div>
   }
   if (allTags.length === 0) {
-    return <div className="text-xs text-pager-fg-muted">No tags available</div>
+    return <div className="text-xs text-terminus-fg-muted">No tags available</div>
   }
 
   const tagBtn = (tag: string, isSelected: boolean) => {
@@ -72,13 +72,13 @@ export default function TagFamilyFilter({
         placeholder="Search tags..."
         value={tagSearchQuery}
         onChange={(e) => setTagSearchQuery(e.target.value)}
-        className="pager-input text-xs mb-3 py-1.5"
+        className="terminus-input text-xs mb-3 py-1.5"
       />
 
       {tagSearchQuery.trim() ? (
         <div className="flex flex-wrap gap-1.5 mb-3 max-h-40 overflow-y-auto">
           {searchHits.length === 0 ? (
-            <p className="text-xs text-pager-fg-faint">No tags match</p>
+            <p className="text-xs text-terminus-fg-faint">No tags match</p>
           ) : (
             searchHits.map((tag) => tagBtn(tag, selectedTags.includes(tag)))
           )}
@@ -89,22 +89,22 @@ export default function TagFamilyFilter({
             const isOpen = !!expanded[family.id]
             const selectedInFamily = family.tags.filter((t) => selectedTags.includes(t)).length
             return (
-              <div key={family.id} className="border border-pager-border">
+              <div key={family.id} className="border border-terminus-border">
                 <button
                   type="button"
                   onClick={() =>
                     setExpanded((prev) => ({ ...prev, [family.id]: !prev[family.id] }))
                   }
-                  className="w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-[11px] uppercase tracking-wider bg-pager-muted hover:bg-pager-elevated"
+                  className="w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-[11px] uppercase tracking-wider bg-terminus-muted hover:bg-terminus-elevated"
                 >
                   <span>
                     {isOpen ? '▼' : '▶'} {family.label}
-                    <span className="ml-1 text-pager-fg-faint normal-case">
+                    <span className="ml-1 text-terminus-fg-faint normal-case">
                       ({family.tags.length})
                     </span>
                   </span>
                   {selectedInFamily > 0 && (
-                    <span className="text-[10px] bg-pager-accent text-pager-accent-fg px-1">
+                    <span className="text-[10px] bg-terminus-accent text-terminus-accent-fg px-1">
                       {selectedInFamily}
                     </span>
                   )}
@@ -140,7 +140,7 @@ export default function TagFamilyFilter({
           <button
             type="button"
             onClick={onClear}
-            className="text-[10px] uppercase tracking-wider text-pager-fg-muted hover:text-pager-fg underline"
+            className="text-[10px] uppercase tracking-wider text-terminus-fg-muted hover:text-terminus-fg underline"
           >
             Clear tags
           </button>

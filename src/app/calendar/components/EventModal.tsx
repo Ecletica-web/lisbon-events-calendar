@@ -101,7 +101,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
     >
       <div
         ref={contentRef}
-        className="pager-panel p-4 pb-[max(1rem,env(safe-area-inset-bottom))] max-w-md w-full max-h-[90vh] sm:max-h-[85vh] min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain flex-shrink-0 sm:mx-4 sm:my-8 touch-pan-y border-t-2 sm:border-2"
+        className="terminus-panel p-4 pb-[max(1rem,env(safe-area-inset-bottom))] max-w-md w-full max-h-[90vh] sm:max-h-[85vh] min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain flex-shrink-0 sm:mx-4 sm:my-8 touch-pan-y border-t-2 sm:border-2"
         style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
         onClick={(e) => e.stopPropagation()}
       >
@@ -116,12 +116,12 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
           <div className="flex-1 min-w-0 flex items-start gap-2 flex-wrap">
             <h2
               id="event-modal-title"
-              className="text-lg font-semibold text-pager-fg"
+              className="text-lg font-semibold text-terminus-fg"
             >
               {event.title}
             </h2>
             {statusLabel && (
-              <span className="pager-pill pager-pill-active flex-shrink-0">
+              <span className="terminus-pill terminus-pill-active flex-shrink-0">
                 {statusLabel}
               </span>
             )}
@@ -131,7 +131,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
         {reasons.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-3">
             {reasons.map((r) => (
-              <span key={r} className="pager-pill">
+              <span key={r} className="terminus-pill">
                 {r}
               </span>
             ))}
@@ -142,15 +142,15 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
           <EventLikeCount eventId={event.id} />
         </div>
 
-        <div className="space-y-2 mb-3 text-pager-fg text-xs">
+        <div className="space-y-2 mb-3 text-terminus-fg text-xs">
           <div>
-            <strong className="text-pager-fg text-xs">Date/Time:</strong>
-            <div className="text-pager-fg-muted text-xs">
+            <strong className="text-terminus-fg text-xs">Date/Time:</strong>
+            <div className="text-terminus-fg-muted text-xs">
               {props.opensAt ? (
                 <>
                   {formatDateTime(startDate, { timeStyle: undefined })}
                   {endDate && ` – ${formatDateTime(endDate, { timeStyle: undefined })}`}
-                  <span className="text-pager-fg-faint"> · Opens {props.opensAt}</span>
+                  <span className="text-terminus-fg-faint"> · Opens {props.opensAt}</span>
                 </>
               ) : (
                 <>
@@ -159,54 +159,54 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
                 </>
               )}
             </div>
-            <div className="text-xs text-pager-fg-faint mt-0.5">
+            <div className="text-xs text-terminus-fg-faint mt-0.5">
               Timezone: {props.timezone || 'Europe/Lisbon'}
             </div>
           </div>
 
           {props.descriptionShort && (
             <div>
-              <strong className="text-pager-fg text-xs">Description:</strong>
-              <p className="mt-0.5 text-pager-fg-muted text-xs">{props.descriptionShort}</p>
+              <strong className="text-terminus-fg text-xs">Description:</strong>
+              <p className="mt-0.5 text-terminus-fg-muted text-xs">{props.descriptionShort}</p>
             </div>
           )}
 
           {props.nightActs && props.nightActs.length > 1 && (
             <div>
-              <strong className="text-pager-fg text-xs">
+              <strong className="text-terminus-fg text-xs">
                 Lineup ({props.nightActs.length} acts):
               </strong>
               <ul className="mt-1.5 space-y-2">
                 {props.nightActs.map((act) => (
                   <li
                     key={act.id}
-                    className="flex gap-2 items-start border-2 border-pager-border bg-pager-muted p-2"
+                    className="flex gap-2 items-start border-2 border-terminus-border bg-terminus-muted p-2"
                   >
                     {act.imageUrl && (
                       <img
                         src={act.imageUrl}
                         alt=""
-                        className="w-10 h-10 object-cover flex-shrink-0 border border-pager-border"
+                        className="w-10 h-10 object-cover flex-shrink-0 border border-terminus-border"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none'
                         }}
                       />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="text-pager-fg text-xs font-medium leading-snug">{act.title}</div>
+                      <div className="text-terminus-fg text-xs font-medium leading-snug">{act.title}</div>
                       {act.descriptionShort && (
-                        <p className="text-pager-fg-faint text-[11px] mt-0.5 line-clamp-2">{act.descriptionShort}</p>
+                        <p className="text-terminus-fg-faint text-[11px] mt-0.5 line-clamp-2">{act.descriptionShort}</p>
                       )}
                       <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
                         {act.promoterName && (
-                          <span className="text-[11px] text-pager-fg-faint">{act.promoterName}</span>
+                          <span className="text-[11px] text-terminus-fg-faint">{act.promoterName}</span>
                         )}
                         {act.sourceUrl && (
                           <a
                             href={act.sourceUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] pager-link"
+                            className="text-[11px] terminus-link"
                           >
                             Post
                           </a>
@@ -216,7 +216,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
                             href={act.ticketUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] pager-link"
+                            className="text-[11px] terminus-link"
                             onClick={emitTicketClick}
                           >
                             Tickets
@@ -232,8 +232,8 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
 
           {props.descriptionLong && !props.nightActs?.length && (
             <div>
-              <strong className="text-pager-fg text-xs">Full Description:</strong>
-              <p className="mt-0.5 whitespace-pre-wrap text-pager-fg-muted text-xs">
+              <strong className="text-terminus-fg text-xs">Full Description:</strong>
+              <p className="mt-0.5 whitespace-pre-wrap text-terminus-fg-muted text-xs">
                 {props.descriptionLong}
               </p>
             </div>
@@ -241,7 +241,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
 
           {props.venueName && (
             <div>
-              <strong className="text-pager-fg text-xs">Venue:</strong>{' '}
+              <strong className="text-terminus-fg text-xs">Venue:</strong>{' '}
               <div className="flex items-center gap-2 flex-wrap mt-0.5">
                 <Link
                   href={venueHref({
@@ -249,7 +249,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
                     venueKey: props.venueKey,
                     venueName: props.venueName,
                   })}
-                  className="pager-link text-xs"
+                  className="terminus-link text-xs"
                 >
                   {props.venueName}
                 </Link>
@@ -260,26 +260,26 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
                 />
               </div>
               {props.venueAddress && (
-                <div className="text-xs text-pager-fg-faint mt-0.5">{props.venueAddress}</div>
+                <div className="text-xs text-terminus-fg-faint mt-0.5">{props.venueAddress}</div>
               )}
               {props.neighborhood && (
-                <div className="text-xs text-pager-fg-faint">{props.neighborhood}</div>
+                <div className="text-xs text-terminus-fg-faint">{props.neighborhood}</div>
               )}
-              {props.city && <div className="text-xs text-pager-fg-faint">{props.city}</div>}
+              {props.city && <div className="text-xs text-terminus-fg-faint">{props.city}</div>}
             </div>
           )}
 
           {formatPrice() && (
             <div>
-              <strong className="text-pager-fg text-xs">Price:</strong>{' '}
-              <span className="text-pager-fg-muted text-xs">{formatPrice()}</span>
+              <strong className="text-terminus-fg text-xs">Price:</strong>{' '}
+              <span className="text-terminus-fg-muted text-xs">{formatPrice()}</span>
             </div>
           )}
 
           {props.category && (
             <div>
-              <strong className="text-pager-fg text-xs">Category:</strong>{' '}
-              <span className="pager-pill pager-pill-active">
+              <strong className="text-terminus-fg text-xs">Category:</strong>{' '}
+              <span className="terminus-pill terminus-pill-active">
                 {props.category}
               </span>
             </div>
@@ -287,11 +287,11 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
 
           {props.tags.length > 0 && (
             <div>
-              <strong className="text-pager-fg text-xs">Tags:</strong>
+              <strong className="text-terminus-fg text-xs">Tags:</strong>
               <div className="flex flex-wrap gap-1.5 mt-1 items-center">
                 {props.tags.map((tag) => (
                   <span key={tag} className="flex items-center gap-1">
-                    <span className="pager-pill">{tag}</span>
+                    <span className="terminus-pill">{tag}</span>
                     <FollowButton
                       type="tag"
                       normalizedValue={toCanonicalTagKey(tag)}
@@ -306,26 +306,26 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
 
           {props.language && (
             <div>
-              <strong className="text-pager-fg text-xs">Language:</strong>{' '}
-              <span className="text-pager-fg-muted text-xs">{props.language}</span>
+              <strong className="text-terminus-fg text-xs">Language:</strong>{' '}
+              <span className="text-terminus-fg-muted text-xs">{props.language}</span>
             </div>
           )}
 
           {props.ageRestriction && (
             <div>
-              <strong className="text-pager-fg text-xs">Age Restriction:</strong>{' '}
-              <span className="text-pager-fg-muted text-xs">{props.ageRestriction}</span>
+              <strong className="text-terminus-fg text-xs">Age Restriction:</strong>{' '}
+              <span className="text-terminus-fg-muted text-xs">{props.ageRestriction}</span>
             </div>
           )}
 
           {props.ticketUrl && (
             <div>
-              <strong className="text-pager-fg text-xs">Tickets:</strong>{' '}
+              <strong className="text-terminus-fg text-xs">Tickets:</strong>{' '}
               <a
                 href={props.ticketUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="pager-link text-xs"
+                className="terminus-link text-xs"
                 onClick={emitTicketClick}
               >
                 Buy Tickets
@@ -335,19 +335,19 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
 
           {(props.sourceUrl || props.sourceName) && (
             <div>
-              <strong className="text-pager-fg text-xs">Source:</strong>{' '}
+              <strong className="text-terminus-fg text-xs">Source:</strong>{' '}
               <div className="flex items-center gap-2 flex-wrap mt-0.5">
                 {props.sourceUrl ? (
                   <a
                     href={props.sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="pager-link text-xs"
+                    className="terminus-link text-xs"
                   >
                     {props.sourceName || 'View Source'}
                   </a>
                 ) : (
-                  <span className="text-pager-fg-muted text-xs">{props.sourceName}</span>
+                  <span className="text-terminus-fg-muted text-xs">{props.sourceName}</span>
                 )}
                 {props.sourceName && (
                   <FollowButton
@@ -366,7 +366,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
           href={getGoogleCalendarUrl(event)}
           target="_blank"
           rel="noopener noreferrer"
-          className="pager-btn w-full px-3 py-2.5 text-sm mt-3"
+          className="terminus-btn w-full px-3 py-2.5 text-sm mt-3"
           onClick={emitCalendarAdd}
         >
           <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
@@ -377,7 +377,7 @@ export default function EventModal({ event, onClose, reasons: reasonsProp }: Eve
 
         <button
           onClick={onClose}
-          className="pager-btn pager-btn-primary w-full px-3 py-2 text-xs font-semibold uppercase tracking-wider mt-3"
+          className="terminus-btn terminus-btn-primary w-full px-3 py-2 text-xs font-semibold uppercase tracking-wider mt-3"
         >
           Close
         </button>

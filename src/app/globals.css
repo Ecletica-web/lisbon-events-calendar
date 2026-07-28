@@ -2,42 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── City Pager design tokens: high-contrast B&W day / night ─── */
+/* ─── Terminus design tokens: high-contrast B&W day / night ─── */
 :root,
 [data-theme='night'] {
-  --pager-bg: #000000;
-  --pager-bg-elevated: #000000;
-  --pager-bg-muted: #0d0d0d;
-  --pager-fg: #ffffff;
-  --pager-fg-muted: #c4c4c4;
-  --pager-fg-faint: #8a8a8a;
-  --pager-border: #333333;
-  --pager-border-strong: #ffffff;
-  --pager-accent: #ffffff;
-  --pager-accent-fg: #000000;
-  --pager-inverse: #ffffff;
-  --pager-scanline: rgba(255, 255, 255, 0.04);
-  --pager-dot: rgba(255, 255, 255, 0.08);
-  --pager-shadow: 4px 4px 0 #000;
+  --terminus-bg: #000000;
+  --terminus-bg-elevated: #000000;
+  --terminus-bg-muted: #0d0d0d;
+  --terminus-fg: #ffffff;
+  --terminus-fg-muted: #c4c4c4;
+  --terminus-fg-faint: #8a8a8a;
+  --terminus-border: #333333;
+  --terminus-border-strong: #ffffff;
+  --terminus-accent: #ffffff;
+  --terminus-accent-fg: #000000;
+  --terminus-inverse: #ffffff;
+  --terminus-scanline: rgba(255, 255, 255, 0.04);
+  --terminus-dot: rgba(255, 255, 255, 0.08);
+  --terminus-shadow: 4px 4px 0 #000;
   --foreground-rgb: 255, 255, 255;
   --background-rgb: 0, 0, 0;
 }
 
 [data-theme='day'] {
-  --pager-bg: #ffffff;
-  --pager-bg-elevated: #ffffff;
-  --pager-bg-muted: #f2f2f2;
-  --pager-fg: #000000;
-  --pager-fg-muted: #333333;
-  --pager-fg-faint: #666666;
-  --pager-border: #000000;
-  --pager-border-strong: #000000;
-  --pager-accent: #000000;
-  --pager-accent-fg: #ffffff;
-  --pager-inverse: #000000;
-  --pager-scanline: rgba(0, 0, 0, 0.05);
-  --pager-dot: rgba(0, 0, 0, 0.1);
-  --pager-shadow: 4px 4px 0 #000;
+  --terminus-bg: #ffffff;
+  --terminus-bg-elevated: #ffffff;
+  --terminus-bg-muted: #f2f2f2;
+  --terminus-fg: #000000;
+  --terminus-fg-muted: #333333;
+  --terminus-fg-faint: #666666;
+  --terminus-border: #000000;
+  --terminus-border-strong: #000000;
+  --terminus-accent: #000000;
+  --terminus-accent-fg: #ffffff;
+  --terminus-inverse: #000000;
+  --terminus-scanline: rgba(0, 0, 0, 0.05);
+  --terminus-dot: rgba(0, 0, 0, 0.1);
+  --terminus-shadow: 4px 4px 0 #000;
   --foreground-rgb: 0, 0, 0;
   --background-rgb: 255, 255, 255;
 }
@@ -53,8 +53,8 @@
   }
 
   body {
-    color: var(--pager-fg);
-    background-color: var(--pager-bg);
+    color: var(--terminus-fg);
+    background-color: var(--terminus-bg);
     font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -74,8 +74,8 @@
     z-index: 0;
     opacity: 1;
     background-image:
-      radial-gradient(var(--pager-dot) 1px, transparent 1px),
-      linear-gradient(var(--pager-scanline) 1px, transparent 1px);
+      radial-gradient(var(--terminus-dot) 1px, transparent 1px),
+      linear-gradient(var(--terminus-scanline) 1px, transparent 1px);
     background-size: 4px 4px, 100% 3px;
     background-attachment: fixed;
   }
@@ -93,109 +93,109 @@
     line-height: 1.6;
   }
 
-  .pager-panel {
-    background: var(--pager-bg-elevated);
-    border: 2px solid var(--pager-border-strong);
-    box-shadow: var(--pager-shadow);
+  .terminus-panel {
+    background: var(--terminus-bg-elevated);
+    border: 2px solid var(--terminus-border-strong);
+    box-shadow: var(--terminus-shadow);
     border-radius: 0;
   }
 
-  .pager-btn {
+  .terminus-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.35rem;
-    border: 2px solid var(--pager-border-strong);
-    background: var(--pager-bg-elevated);
-    color: var(--pager-fg);
+    border: 2px solid var(--terminus-border-strong);
+    background: var(--terminus-bg-elevated);
+    color: var(--terminus-fg);
     font-family: inherit;
     font-weight: 600;
     border-radius: 0;
-    box-shadow: 2px 2px 0 var(--pager-border-strong);
+    box-shadow: 2px 2px 0 var(--terminus-border-strong);
     transition: transform 80ms steps(2), box-shadow 80ms steps(2), background 120ms linear;
   }
 
-  .pager-btn:hover {
+  .terminus-btn:hover {
     transform: translate(-1px, -1px);
-    box-shadow: 3px 3px 0 var(--pager-border-strong);
+    box-shadow: 3px 3px 0 var(--terminus-border-strong);
   }
 
-  .pager-btn:active {
+  .terminus-btn:active {
     transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0 var(--pager-border-strong);
+    box-shadow: 1px 1px 0 var(--terminus-border-strong);
   }
 
-  .pager-btn-primary {
-    background: var(--pager-accent);
-    color: var(--pager-accent-fg);
+  .terminus-btn-primary {
+    background: var(--terminus-accent);
+    color: var(--terminus-accent-fg);
   }
 
-  .pager-btn-ghost {
+  .terminus-btn-ghost {
     background: transparent;
     box-shadow: none;
   }
 
-  .pager-btn-ghost:hover {
-    background: var(--pager-bg-muted);
+  .terminus-btn-ghost:hover {
+    background: var(--terminus-bg-muted);
     box-shadow: none;
     transform: none;
   }
 
-  .pager-input {
+  .terminus-input {
     width: 100%;
-    border: 2px solid var(--pager-border-strong);
-    background: var(--pager-bg);
-    color: var(--pager-fg);
+    border: 2px solid var(--terminus-border-strong);
+    background: var(--terminus-bg);
+    color: var(--terminus-fg);
     border-radius: 0;
     padding: 0.5rem 0.75rem;
     font-family: inherit;
   }
 
-  .pager-input::placeholder {
-    color: var(--pager-fg-faint);
+  .terminus-input::placeholder {
+    color: var(--terminus-fg-faint);
   }
 
-  .pager-input:focus {
+  .terminus-input:focus {
     outline: none;
-    box-shadow: 0 0 0 2px var(--pager-accent);
+    box-shadow: 0 0 0 2px var(--terminus-accent);
   }
 
-  .pager-pill {
+  .terminus-pill {
     display: inline-flex;
     align-items: center;
-    border: 1px solid var(--pager-border-strong);
-    background: var(--pager-bg-muted);
-    color: var(--pager-fg);
+    border: 1px solid var(--terminus-border-strong);
+    background: var(--terminus-bg-muted);
+    color: var(--terminus-fg);
     border-radius: 0;
     padding: 0.2rem 0.5rem;
     font-size: 0.7rem;
     text-transform: lowercase;
   }
 
-  .pager-pill-active {
-    background: var(--pager-accent);
-    color: var(--pager-accent-fg);
+  .terminus-pill-active {
+    background: var(--terminus-accent);
+    color: var(--terminus-accent-fg);
   }
 
-  .pager-link {
-    color: var(--pager-fg);
+  .terminus-link {
+    color: var(--terminus-fg);
     text-decoration: underline;
     text-underline-offset: 3px;
   }
 
-  .pager-link:hover {
+  .terminus-link:hover {
     opacity: 0.75;
   }
 
-  .pager-heading {
+  .terminus-heading {
     font-family: 'Press Start 2P', monospace;
     font-size: clamp(0.85rem, 2.5vw, 1.15rem);
-    color: var(--pager-fg);
+    color: var(--terminus-fg);
     letter-spacing: 0.04em;
   }
 
-  .pager-muted {
-    color: var(--pager-fg-muted);
+  .terminus-muted {
+    color: var(--terminus-fg-muted);
   }
 }
 
@@ -206,50 +206,50 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--pager-bg);
-  border-left: 1px solid var(--pager-border);
+  background: var(--terminus-bg);
+  border-left: 1px solid var(--terminus-border);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--pager-fg-muted);
-  border: 2px solid var(--pager-bg);
+  background: var(--terminus-fg-muted);
+  border: 2px solid var(--terminus-bg);
   border-radius: 0;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--pager-fg);
+  background: var(--terminus-fg);
 }
 
 /* FullCalendar — retro mono */
 .fc {
   font-family: inherit;
-  color: var(--pager-fg);
+  color: var(--terminus-fg);
 }
 
 .fc-button {
-  border: 2px solid var(--pager-border-strong) !important;
-  background: var(--pager-bg-elevated) !important;
-  color: var(--pager-fg) !important;
+  border: 2px solid var(--terminus-border-strong) !important;
+  background: var(--terminus-bg-elevated) !important;
+  color: var(--terminus-fg) !important;
   border-radius: 0 !important;
-  box-shadow: 2px 2px 0 var(--pager-border-strong) !important;
+  box-shadow: 2px 2px 0 var(--terminus-border-strong) !important;
   font-weight: 600;
   font-size: 0.75rem;
   text-transform: uppercase;
 }
 
 .fc-button-active {
-  background: var(--pager-accent) !important;
-  color: var(--pager-accent-fg) !important;
+  background: var(--terminus-accent) !important;
+  color: var(--terminus-accent-fg) !important;
 }
 
 .fc-button:hover:not(.fc-button-active) {
-  background: var(--pager-bg-muted) !important;
+  background: var(--terminus-bg-muted) !important;
 }
 
 .fc-event {
   cursor: pointer;
   border-radius: 0 !important;
-  border: 1px solid var(--pager-border-strong) !important;
+  border: 1px solid var(--terminus-border-strong) !important;
   box-shadow: none !important;
 }
 
@@ -258,13 +258,13 @@
 }
 
 .fc-daygrid-day-frame:hover {
-  background: var(--pager-bg-muted);
+  background: var(--terminus-bg-muted);
 }
 
 .fc-col-header-cell {
-  background: var(--pager-bg) !important;
-  border-color: var(--pager-border-strong) !important;
-  color: var(--pager-fg) !important;
+  background: var(--terminus-bg) !important;
+  border-color: var(--terminus-border-strong) !important;
+  color: var(--terminus-fg) !important;
   font-size: 0.7rem;
   text-transform: uppercase;
 }
@@ -273,30 +273,30 @@
 .fc-timegrid-col,
 .fc-scrollgrid,
 .fc-theme-standard .fc-scrollgrid {
-  background: var(--pager-bg) !important;
+  background: var(--terminus-bg) !important;
 }
 
 .fc-day-today {
-  background: var(--pager-bg-muted) !important;
-  outline: 2px solid var(--pager-border-strong);
+  background: var(--terminus-bg-muted) !important;
+  outline: 2px solid var(--terminus-border-strong);
   outline-offset: -2px;
 }
 
 .fc-daygrid-day-number {
   font-weight: 600;
-  color: var(--pager-fg);
+  color: var(--terminus-fg);
 }
 
 .fc-toolbar-title {
   font-family: 'Press Start 2P', monospace;
   font-size: 0.75rem !important;
-  color: var(--pager-fg) !important;
+  color: var(--terminus-fg) !important;
   background: none !important;
-  -webkit-text-fill-color: var(--pager-fg);
+  -webkit-text-fill-color: var(--terminus-fg);
 }
 
 .fc-daygrid-day-top {
-  color: var(--pager-fg);
+  color: var(--terminus-fg);
 }
 
 .fc-timegrid-slot,
@@ -304,7 +304,7 @@
 .fc-scrollgrid,
 .fc-theme-standard td,
 .fc-theme-standard th {
-  border-color: var(--pager-border) !important;
+  border-color: var(--terminus-border) !important;
 }
 
 .fc-header-toolbar {
@@ -375,7 +375,7 @@
   overflow: hidden;
 }
 
-@keyframes pager-blink {
+@keyframes terminus-blink {
   0%,
   49% {
     opacity: 1;
@@ -386,8 +386,8 @@
   }
 }
 
-.pager-cursor::after {
+.terminus-cursor::after {
   content: '█';
   margin-left: 2px;
-  animation: pager-blink 1s steps(1) infinite;
+  animation: terminus-blink 1s steps(1) infinite;
 }

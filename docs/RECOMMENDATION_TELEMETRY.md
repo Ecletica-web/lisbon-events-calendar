@@ -1,6 +1,6 @@
 # Recommendation telemetry
 
-Non-ML foundation for City Pager For You behavioural data collection.
+Non-ML foundation for Terminus For You behavioural data collection.
 
 ## Purpose
 

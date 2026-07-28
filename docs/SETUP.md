@@ -79,7 +79,7 @@ See [OAUTH_SETUP.md](../OAUTH_SETUP.md) for OAuth provider setup.
 
 ## 2. Database migrations (Supabase)
 
-If you use Supabase, run **all** migrations in `supabase/migrations/` **in numeric order** (001 → 025) in the Supabase SQL Editor.
+If you use Supabase, run **all** migrations in `supabase/migrations/` **in numeric order** (001 → 028) in the Supabase SQL Editor.
 
 | Migration | Purpose |
 |-----------|---------|
@@ -102,9 +102,13 @@ If you use Supabase, run **all** migrations in `supabase/migrations/` **in numer
 | 019_pipeline_store | pipeline_posts, extractions, review_queue, verifications, runs, config |
 | 020–022 | venue images / profile images / pipeline mode |
 | 023_recommendation_telemetry | recommendation_sessions, recommendation_events, ml_training_examples_v1 |
-| 024_user_bug_reports | user feedback |
+| 024_user_bug_reports | user feedback → `/admin/bugs` |
 | 025_catalog_venues_promoters | `venues` + `promoters` catalog SoT (scrape + admin CRUD) |
 | 026_pipeline_catalog_candidates | Proposed venues/promoters from extract → `/admin/catalog-candidates` |
+| 027_display_name_backfill | Backfill `display_name` from `name`; signup trigger sets both |
+| 028_friends_list_private | `friends_list_private` on `user_profiles` |
+
+After 025, seed the catalog from Sheets: `cd pipeline && npm run seed-catalog`. Pipeline watchlist uses `CATALOG_SOURCE` / `WATCHLIST_SOURCE` (see `pipeline/.env.example`).
 
 Details: [SUPABASE_SETUP.md](../SUPABASE_SETUP.md). See [docs/FRIENDS_VS_FOLLOWS.md](FRIENDS_VS_FOLLOWS.md) for friends vs follow distinction.
 
@@ -132,12 +136,17 @@ For production on Vercel, set Supabase env vars so the app runs with a single au
 
 ## 5. PWA (installable web app)
 
-The app includes a web app manifest so users can “Add to Home Screen” on mobile. Icons live in `public/`; replace `icon-192.png` and `icon-512.png` with your own for a custom install icon.
+The app ships as an installable PWA:
+
+- Manifest: `public/manifest.json` (name **Terminus**, start `/calendar`)
+- Icons: `public/icons/` (`icon-192/512`, `maskable-192/512`, `apple-touch-icon`) — regenerate with `npm run icons:pwa`
+- Service worker: Serwist via `src/app/sw.ts` (wired in `next.config.mjs`)
+- Offline fallback: `/offline`
 
 ## 6. Other docs
 
 - **Project map (agents + humans):** [AGENTS.md](../AGENTS.md)
-- **Full replication pack (MD + PDF):** [docs/replication/](replication/) — architecture, pipeline AI, Sheets/Supabase, product/UX, bootstrap checklist
+- **Full replication pack (MD + PDF, docs 01–06):** [docs/replication/](replication/) — architecture, pipeline AI, Sheets/Supabase, product/UX, bootstrap checklist, intelligence deep dive
 - **CSV column contract:** [docs/SCHEMA.md](SCHEMA.md)
 - **Pipeline runbook:** [docs/PIPELINE.md](PIPELINE.md)
 - **Supabase auth and OAuth:** [SUPABASE_SETUP.md](../SUPABASE_SETUP.md), [OAUTH_SETUP.md](../OAUTH_SETUP.md)

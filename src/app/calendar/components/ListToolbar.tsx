@@ -86,14 +86,14 @@ export function ListToolbar({
 
   return (
     <div className="space-y-3 mb-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-pager-bg border-2 border-pager-strong px-4 py-3 touch-manipulation">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-terminus-bg border-2 border-terminus-strong px-4 py-3 touch-manipulation">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex border-2 border-pager-strong">
+          <div className="flex border-2 border-terminus-strong">
             <button
               type="button"
               onClick={() => onShowListViewChange(false)}
               className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider ${
-                !showListView ? 'bg-pager-accent text-pager-accent-fg' : 'bg-pager-bg text-pager-fg hover:bg-pager-muted'
+                !showListView ? 'bg-terminus-accent text-terminus-accent-fg' : 'bg-terminus-bg text-terminus-fg hover:bg-terminus-muted'
               }`}
             >
               Calendar
@@ -101,14 +101,14 @@ export function ListToolbar({
             <button
               type="button"
               onClick={() => onShowListViewChange(true)}
-              className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border-l-2 border-pager-strong ${
-                showListView ? 'bg-pager-accent text-pager-accent-fg' : 'bg-pager-bg text-pager-fg hover:bg-pager-muted'
+              className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border-l-2 border-terminus-strong ${
+                showListView ? 'bg-terminus-accent text-terminus-accent-fg' : 'bg-terminus-bg text-terminus-fg hover:bg-terminus-muted'
               }`}
             >
               List
             </button>
           </div>
-          <div className="flex border-2 border-pager-border gap-0">
+          <div className="flex border-2 border-terminus-border gap-0">
             {(['all', 'week', 'month', 'nextMonth'] as const).map((r) => (
               <button
                 key={r}
@@ -116,8 +116,8 @@ export function ListToolbar({
                 onClick={() => onTimeRangeChange(r)}
                 className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                   timeRange === r
-                    ? 'bg-pager-accent text-pager-accent-fg'
-                    : 'text-pager-fg-muted hover:text-pager-fg hover:bg-pager-muted'
+                    ? 'bg-terminus-accent text-terminus-accent-fg'
+                    : 'text-terminus-fg-muted hover:text-terminus-fg hover:bg-terminus-muted'
                 }`}
               >
                 {r === 'all' ? 'All' : r === 'week' ? 'This week' : r === 'month' ? 'This month' : 'Next month'}
@@ -129,7 +129,7 @@ export function ListToolbar({
               <button
                 type="button"
                 onClick={goPrev}
-                className="p-2 text-pager-fg hover:bg-pager-muted"
+                className="p-2 text-terminus-fg hover:bg-terminus-muted"
                 aria-label="Previous period"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -139,35 +139,35 @@ export function ListToolbar({
               <button
                 type="button"
                 onClick={goNext}
-                className="p-2 text-pager-fg hover:bg-pager-muted"
+                className="p-2 text-terminus-fg hover:bg-terminus-muted"
                 aria-label="Next period"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
-              <span className="text-sm font-semibold text-pager-fg min-w-[140px] text-center">
+              <span className="text-sm font-semibold text-terminus-fg min-w-[140px] text-center">
                 {getPeriodTitle()}
               </span>
             </div>
           ) : (
-            <span className="text-sm font-semibold text-pager-fg">{getPeriodTitle()}</span>
+            <span className="text-sm font-semibold text-terminus-fg">{getPeriodTitle()}</span>
           )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <label className="flex items-center gap-2 cursor-pointer shrink-0">
-            <span className="text-xs text-pager-fg-muted">Near me</span>
+            <span className="text-xs text-terminus-fg-muted">Near me</span>
             <button
               type="button"
               onClick={handleNearMeToggle}
-              className={`relative w-10 h-5 border-2 border-pager-strong transition-colors ${nearMeEnabled ? 'bg-pager-accent' : 'bg-pager-bg'}`}
+              className={`relative w-10 h-5 border-2 border-terminus-strong transition-colors ${nearMeEnabled ? 'bg-terminus-accent' : 'bg-terminus-bg'}`}
               aria-label="Toggle near me filter"
             >
               <span
                 className={`absolute top-0.5 w-3.5 h-3.5 transition-transform ${
                   nearMeEnabled
-                    ? 'left-5 bg-pager-accent-fg'
-                    : 'left-0.5 bg-pager-fg'
+                    ? 'left-5 bg-terminus-accent-fg'
+                    : 'left-0.5 bg-terminus-fg'
                 }`}
               />
             </button>
@@ -175,21 +175,21 @@ export function ListToolbar({
               <select
                 value={radiusKm}
                 onChange={(e) => onRadiusChange(Number(e.target.value))}
-                className="text-xs pager-input py-1 min-h-[36px] w-auto"
+                className="text-xs terminus-input py-1 min-h-[36px] w-auto"
               >
                 {RADIUS_OPTIONS_KM.map((r) => (
                   <option key={r} value={r}>{r} km</option>
                 ))}
               </select>
             )}
-            {locLoading && <span className="text-xs text-pager-fg-faint">Getting location...</span>}
-            {locError && nearMeEnabled && <span className="text-xs text-pager-fg-muted">{locError}</span>}
+            {locLoading && <span className="text-xs text-terminus-fg-faint">Getting location...</span>}
+            {locError && nearMeEnabled && <span className="text-xs text-terminus-fg-muted">{locError}</span>}
           </label>
           {onClearFilters && (
             <button
               type="button"
               onClick={onClearFilters}
-              className="text-xs font-medium text-pager-fg-muted hover:text-pager-fg underline underline-offset-2 shrink-0"
+              className="text-xs font-medium text-terminus-fg-muted hover:text-terminus-fg underline underline-offset-2 shrink-0"
             >
               Clear all filters
             </button>
@@ -197,11 +197,11 @@ export function ListToolbar({
           <button
             type="button"
             onClick={() => onDateChange(lisbonTodayKey())}
-            className="pager-btn px-3 py-1.5 text-xs uppercase tracking-wider shrink-0"
+            className="terminus-btn px-3 py-1.5 text-xs uppercase tracking-wider shrink-0"
           >
             Today
           </button>
-          <span className="text-xs text-pager-fg-muted shrink-0">
+          <span className="text-xs text-terminus-fg-muted shrink-0">
             {eventCount} event{eventCount !== 1 ? 's' : ''}
             {nearMeEnabled && userPos && ` within ${radiusKm} km`}
           </span>

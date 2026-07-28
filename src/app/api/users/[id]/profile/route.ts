@@ -39,12 +39,13 @@ export async function GET(
       cover_url: string | null
       event_visibility: string | null
       private_mode: boolean | null
+      friends_list_private: boolean | null
     } | null = null
     let profileError: Error | null = null
 
     const { data: profileRow, error: profileErr } = await supabaseServer
       .from('user_profiles')
-      .select('id, display_name, name, avatar_url, bio, username, cover_url, event_visibility, private_mode')
+      .select('id, display_name, name, avatar_url, bio, username, cover_url, event_visibility, private_mode, friends_list_private')
       .eq('id', userId)
       .maybeSingle()
     profile = profileRow
@@ -73,6 +74,7 @@ export async function GET(
             cover_url: null,
             event_visibility: 'public',
             private_mode: false,
+            friends_list_private: false,
           }
           await supabaseServer.from('user_profiles').upsert(
             {
@@ -96,6 +98,8 @@ export async function GET(
 
     const isPrivate = profile.private_mode === true
     const isOwner = viewerId === profile.id
+    const friendsListPrivate = profile.friends_list_private === true
+
     if (isPrivate && !isOwner) {
       return NextResponse.json(
         {
@@ -108,6 +112,7 @@ export async function GET(
           coverUrl: null,
           eventVisibility: 'public',
           friendsCount: 0,
+          friendsListPrivate,
         },
         {
           headers: {
@@ -118,13 +123,16 @@ export async function GET(
       )
     }
 
-    const { data: friendRows } = await supabaseServer
-      .from('friend_requests')
-      .select('id')
-      .eq('status', 'accepted')
-      .or('requester_id.eq.' + userId + ',addressee_id.eq.' + userId)
+    let friendsCount = 0
+    if (isOwner || !friendsListPrivate) {
+      const { data: friendRows } = await supabaseServer
+        .from('friend_requests')
+        .select('id')
+        .eq('status', 'accepted')
+        .or('requester_id.eq.' + userId + ',addressee_id.eq.' + userId)
 
-    const friendsCount = friendRows?.length ?? 0
+      friendsCount = friendRows?.length ?? 0
+    }
 
     const [avatarUrl, coverUrl] = await Promise.all([
       ensureViewableProfileImageUrl(profile.avatar_url),
@@ -141,6 +149,7 @@ export async function GET(
         coverUrl,
         eventVisibility: profile.event_visibility ?? 'public',
         friendsCount,
+        friendsListPrivate,
         isPrivate: false,
       },
       {

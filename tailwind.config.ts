@@ -9,17 +9,17 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        pager: {
-          bg: 'var(--pager-bg)',
-          elevated: 'var(--pager-bg-elevated)',
-          muted: 'var(--pager-bg-muted)',
-          fg: 'var(--pager-fg)',
-          'fg-muted': 'var(--pager-fg-muted)',
-          'fg-faint': 'var(--pager-fg-faint)',
-          border: 'var(--pager-border)',
-          strong: 'var(--pager-border-strong)',
-          accent: 'var(--pager-accent)',
-          'accent-fg': 'var(--pager-accent-fg)',
+        terminus: {
+          bg: 'var(--terminus-bg)',
+          elevated: 'var(--terminus-bg-elevated)',
+          muted: 'var(--terminus-bg-muted)',
+          fg: 'var(--terminus-fg)',
+          'fg-muted': 'var(--terminus-fg-muted)',
+          'fg-faint': 'var(--terminus-fg-faint)',
+          border: 'var(--terminus-border)',
+          strong: 'var(--terminus-border-strong)',
+          accent: 'var(--terminus-accent)',
+          'accent-fg': 'var(--terminus-accent-fg)',
         },
       },
       fontFamily: {

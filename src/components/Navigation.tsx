@@ -2,12 +2,75 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 import { FEATURE_FLAGS } from '@/lib/featureFlags'
 import InviteToAppButton from '@/components/InviteToAppButton'
 import ThemeToggle from '@/components/ThemeToggle'
+
+function NavIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="square"
+      strokeLinejoin="miter"
+      className="inline-block shrink-0"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  )
+}
+
+const ICONS: Record<string, ReactNode> = {
+  foryou: (
+    <NavIcon>
+      <path d="M12 3l2.2 6.8H21l-5.5 4 2.1 6.7L12 16.8 6.4 20.5l2.1-6.7L3 9.8h6.8L12 3z" />
+    </NavIcon>
+  ),
+  calendar: (
+    <NavIcon>
+      <rect x="3" y="5" width="18" height="16" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+    </NavIcon>
+  ),
+  chat: (
+    <NavIcon>
+      <path d="M4 5h16v11H8l-4 3V5z" />
+    </NavIcon>
+  ),
+  venues: (
+    <NavIcon>
+      <path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </NavIcon>
+  ),
+  promoters: (
+    <NavIcon>
+      <path d="M4 10v4l12 3V7L4 10z" />
+      <path d="M16 9.5c2 1 2 4 0 5" />
+      <path d="M9 17v3" />
+    </NavIcon>
+  ),
+  profile: (
+    <NavIcon>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5" />
+    </NavIcon>
+  ),
+  login: (
+    <NavIcon>
+      <path d="M14 4h6v16h-6" />
+      <path d="M10 12H3M7 9l-3 3 3 3" />
+    </NavIcon>
+  ),
+}
 
 export default function Navigation() {
   const { data: session, status } = useSession()
@@ -75,49 +138,55 @@ export default function Navigation() {
     pathname === href || (href !== '/' && pathname.startsWith(href + '/'))
 
   const navLinkClass = (href: string) =>
-    `block md:inline px-3 py-2.5 md:py-1.5 text-xs uppercase tracking-wider border-2 transition-none ${
+    `flex md:inline-flex items-center gap-1.5 px-3 py-2.5 md:py-1.5 text-xs uppercase tracking-wider border-2 transition-none ${
       isActive(href)
-        ? 'bg-pager-accent text-pager-accent-fg border-pager-strong'
-        : 'text-pager-fg border-transparent hover:border-pager-strong hover:bg-pager-muted'
+        ? 'bg-terminus-accent text-terminus-accent-fg border-terminus-strong'
+        : 'text-terminus-fg border-transparent hover:border-terminus-strong hover:bg-terminus-muted'
     }`
 
-  const links = [
-    { href: '/foryou', label: 'For You' },
-    { href: '/calendar', label: 'Calendar' },
-    { href: '/chat', label: 'Chat' },
-    { href: '/venues', label: 'Venues' },
-    { href: '/promoters', label: 'Promoters' },
+  const links: { href: string; label: string; icon: keyof typeof ICONS }[] = [
+    { href: '/foryou', label: 'For You', icon: 'foryou' },
+    { href: '/calendar', label: 'Calendar', icon: 'calendar' },
+    { href: '/chat', label: 'Chat', icon: 'chat' },
+    { href: '/venues', label: 'Venues', icon: 'venues' },
+    { href: '/promoters', label: 'Promoters', icon: 'promoters' },
   ]
 
-  const navLinks = links.map(({ href, label }) =>
-    isProfilePage ? (
+  const navLinks = links.map(({ href, label, icon }) => {
+    const content = (
+      <>
+        {ICONS[icon]}
+        <span>{label}</span>
+      </>
+    )
+    return isProfilePage ? (
       <a key={href} href={href} className={navLinkClass(href)} onClick={closeMenus}>
-        {label}
+        {content}
       </a>
     ) : (
       <Link key={href} href={href} className={navLinkClass(href)} onClick={closeMenus}>
-        {label}
+        {content}
       </Link>
     )
-  )
+  })
 
   const brandClass =
-    'font-pixel text-[10px] sm:text-xs text-pager-fg hover:opacity-80 whitespace-nowrap pager-cursor'
+    'font-pixel text-[10px] sm:text-xs text-terminus-fg hover:opacity-80 whitespace-nowrap terminus-cursor'
 
   return (
-    <nav className="relative bg-pager-elevated border-b-2 border-pager-strong isolate pointer-events-auto">
+    <nav className="relative bg-terminus-elevated border-b-2 border-terminus-strong isolate pointer-events-auto">
       <div className="relative max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="relative z-[80] flex justify-between items-center h-14 md:h-16 gap-3">
           <div className="flex items-center flex-shrink-0 min-w-fit pr-2">
             {isProfilePage ? (
               <a href="/calendar" className={brandClass}>
-                <span className="hidden sm:inline">CITY PAGER</span>
-                <span className="sm:hidden">CP</span>
+                <span className="hidden sm:inline">TERMINUS</span>
+                <span className="sm:hidden">TM</span>
               </a>
             ) : (
               <Link href="/calendar" className={brandClass}>
-                <span className="hidden sm:inline">CITY PAGER</span>
-                <span className="sm:hidden">CP</span>
+                <span className="hidden sm:inline">TERMINUS</span>
+                <span className="sm:hidden">TM</span>
               </Link>
             )}
           </div>
@@ -127,7 +196,7 @@ export default function Navigation() {
             <ThemeToggle className="ml-2" />
             {FEATURE_FLAGS.PROFILE_AUTH &&
               (status === 'loading' && !supabaseConfigured ? (
-                <div className="text-xs text-pager-fg-muted px-2">...</div>
+                <div className="text-xs text-terminus-fg-muted px-2">...</div>
               ) : user ? (
                 <>
                   <Link
@@ -135,9 +204,10 @@ export default function Navigation() {
                     className={`relative ${navLinkClass('/profile')}`}
                     onClick={closeMenus}
                   >
-                    Profile
+                    {ICONS.profile}
+                    <span>Profile</span>
                     {notificationCount > 0 && (
-                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 flex items-center justify-center text-[9px] font-bold bg-pager-accent text-pager-accent-fg border border-pager-strong">
+                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 flex items-center justify-center text-[9px] font-bold bg-terminus-accent text-terminus-accent-fg border border-terminus-strong">
                         {notificationCount > 99 ? '99+' : notificationCount}
                       </span>
                     )}
@@ -145,7 +215,7 @@ export default function Navigation() {
                   <div className="relative">
                     <button
                       onClick={() => setShowMenu(!showMenu)}
-                      className="pager-btn pager-btn-ghost text-[10px] uppercase tracking-wider px-2 py-1.5"
+                      className="terminus-btn terminus-btn-ghost text-[10px] uppercase tracking-wider px-2 py-1.5"
                     >
                       <span className="hidden lg:inline max-w-[140px] truncate">{user.email}</span>
                       <span className="lg:hidden">Menu</span>
@@ -159,16 +229,16 @@ export default function Navigation() {
                           onClick={() => setShowMenu(false)}
                           aria-hidden="true"
                         />
-                        <div className="absolute right-0 mt-2 w-52 pager-panel z-[70] overflow-hidden">
-                          <div className="px-3 py-2 text-[10px] text-pager-fg-muted border-b-2 border-pager-border">
+                        <div className="absolute right-0 mt-2 w-52 terminus-panel z-[70] overflow-hidden">
+                          <div className="px-3 py-2 text-[10px] text-terminus-fg-muted border-b-2 border-terminus-border">
                             {user.email}
                           </div>
                           {user.name && (
-                            <div className="px-3 py-2 text-[10px] text-pager-fg-muted border-b-2 border-pager-border">
+                            <div className="px-3 py-2 text-[10px] text-terminus-fg-muted border-b-2 border-terminus-border">
                               {user.name}
                             </div>
                           )}
-                          <div className="px-2 py-2 border-b-2 border-pager-border">
+                          <div className="px-2 py-2 border-b-2 border-terminus-border">
                             <InviteToAppButton
                               variant="button"
                               className="w-full justify-center"
@@ -185,7 +255,7 @@ export default function Navigation() {
                               }
                               setShowMenu(false)
                             }}
-                            className="w-full text-left px-3 py-2 text-xs uppercase tracking-wider text-pager-fg hover:bg-pager-muted"
+                            className="w-full text-left px-3 py-2 text-xs uppercase tracking-wider text-terminus-fg hover:bg-terminus-muted"
                           >
                             Logout
                           </button>
@@ -197,9 +267,10 @@ export default function Navigation() {
               ) : (
                 <>
                   <Link href="/login" className={navLinkClass('/login')}>
-                    Login
+                    {ICONS.login}
+                    <span>Login</span>
                   </Link>
-                  <Link href="/signup" className="pager-btn pager-btn-primary text-[10px] uppercase tracking-wider px-3 py-1.5 ml-1">
+                  <Link href="/signup" className="terminus-btn terminus-btn-primary text-[10px] uppercase tracking-wider px-3 py-1.5 ml-1">
                     Sign Up
                   </Link>
                 </>
@@ -211,15 +282,16 @@ export default function Navigation() {
             {FEATURE_FLAGS.PROFILE_AUTH && (status !== 'loading' || supabaseConfigured) && !user && (
               <Link
                 href="/login"
-                className="text-[10px] uppercase tracking-wider text-pager-fg px-2 py-2"
+                className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-terminus-fg px-2 py-2"
                 onClick={closeMenus}
               >
-                Login
+                {ICONS.login}
+                <span>Login</span>
               </Link>
             )}
             <button
               onClick={() => setShowMobileNav(!showMobileNav)}
-              className="pager-btn pager-btn-ghost p-2 min-h-[44px] min-w-[44px]"
+              className="terminus-btn terminus-btn-ghost p-2 min-h-[44px] min-w-[44px]"
               aria-label="Toggle menu"
             >
               {showMobileNav ? '✕' : '☰'}
@@ -228,12 +300,12 @@ export default function Navigation() {
         </div>
 
         {showMobileNav && (
-          <div className="md:hidden border-t-2 border-pager-strong bg-pager-elevated">
+          <div className="md:hidden border-t-2 border-terminus-strong bg-terminus-elevated">
             <div className="py-2 px-2 space-y-1">
               {navLinks}
               {FEATURE_FLAGS.PROFILE_AUTH &&
                 (status === 'loading' && !supabaseConfigured ? (
-                  <div className="px-3 py-2 text-xs text-pager-fg-muted">...</div>
+                  <div className="px-3 py-2 text-xs text-terminus-fg-muted">...</div>
                 ) : user ? (
                   <>
                     <Link
@@ -241,9 +313,10 @@ export default function Navigation() {
                       className={navLinkClass('/profile')}
                       onClick={closeMenus}
                     >
-                      Profile
+                      {ICONS.profile}
+                      <span>Profile</span>
                       {notificationCount > 0 && (
-                        <span className="ml-2 text-[10px] bg-pager-accent text-pager-accent-fg px-1">
+                        <span className="ml-1 text-[10px] bg-terminus-accent text-terminus-accent-fg px-1">
                           {notificationCount > 99 ? '99+' : notificationCount}
                         </span>
                       )}
@@ -265,7 +338,7 @@ export default function Navigation() {
                         }
                         setShowMobileNav(false)
                       }}
-                      className="w-full text-left px-3 py-3 text-xs uppercase tracking-wider text-pager-fg hover:bg-pager-muted"
+                      className="w-full text-left px-3 py-3 text-xs uppercase tracking-wider text-terminus-fg hover:bg-terminus-muted"
                     >
                       Logout
                     </button>
@@ -273,7 +346,8 @@ export default function Navigation() {
                 ) : (
                   <>
                     <Link href="/login" className={navLinkClass('/login')} onClick={closeMenus}>
-                      Login
+                      {ICONS.login}
+                      <span>Login</span>
                     </Link>
                     <Link href="/signup" className={navLinkClass('/signup')} onClick={closeMenus}>
                       Sign Up

@@ -1,6 +1,6 @@
-# City Pager — Pipeline, Scrapers & Inteligência AI
+# Terminus — Pipeline, Scrapers & Inteligência AI
 
-**Documento:** 2 de 5 — Pipeline & Extracção  
+**Documento:** 2 de 6 — Pipeline & Extracção  
 **Pacote:** `pipeline/` (Node + tsx, `package.json` próprio)
 
 ---
@@ -44,11 +44,11 @@ Admin `/admin/scrapers` enfileira em `pipeline_runs`; o worker faz claim e corre
 | Posts | `apify/instagram-post-scraper` | `nH2AHrwxeTRJoN5hX` |
 | Profiles | `apify/instagram-profile-scraper` | `dSCLg0C3YEZ83HzYX` |
 
-**Watchlist SoT:** tabs Sheets `Fontes IG - Venues` + `Fontes IG - Promoters` (fallback: `Fontes IG` / `Watchlist` combinado).
+**Watchlist SoT:** catálogo **Venues** + **Promoters** (`instagram_handle` + `is_active`) via `readPipelineWatchlist` — Supabase após mig 025 + seed (`CATALOG_SOURCE` / `WATCHLIST_SOURCE`, default `auto`/`catalog`). Tabs Sheets **Fontes IG** só como fallback legado se o catálogo não tiver handles.
 
 Fluxo scrape:
 
-1. Ler handles activos da Fontes.
+1. Ler handles activos do catálogo (ou Fontes se fallback).
 2. Cutoff incremental (último scrape) ou `--max-age-days`.
 3. Correr Apify (batch ou per-account via `PIPELINE_RUN_MODE`).
 4. Transformar → `EventsRawRow` (`scrapers/instagram-transform.ts`).
@@ -145,7 +145,7 @@ Auto-repair (antes da validação): overnight end rollover, `24:00`→dia seguin
 
 ## 6. Venue resolve & dedupe
 
-**Resolve** (`venue-resolve.ts`): Fontes IG Venues (SoT handles/names) + catálogo Venues. Ordem: extracted name → location → owner **só** se source type=`venue` e não há venue extraído. Promoter/editorial **nunca** vira venue via owner fallback. `venue_unresolved` bloqueia auto-pass.
+**Resolve** (`venue-resolve.ts`): catálogo Venues (Supabase/Sheets) + aliases. Ordem: extracted name → location → owner **só** se source type=`venue` e não há venue extraído. Promoter/editorial **nunca** vira venue via owner fallback. `venue_unresolved` bloqueia auto-pass.
 
 **Candidates** (`pipeline_catalog_candidates`): nomes de venue não resolvidos + `@mentions` desconhecidos → fila humana em `/admin/catalog-candidates` (aprovação escreve em `venues`/`promoters`). Separado da review de eventos.
 
@@ -194,7 +194,8 @@ Credenciais mínimas: `APIFY_API_TOKEN`, `OPENAI_API_KEY`, `SUPABASE_URL` + serv
 | `intelligence/*` | Tiers AI |
 | `qualification/*` | Mandatory fields, validate, venue, dedupe, auto-repair, publish-safe, reconcile, calculated confidence |
 | `sinks/supabase-store.ts` | Persistência pipeline |
-| `sinks/sheets-writer.ts` | Fontes + Processed + Clean |
+| `sinks/sheets-writer.ts` | Processed + Clean (+ profile image URLs no catálogo) |
+| `sinks/catalog-store.ts` | Watchlist + venue/promoter catalog read |
 | `media/*` | Archive imagens evento + profile pics |
 
 ---
@@ -211,4 +212,4 @@ npm run publish
 
 Ou via `/admin/scrapers` com worker online. Monitorizar heartbeat no hub `/admin`.
 
-Runbook vivo no repo: `docs/PIPELINE.md`.
+Runbook vivo no repo: `docs/PIPELINE.md`. Deep dive: `06-inteligencia-infraestrutura.md`.

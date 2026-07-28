@@ -11,7 +11,7 @@ import {
 
 export type ThemeMode = 'day' | 'night'
 
-const STORAGE_KEY = 'pager-theme'
+const STORAGE_KEY = 'terminus-theme'
 
 type ThemeContextValue = {
   theme: ThemeMode

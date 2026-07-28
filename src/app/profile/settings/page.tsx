@@ -17,6 +17,7 @@ interface NotificationSettings {
   notifyPromoters?: boolean
   eventVisibility?: 'public' | 'friends_only'
   privateProfile?: boolean
+  friendsListPrivate?: boolean
 }
 
 export default function ProfileSettingsPage() {
@@ -79,6 +80,7 @@ export default function ProfileSettingsPage() {
               notifyPromoters: data.settings.notify_promoters ?? false,
               eventVisibility: (data.settings.event_visibility as 'public' | 'friends_only') ?? 'public',
               privateProfile: data.settings.private_profile ?? false,
+              friendsListPrivate: data.settings.friends_list_private ?? false,
             })
           } else {
             setSettings({
@@ -91,10 +93,11 @@ export default function ProfileSettingsPage() {
               notifyPromoters: false,
               eventVisibility: 'public',
               privateProfile: false,
+              friendsListPrivate: false,
             })
           }
         })
-        .catch(() => setSettings({ emailEnabled: false, digestFrequency: 'weekly', instantEnabled: false, timezone: 'Europe/Lisbon', notifyVenues: false, notifyPersonas: false, notifyPromoters: false, privateProfile: false }))
+        .catch(() => setSettings({ emailEnabled: false, digestFrequency: 'weekly', instantEnabled: false, timezone: 'Europe/Lisbon', notifyVenues: false, notifyPersonas: false, notifyPromoters: false, privateProfile: false, friendsListPrivate: false }))
         .finally(() => setLoading(false))
     } else {
       setLoading(false)
@@ -148,6 +151,7 @@ export default function ProfileSettingsPage() {
             notify_promoters: updates.notifyPromoters,
             event_visibility: updates.eventVisibility,
             private_profile: updates.privateProfile,
+            friends_list_private: updates.friendsListPrivate,
           }),
         })
         if (response.ok) {
@@ -162,6 +166,7 @@ export default function ProfileSettingsPage() {
             notifyPromoters: newSettings.notify_promoters ?? false,
             eventVisibility: (newSettings.event_visibility as 'public' | 'friends_only') ?? 'public',
             privateProfile: newSettings.private_profile ?? false,
+            friendsListPrivate: newSettings.friends_list_private ?? false,
           })
         }
       } catch (e) {
@@ -172,69 +177,82 @@ export default function ProfileSettingsPage() {
 
   if ((!supabaseConfigured && status === 'loading') || loading) {
     return (
-      <div className="min-h-screen bg-pager-bg flex items-center justify-center pt-24">
-        <div className="text-pager-fg-muted">Loading...</div>
+      <div className="min-h-screen bg-terminus-bg flex items-center justify-center pt-24">
+        <div className="text-terminus-fg-muted">Loading...</div>
       </div>
     )
   }
 
   if (!user) return null
 
+  const checkClass =
+    'rounded-none border-2 border-terminus-strong text-terminus-accent focus:ring-2 focus:ring-terminus-accent w-5 h-5 cursor-pointer bg-terminus-bg'
+
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-pager-bg text-pager-fg">
+    <div className="min-h-screen min-h-[100dvh] bg-terminus-bg text-terminus-fg">
       <div className="max-w-2xl mx-auto p-4 sm:p-6 md:p-8 pt-20 md:pt-28 pb-[calc(2rem+env(safe-area-inset-bottom))]">
         <div className="mb-8 flex items-center gap-4">
           <Link
             href="/profile"
-            className="p-2 rounded-none text-pager-fg-muted hover:bg-pager-elevated hover:text-white transition-colors"
+            className="p-2 rounded-none text-terminus-fg-muted hover:bg-terminus-muted hover:text-terminus-fg transition-colors"
             aria-label="Back to profile"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </Link>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">Settings</h1>
+          <h1 className="font-pixel text-[10px] sm:text-xs text-terminus-fg terminus-cursor">{'> SETTINGS'}</h1>
         </div>
 
         {/* Privacy (Supabase only) */}
         {isSupabaseUser && settings && (
           <section className="mb-10">
-            <h2 className="text-xl font-semibold mb-4 text-pager-fg">Privacy</h2>
-            <div className="p-4 sm:p-6 rounded-none bg-pager-elevated border border-pager-border mb-6">
-              <label className="flex items-center justify-between gap-4 cursor-pointer p-3 rounded-none hover:bg-pager-muted transition-colors">
-                <span className="text-pager-fg">Private profile</span>
+            <h2 className="font-pixel text-[10px] sm:text-xs text-terminus-fg mb-4">{'> PRIVACY'}</h2>
+            <div className="p-4 sm:p-6 terminus-panel mb-6 space-y-1">
+              <label className="flex items-center justify-between gap-4 cursor-pointer p-3 rounded-none hover:bg-terminus-muted transition-colors">
+                <span className="text-terminus-fg">Private profile</span>
                 <input
                   type="checkbox"
                   checked={settings.privateProfile === true}
                   onChange={(e) => handleUpdateSettings({ privateProfile: e.target.checked })}
-                  className="rounded border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50"
+                  className={checkClass}
                 />
               </label>
-              <p className="text-pager-fg-faint text-sm mt-2 px-3">When on, only you can see your profile info (name, bio, photo). Others will see &quot;This profile is private&quot;.</p>
+              <p className="text-terminus-fg-faint text-sm px-3 pb-2">When on, only you can see your profile info (name, bio, photo). Others will see &quot;This profile is private&quot;.</p>
+              <label className="flex items-center justify-between gap-4 cursor-pointer p-3 rounded-none hover:bg-terminus-muted transition-colors">
+                <span className="text-terminus-fg">Private friends list</span>
+                <input
+                  type="checkbox"
+                  checked={settings.friendsListPrivate === true}
+                  onChange={(e) => handleUpdateSettings({ friendsListPrivate: e.target.checked })}
+                  className={checkClass}
+                />
+              </label>
+              <p className="text-terminus-fg-faint text-sm px-3">When on, only you can see your friends list on your profile.</p>
             </div>
-            <h3 className="text-lg font-medium mb-3 text-pager-fg-muted">Event visibility</h3>
-            <div className="p-4 sm:p-6 rounded-none bg-pager-elevated border border-pager-border">
-              <p className="text-pager-fg-muted mb-4">Who can see your Going, Saved, and Liked events on your profile?</p>
+            <h3 className="font-pixel text-[10px] text-terminus-fg-muted mb-3">{'> EVENT VISIBILITY'}</h3>
+            <div className="p-4 sm:p-6 terminus-panel">
+              <p className="text-terminus-fg-muted mb-4 text-sm">Who can see your Going, Saved, and Liked events on your profile?</p>
               <div className="space-y-2">
-                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-none hover:bg-pager-muted transition-colors">
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-none hover:bg-terminus-muted transition-colors">
                   <input
                     type="radio"
                     name="eventVisibility"
                     checked={settings.eventVisibility === 'public'}
                     onChange={() => handleUpdateSettings({ eventVisibility: 'public' })}
-                    className="border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50"
+                    className="border-terminus-strong text-terminus-accent focus:ring-2 focus:ring-terminus-accent"
                   />
-                  <span className="text-pager-fg">Public — anyone can see</span>
+                  <span className="text-terminus-fg">Public — anyone can see</span>
                 </label>
-                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-none hover:bg-pager-muted transition-colors">
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-none hover:bg-terminus-muted transition-colors">
                   <input
                     type="radio"
                     name="eventVisibility"
                     checked={settings.eventVisibility === 'friends_only'}
                     onChange={() => handleUpdateSettings({ eventVisibility: 'friends_only' })}
-                    className="border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50"
+                    className="border-terminus-strong text-terminus-accent focus:ring-2 focus:ring-terminus-accent"
                   />
-                  <span className="text-pager-fg">Friends only — only accepted friends can see</span>
+                  <span className="text-terminus-fg">Friends only — only accepted friends can see</span>
                 </label>
               </div>
             </div>
@@ -243,14 +261,14 @@ export default function ProfileSettingsPage() {
 
         {/* Preferences */}
         <section className="mb-10">
-          <h2 className="text-xl font-semibold mb-4 text-pager-fg">Event preferences</h2>
-          <div className="p-4 sm:p-6 rounded-none bg-pager-elevated border border-pager-border">
-            <p className="text-pager-fg-muted mb-4">
+          <h2 className="font-pixel text-[10px] sm:text-xs text-terminus-fg mb-4">{'> PREFERENCES'}</h2>
+          <div className="p-4 sm:p-6 terminus-panel">
+            <p className="text-terminus-fg-muted mb-4 text-sm">
               Customize what events you see — tags, vibe, free-only, and more.
             </p>
             <Link
               href="/onboarding?edit=1"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-none bg-indigo-600 text-white hover:bg-indigo-500 transition-colors"
+              className="inline-flex items-center gap-2 terminus-btn terminus-btn-primary px-4 py-2 text-xs uppercase tracking-wider"
             >
               Edit preferences
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -262,25 +280,25 @@ export default function ProfileSettingsPage() {
 
         {/* Notifications */}
         <section className="mb-10">
-          <h2 className="text-xl font-semibold mb-4 text-pager-fg">Notifications</h2>
-          <div className="space-y-5 p-4 sm:p-6 rounded-none bg-pager-elevated border border-pager-border">
+          <h2 className="font-pixel text-[10px] sm:text-xs text-terminus-fg mb-4">{'> NOTIFICATIONS'}</h2>
+          <div className="space-y-5 p-4 sm:p-6 terminus-panel">
             {settings && (
               <>
-                <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-none hover:bg-pager-muted transition-colors">
+                <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-none hover:bg-terminus-muted transition-colors">
                   <input
                     type="checkbox"
                     checked={settings.emailEnabled}
                     onChange={(e) => handleUpdateSettings({ emailEnabled: e.target.checked })}
-                    className="rounded border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-pager-bg"
+                    className={checkClass}
                   />
-                  <span className="text-pager-fg group-hover:text-white font-medium">Email notifications</span>
+                  <span className="text-terminus-fg font-medium">Email notifications</span>
                 </label>
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-pager-fg-muted">Digest frequency</label>
+                  <label className="block mb-2 text-sm font-medium text-terminus-fg-muted">Digest frequency</label>
                   <select
                     value={settings.digestFrequency}
                     onChange={(e) => handleUpdateSettings({ digestFrequency: e.target.value as 'daily' | 'weekly' | 'never' })}
-                    className="border border-pager-border rounded-none px-4 py-2.5 bg-pager-bg/80 text-pager-fg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-full"
+                    className="terminus-input"
                   >
                     <option value="daily">Daily</option>
                     <option value="weekly">Weekly</option>
@@ -289,45 +307,45 @@ export default function ProfileSettingsPage() {
                 </div>
                 {isSupabaseUser && (
                   <>
-                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-none hover:bg-pager-muted transition-colors">
+                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-none hover:bg-terminus-muted transition-colors">
                       <input
                         type="checkbox"
                         checked={settings.notifyVenues ?? false}
                         onChange={(e) => handleUpdateSettings({ notifyVenues: e.target.checked })}
-                        className="rounded border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-pager-bg"
+                        className={checkClass}
                       />
-                      <span className="text-pager-fg group-hover:text-white font-medium">Events at venues I follow</span>
+                      <span className="text-terminus-fg font-medium">Events at venues I follow</span>
                     </label>
-                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-none hover:bg-pager-muted transition-colors">
+                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-none hover:bg-terminus-muted transition-colors">
                       <input
                         type="checkbox"
                         checked={settings.notifyPersonas ?? false}
                         onChange={(e) => handleUpdateSettings({ notifyPersonas: e.target.checked })}
-                        className="rounded border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-pager-bg"
+                        className={checkClass}
                       />
-                      <span className="text-pager-fg group-hover:text-white font-medium">Events matching my personas</span>
+                      <span className="text-terminus-fg font-medium">Events matching my personas</span>
                     </label>
-                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-none hover:bg-pager-muted transition-colors">
+                    <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-none hover:bg-terminus-muted transition-colors">
                       <input
                         type="checkbox"
                         checked={settings.notifyPromoters ?? false}
                         onChange={(e) => handleUpdateSettings({ notifyPromoters: e.target.checked })}
-                        className="rounded border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-pager-bg"
+                        className={checkClass}
                       />
-                      <span className="text-pager-fg group-hover:text-white font-medium">Events from promoters I follow</span>
+                      <span className="text-terminus-fg font-medium">Events from promoters I follow</span>
                     </label>
                   </>
                 )}
                 <label className="flex items-center gap-3 cursor-not-allowed p-3 rounded-none opacity-60">
-                  <input type="checkbox" checked={settings.instantEnabled} disabled className="rounded border-pager-border w-5 h-5" />
-                  <span className="text-pager-fg-faint">Instant notifications (coming soon)</span>
+                  <input type="checkbox" checked={settings.instantEnabled} disabled className="rounded-none border-terminus-strong w-5 h-5" />
+                  <span className="text-terminus-fg-faint">Instant notifications (coming soon)</span>
                 </label>
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-pager-fg-muted">Timezone</label>
+                  <label className="block mb-2 text-sm font-medium text-terminus-fg-muted">Timezone</label>
                   <select
                     value={settings.timezone}
                     onChange={(e) => handleUpdateSettings({ timezone: e.target.value })}
-                    className="border border-pager-border rounded-none px-4 py-2.5 bg-pager-bg/80 text-pager-fg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-full"
+                    className="terminus-input"
                   >
                     <option value="Europe/Lisbon">Europe/Lisbon</option>
                     <option value="UTC">UTC</option>
@@ -336,66 +354,57 @@ export default function ProfileSettingsPage() {
               </>
             )}
             {!settings && !isGuest && (
-              <p className="text-pager-fg-muted">Loading notification settings...</p>
+              <p className="text-terminus-fg-muted">Loading notification settings...</p>
             )}
             {isGuest && (
-              <p className="text-pager-fg-faint">Sign in to manage notifications.</p>
+              <p className="text-terminus-fg-faint">Sign in to manage notifications.</p>
             )}
           </div>
         </section>
 
         {/* Connected accounts */}
         <section>
-          <h2 className="text-xl font-semibold mb-4 text-pager-fg">Connected accounts</h2>
-          <div className="space-y-3 p-4 sm:p-6 rounded-none bg-pager-elevated border border-pager-border">
-            <div className="flex items-center justify-between p-3 rounded-none bg-pager-bg/50 border border-pager-border">
+          <h2 className="font-pixel text-[10px] sm:text-xs text-terminus-fg mb-4">{'> CONNECTED'}</h2>
+          <div className="space-y-3 p-4 sm:p-6 terminus-panel">
+            <div className="flex items-center justify-between p-3 rounded-none bg-terminus-bg border-2 border-terminus-border">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-none bg-[#1DB954]/20 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                  </svg>
+                <div className="w-10 h-10 rounded-none border-2 border-terminus-strong bg-terminus-muted flex items-center justify-center text-terminus-fg text-xs font-pixel">
+                  SP
                 </div>
                 <div>
-                  <div className="font-medium text-pager-fg">Spotify</div>
-                  <div className="text-sm text-pager-fg-faint">Link your Spotify for music preferences</div>
+                  <div className="font-medium text-terminus-fg">Spotify</div>
+                  <div className="text-sm text-terminus-fg-faint">Link your Spotify for music preferences</div>
                 </div>
               </div>
-              <button disabled className="px-4 py-2 rounded-none bg-pager-muted text-pager-fg-faint text-sm font-medium cursor-not-allowed">
+              <button disabled className="px-4 py-2 rounded-none bg-terminus-muted text-terminus-fg-faint text-xs uppercase tracking-wider cursor-not-allowed">
                 Coming soon
               </button>
             </div>
-            <div className="flex items-center justify-between p-3 rounded-none bg-pager-bg/50 border border-pager-border">
+            <div className="flex items-center justify-between p-3 rounded-none bg-terminus-bg border-2 border-terminus-border">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-none bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-pink-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073z"/>
-                  </svg>
+                <div className="w-10 h-10 rounded-none border-2 border-terminus-strong bg-terminus-muted flex items-center justify-center text-terminus-fg text-xs font-pixel">
+                  IG
                 </div>
                 <div>
-                  <div className="font-medium text-pager-fg">Instagram</div>
-                  <div className="text-sm text-pager-fg-faint">Connect your Instagram account</div>
+                  <div className="font-medium text-terminus-fg">Instagram</div>
+                  <div className="text-sm text-terminus-fg-faint">Connect your Instagram account</div>
                 </div>
               </div>
-              <button disabled className="px-4 py-2 rounded-none bg-pager-muted text-pager-fg-faint text-sm font-medium cursor-not-allowed">
+              <button disabled className="px-4 py-2 rounded-none bg-terminus-muted text-terminus-fg-faint text-xs uppercase tracking-wider cursor-not-allowed">
                 Coming soon
               </button>
             </div>
-            <div className="flex items-center justify-between p-3 rounded-none bg-pager-bg/50 border border-pager-border">
+            <div className="flex items-center justify-between p-3 rounded-none bg-terminus-bg border-2 border-terminus-border">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-none bg-[#4285F4]/20 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-[#4285F4]" viewBox="0 0 24 24">
-                    <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                  </svg>
+                <div className="w-10 h-10 rounded-none border-2 border-terminus-strong bg-terminus-muted flex items-center justify-center text-terminus-fg text-xs font-pixel">
+                  G
                 </div>
                 <div>
-                  <div className="font-medium text-pager-fg">Google</div>
-                  <div className="text-sm text-pager-fg-faint">Link Google Calendar & account</div>
+                  <div className="font-medium text-terminus-fg">Google</div>
+                  <div className="text-sm text-terminus-fg-faint">Link Google Calendar & account</div>
                 </div>
               </div>
-              <button disabled className="px-4 py-2 rounded-none bg-pager-muted text-pager-fg-faint text-sm font-medium cursor-not-allowed">
+              <button disabled className="px-4 py-2 rounded-none bg-terminus-muted text-terminus-fg-faint text-xs uppercase tracking-wider cursor-not-allowed">
                 Coming soon
               </button>
             </div>

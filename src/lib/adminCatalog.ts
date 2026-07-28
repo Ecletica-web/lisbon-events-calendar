@@ -1,10 +1,14 @@
 /**
  * Admin + app catalog access for Supabase venues / promoters tables.
  * Service-role writes after requireAdmin; public SELECT via RLS for reads.
+ * Admin list APIs fall back to Sheets/CSV when migration 025 is missing or empty.
  */
 
 import 'server-only'
 import { supabaseServer } from '@/lib/supabase/server'
+import { loadVenues, normalizeVenue } from '@/data/loaders/venuesLoader'
+import { normalizePromoter } from '@/data/loaders/promotersLoader'
+import { readCatalogTabRows } from '@/lib/googleSheets'
 import type { Venue } from '@/models/Venue'
 import type { Promoter } from '@/models/Promoter'
 
@@ -114,41 +118,182 @@ function promoterFromRow(r: PromoterRow): Promoter {
   }
 }
 
+export type CatalogListSource = 'supabase' | 'sheets'
+
+export type CatalogListResult<T> = {
+  rows: T[]
+  source: CatalogListSource
+  warning?: string
+}
+
+const MIGRATION_025_HINT =
+  'Apply supabase/migrations/025_catalog_venues_promoters.sql in the Supabase SQL Editor, then run: cd pipeline && npm run seed-catalog'
+
+function isMissingRelationError(message: string): boolean {
+  return /schema cache|does not exist|Could not find the table/i.test(message)
+}
+
+async function loadVenuesFromSheets(opts?: { activeOnly?: boolean }): Promise<Venue[]> {
+  let venues: Venue[] = []
+  const fromCsv = await loadVenues(process.env.NEXT_PUBLIC_VENUES_CSV_URL)
+  venues = fromCsv.venues
+  if (venues.length === 0) {
+    const { rows } = await readCatalogTabRows('venues')
+    venues = rows
+      .map((row) => normalizeVenue(row))
+      .filter((v): v is Venue => v != null)
+  }
+  if (opts?.activeOnly) return venues.filter((v) => v.is_active !== false)
+  return venues
+}
+
+async function loadPromotersFromSheets(opts?: { activeOnly?: boolean }): Promise<Promoter[]> {
+  let promoters: Promoter[] = []
+  const csvUrl = process.env.NEXT_PUBLIC_PROMOTERS_CSV_URL
+  if (csvUrl) {
+    try {
+      const res = await fetch(csvUrl, { cache: 'no-store' })
+      if (res.ok) {
+        let text = await res.text()
+        if (text.charCodeAt(0) === 0xfeff) text = text.slice(1)
+        const Papa = (await import('papaparse')).default
+        const parsed = Papa.parse<Record<string, string>>(text, {
+          header: true,
+          skipEmptyLines: true,
+        })
+        promoters = (parsed.data || [])
+          .map((row) => normalizePromoter(row))
+          .filter((p): p is Promoter => p != null)
+      }
+    } catch (err) {
+      console.warn('[adminCatalog] promoters CSV:', err)
+    }
+  }
+  if (promoters.length === 0) {
+    const { rows } = await readCatalogTabRows('promoters')
+    promoters = rows
+      .map((row) => normalizePromoter(row))
+      .filter((p): p is Promoter => p != null)
+  }
+  if (opts?.activeOnly) return promoters.filter((p) => p.is_active !== false)
+  return promoters
+}
+
 export async function countCatalogRows(): Promise<{ venues: number; promoters: number }> {
   if (!supabaseServer) return { venues: 0, promoters: 0 }
   const [v, p] = await Promise.all([
     supabaseServer.from('venues').select('venue_id', { count: 'exact', head: true }),
     supabaseServer.from('promoters').select('promoter_id', { count: 'exact', head: true }),
   ])
+  if (v.error || p.error) return { venues: 0, promoters: 0 }
   return { venues: v.count ?? 0, promoters: p.count ?? 0 }
 }
 
 export async function loadCatalogVenues(opts?: {
   activeOnly?: boolean
 }): Promise<Venue[]> {
-  if (!supabaseServer) return []
-  let q = supabaseServer.from('venues').select('*').order('name')
-  if (opts?.activeOnly) q = q.eq('is_active', true)
-  const { data, error } = await q
-  if (error) {
-    console.warn('[adminCatalog] load venues:', error.message)
-    return []
-  }
-  return ((data as VenueRow[]) || []).map(venueFromRow)
+  const { rows } = await loadCatalogVenuesWithFallback(opts)
+  return rows
 }
 
 export async function loadCatalogPromoters(opts?: {
   activeOnly?: boolean
 }): Promise<Promoter[]> {
-  if (!supabaseServer) return []
-  let q = supabaseServer.from('promoters').select('*').order('name')
-  if (opts?.activeOnly) q = q.eq('is_active', true)
-  const { data, error } = await q
-  if (error) {
-    console.warn('[adminCatalog] load promoters:', error.message)
-    return []
+  const { rows } = await loadCatalogPromotersWithFallback(opts)
+  return rows
+}
+
+/** Prefer Supabase catalog; fall back to published CSV when tables missing/empty. */
+export async function loadCatalogVenuesWithFallback(opts?: {
+  activeOnly?: boolean
+}): Promise<CatalogListResult<Venue>> {
+  if (supabaseServer) {
+    let q = supabaseServer.from('venues').select('*').order('name')
+    if (opts?.activeOnly) q = q.eq('is_active', true)
+    const { data, error } = await q
+    if (!error) {
+      const rows = ((data as VenueRow[]) || []).map(venueFromRow)
+      if (rows.length > 0 || getCatalogSource() === 'supabase') {
+        return {
+          rows,
+          source: 'supabase',
+          warning:
+            rows.length === 0
+              ? 'Supabase venues table is empty — run: cd pipeline && npm run seed-catalog'
+              : undefined,
+        }
+      }
+    } else {
+      console.warn('[adminCatalog] load venues:', error.message)
+      if (!isMissingRelationError(error.message) && getCatalogSource() === 'supabase') {
+        return { rows: [], source: 'supabase', warning: error.message }
+      }
+      const sheets = await loadVenuesFromSheets(opts)
+      return {
+        rows: sheets,
+        source: 'sheets',
+        warning: isMissingRelationError(error.message)
+          ? MIGRATION_025_HINT
+          : `Supabase venues unavailable (${error.message}); showing Sheets/CSV.`,
+      }
+    }
   }
-  return ((data as PromoterRow[]) || []).map(promoterFromRow)
+
+  const sheets = await loadVenuesFromSheets(opts)
+  return {
+    rows: sheets,
+    source: 'sheets',
+    warning:
+      sheets.length > 0
+        ? 'Showing Sheets/CSV fallback — Supabase catalog empty or unavailable. ' + MIGRATION_025_HINT
+        : MIGRATION_025_HINT,
+  }
+}
+
+export async function loadCatalogPromotersWithFallback(opts?: {
+  activeOnly?: boolean
+}): Promise<CatalogListResult<Promoter>> {
+  if (supabaseServer) {
+    let q = supabaseServer.from('promoters').select('*').order('name')
+    if (opts?.activeOnly) q = q.eq('is_active', true)
+    const { data, error } = await q
+    if (!error) {
+      const rows = ((data as PromoterRow[]) || []).map(promoterFromRow)
+      if (rows.length > 0 || getCatalogSource() === 'supabase') {
+        return {
+          rows,
+          source: 'supabase',
+          warning:
+            rows.length === 0
+              ? 'Supabase promoters table is empty — run: cd pipeline && npm run seed-catalog'
+              : undefined,
+        }
+      }
+    } else {
+      console.warn('[adminCatalog] load promoters:', error.message)
+      if (!isMissingRelationError(error.message) && getCatalogSource() === 'supabase') {
+        return { rows: [], source: 'supabase', warning: error.message }
+      }
+      const sheets = await loadPromotersFromSheets(opts)
+      return {
+        rows: sheets,
+        source: 'sheets',
+        warning: isMissingRelationError(error.message)
+          ? MIGRATION_025_HINT
+          : `Supabase promoters unavailable (${error.message}); showing Sheets/CSV.`,
+      }
+    }
+  }
+
+  const sheets = await loadPromotersFromSheets(opts)
+  return {
+    rows: sheets,
+    source: 'sheets',
+    warning:
+      sheets.length > 0
+        ? 'Showing Sheets/CSV fallback — Supabase catalog empty or unavailable. ' + MIGRATION_025_HINT
+        : MIGRATION_025_HINT,
+  }
 }
 
 export type VenueUpsertInput = {
@@ -229,7 +374,10 @@ export async function upsertVenue(input: VenueUpsertInput): Promise<Venue> {
     .upsert(row, { onConflict: 'venue_id' })
     .select('*')
     .single()
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (isMissingRelationError(error.message)) throw new Error(MIGRATION_025_HINT)
+    throw new Error(error.message)
+  }
   return venueFromRow(data as VenueRow)
 }
 
@@ -256,7 +404,10 @@ export async function upsertPromoter(input: PromoterUpsertInput): Promise<Promot
     .upsert(row, { onConflict: 'promoter_id' })
     .select('*')
     .single()
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (isMissingRelationError(error.message)) throw new Error(MIGRATION_025_HINT)
+    throw new Error(error.message)
+  }
   return promoterFromRow(data as PromoterRow)
 }
 
@@ -266,7 +417,10 @@ export async function setVenueActive(venueId: string, isActive: boolean): Promis
     .from('venues')
     .update({ is_active: isActive, updated_at: new Date().toISOString() })
     .eq('venue_id', venueId)
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (isMissingRelationError(error.message)) throw new Error(MIGRATION_025_HINT)
+    throw new Error(error.message)
+  }
 }
 
 export async function setPromoterActive(promoterId: string, isActive: boolean): Promise<void> {
@@ -275,7 +429,10 @@ export async function setPromoterActive(promoterId: string, isActive: boolean): 
     .from('promoters')
     .update({ is_active: isActive, updated_at: new Date().toISOString() })
     .eq('promoter_id', promoterId)
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (isMissingRelationError(error.message)) throw new Error(MIGRATION_025_HINT)
+    throw new Error(error.message)
+  }
 }
 
 /** Derived scrape watchlist from Supabase catalog. */

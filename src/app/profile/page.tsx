@@ -237,34 +237,36 @@ export default function ProfilePage() {
 
   if ((!supabaseConfigured && status === 'loading') || loading) {
     return (
-      <div className="min-h-screen bg-pager-bg flex flex-col items-center justify-center gap-4 pt-24">
-        <div className="text-pager-fg-muted">Loading...</div>
-        <a href="/calendar" className="text-pager-fg-faint hover:text-indigo-400 text-sm">Back to Calendar</a>
+      <div className="min-h-screen bg-terminus-bg flex flex-col items-center justify-center gap-4 pt-24">
+        <div className="text-terminus-fg-muted font-mono text-sm">Loading...</div>
+        <a href="/calendar" className="terminus-link text-sm">Back to Calendar</a>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-pager-bg flex flex-col items-center justify-center gap-4 p-4">
-        <p className="text-pager-fg-muted">Sign in to view your profile.</p>
+      <div className="min-h-screen bg-terminus-bg flex flex-col items-center justify-center gap-4 p-4">
+        <p className="text-terminus-fg-muted">Sign in to view your profile.</p>
         <div className="flex gap-4">
-          <a href="/calendar" className="text-indigo-400 hover:underline">Back to Calendar</a>
-          <a href="/login" className="text-pager-fg-muted hover:underline">Sign in</a>
+          <a href="/calendar" className="terminus-link">Back to Calendar</a>
+          <a href="/login" className="text-terminus-fg-muted hover:text-terminus-fg underline">Sign in</a>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-pager-bg text-pager-fg relative z-0 isolate pointer-events-auto">
+    <div className="min-h-screen min-h-[100dvh] bg-terminus-bg text-terminus-fg relative z-0 isolate pointer-events-auto">
       <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 pt-2 pb-[calc(2rem+env(safe-area-inset-bottom))] relative z-10">
+        <h1 className="font-pixel text-[10px] sm:text-xs text-terminus-fg mb-4 terminus-cursor">{'> PROFILE'}</h1>
+
         {/* Profile header with cover & avatar (Supabase) */}
         {isSupabaseUser && user && (
           <div className="mb-8 -mx-4 sm:-mx-6 md:-mx-8">
             {/* Cover only – no text on top (z-0 so avatar strip can sit on top) */}
-            <div className="relative z-0 h-32 sm:h-40 md:h-48 bg-pager-elevated overflow-hidden rounded-b-[3rem] sm:rounded-b-[4rem]">
-              <div className="absolute inset-0 bg-pager-muted" />
+            <div className="relative z-0 h-32 sm:h-40 md:h-48 bg-terminus-elevated overflow-hidden border-b-2 border-terminus-strong">
+              <div className="absolute inset-0 bg-terminus-muted" />
               {profileData?.coverUrl && (
                 <img
                   src={profileData.coverUrl}
@@ -276,37 +278,37 @@ export default function ProfilePage() {
               )}
             </div>
             {/* Name, username, bio and actions in a solid strip (z-10 so avatar overlaps on top of cover) */}
-            <div className="relative z-10 bg-pager-bg px-4 sm:px-6 md:px-8 pt-0 pb-5 rounded-b-2xl border-b border-pager-border -mt-px">
+            <div className="relative z-10 bg-terminus-bg px-4 sm:px-6 md:px-8 pt-0 pb-5 border-b-2 border-terminus-border -mt-px">
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
                 {profileData?.avatarUrl && !avatarError ? (
                   <img
                     src={profileData.avatarUrl}
                     alt=""
-                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-none border-4 border-slate-900 object-cover bg-pager-muted flex-shrink-0 -mt-14 sm:-mt-16"
+                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-none border-4 border-terminus-bg object-cover bg-terminus-muted flex-shrink-0 -mt-14 sm:-mt-16"
                     referrerPolicy="no-referrer"
                     onError={() => setAvatarError(true)}
                   />
                 ) : (
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-none border-4 border-slate-900 bg-pager-muted flex items-center justify-center text-3xl sm:text-4xl font-bold text-pager-fg-muted flex-shrink-0 -mt-14 sm:-mt-16">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-none border-4 border-terminus-bg bg-terminus-muted flex items-center justify-center text-3xl sm:text-4xl font-bold text-terminus-fg-muted flex-shrink-0 -mt-14 sm:-mt-16">
                     {(profileData?.displayName || user.name || user.email || '?')[0].toUpperCase()}
                   </div>
                 )}
                 <div className="flex-1 pb-1 sm:pt-2">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-white">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-terminus-fg">
                     {profileData?.displayName || user.name || 'Profile'}
-                  </h1>
+                  </h2>
                   {profileData?.username && (
-                    <p className="text-pager-fg-muted">@{profileData.username}</p>
+                    <p className="text-terminus-fg-muted font-mono text-sm">@{profileData.username}</p>
                   )}
                   <div className="flex items-start gap-2 mt-2">
-                    <p className="text-pager-fg-muted text-sm max-w-xl flex-1">
+                    <p className="text-terminus-fg-muted text-sm max-w-xl flex-1">
                       {profileData?.bio || (
-                        <span className="text-pager-fg-faint italic">Add a bio...</span>
+                        <span className="text-terminus-fg-faint italic">Add a bio...</span>
                       )}
                     </p>
                     <button
                       onClick={() => setShowEditForm(true)}
-                      className="p-1 rounded text-pager-fg-faint hover:text-indigo-400 hover:bg-pager-muted transition-colors flex-shrink-0"
+                      className="p-1 rounded-none text-terminus-fg-faint hover:text-terminus-fg hover:bg-terminus-muted transition-colors flex-shrink-0"
                       title="Edit bio"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -318,7 +320,7 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-2 self-start sm:self-end flex-wrap">
                   <Link
                     href="/profile/settings"
-                    className="p-2 rounded-none border border-pager-border text-pager-fg-muted hover:bg-pager-muted/80 hover:text-white transition-colors"
+                    className="p-2 rounded-none border-2 border-terminus-strong text-terminus-fg-muted hover:bg-terminus-muted hover:text-terminus-fg transition-colors"
                     title="Settings"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -335,7 +337,7 @@ export default function ProfilePage() {
                   )}
                   <button
                     onClick={() => setShowEditForm(!showEditForm)}
-                    className="px-4 py-2 rounded-none border border-pager-border text-pager-fg-muted hover:bg-pager-muted/80 hover:text-white transition-colors text-sm font-medium"
+                    className="terminus-btn text-xs uppercase tracking-wider px-4 py-2"
                   >
                     {showEditForm ? 'Cancel' : 'Edit profile'}
                   </button>
@@ -348,22 +350,19 @@ export default function ProfilePage() {
         {/* Classic header (NextAuth / non-Supabase) */}
         {!isSupabaseUser && (
           <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-            <h1 className="pager-heading mb-3">PROFILE</h1>
-            <div className="text-pager-fg-muted space-y-1">
-              <div className="font-medium">
-                Email: <span className="text-pager-fg">{user.email}</span>
+            <div className="text-terminus-fg-muted space-y-1 font-mono text-sm">
+              <div>
+                Email: <span className="text-terminus-fg">{user.email}</span>
               </div>
               {user.name && (
-                <div className="font-medium">
-                  Name: <span className="text-pager-fg">{user.name}</span>
+                <div>
+                  Name: <span className="text-terminus-fg">{user.name}</span>
                 </div>
               )}
             </div>
-            </div>
             <Link
               href="/profile/settings"
-              className="p-2 rounded-none border border-pager-border text-pager-fg-muted hover:bg-pager-muted/80 hover:text-white transition-colors self-start"
+              className="p-2 rounded-none border-2 border-terminus-strong text-terminus-fg-muted hover:bg-terminus-muted hover:text-terminus-fg transition-colors self-start"
               title="Settings"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -376,8 +375,8 @@ export default function ProfilePage() {
 
         {/* Profile edit form (Supabase) */}
         {isSupabaseUser && showEditForm && user && (
-          <div className="mb-8 p-6 rounded-none bg-pager-elevated border border-pager-border">
-            <h2 className="text-lg font-semibold mb-4 text-pager-fg">Edit profile</h2>
+          <div className="mb-8 p-6 terminus-panel">
+            <h2 className="font-pixel text-[10px] sm:text-xs text-terminus-fg mb-4">{'> EDIT'}</h2>
             <ProfileEditForm
               initialCoverUrl={profileData?.coverUrl}
               initialAvatarUrl={profileData?.avatarUrl}
@@ -413,7 +412,7 @@ export default function ProfilePage() {
         {isSupabaseUser && profileData && (
           <div className="mb-8">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-              <h2 className="text-xl sm:text-2xl font-semibold text-pager-fg">Friends</h2>
+              <h2 className="font-pixel text-[10px] sm:text-xs text-terminus-fg">{'> FRIENDS'}</h2>
               <InviteToAppButton variant="link" profileUserId={profileData.id} />
             </div>
             <ProfileFriendsSection
@@ -428,13 +427,13 @@ export default function ProfilePage() {
         )}
 
         {isGuest && !isSupabaseUser && (
-          <div className="mb-6 p-4 bg-pager-elevated border border-pager-border rounded-none">
-            <p className="text-pager-fg-muted text-sm">
+          <div className="mb-6 p-4 terminus-panel">
+            <p className="text-terminus-fg-muted text-sm">
               You're browsing as a guest. Sign in or create an account to save views, create personas, and follow venues or tags.
             </p>
             <Link
               href="/login"
-              className="inline-block mt-3 px-4 py-2 pager-btn pager-btn-primary text-xs uppercase tracking-wider"
+              className="inline-block mt-3 px-4 py-2 terminus-btn terminus-btn-primary text-xs uppercase tracking-wider"
             >
               Sign in
             </Link>
@@ -442,16 +441,16 @@ export default function ProfilePage() {
         )}
 
         {showImportPrompt && !isGuest && (
-          <div className="mb-6 p-4 bg-indigo-900/30 border border-indigo-700/50 rounded-none">
-            <p className="mb-2 text-pager-fg">You have saved views in local storage. Import them to your account?</p>
+          <div className="mb-6 p-4 terminus-panel">
+            <p className="mb-2 text-terminus-fg">You have saved views in local storage. Import them to your account?</p>
             <div className="flex flex-col sm:flex-row gap-2">
               <button
                 onClick={handleImportLocalViews}
-                className="min-h-[44px] px-4 py-2 bg-indigo-600 text-white rounded-none hover:bg-indigo-500 transition-colors"
+                className="min-h-[44px] px-4 py-2 terminus-btn terminus-btn-primary text-xs uppercase tracking-wider"
               >
                 Import Views
               </button>
-              <button onClick={() => setShowImportPrompt(false)} className="min-h-[44px] px-4 py-2 bg-pager-muted text-pager-fg rounded-none hover:bg-slate-600 transition-colors">
+              <button onClick={() => setShowImportPrompt(false)} className="min-h-[44px] px-4 py-2 terminus-btn text-xs uppercase tracking-wider">
                 Dismiss
               </button>
             </div>
@@ -461,21 +460,21 @@ export default function ProfilePage() {
         {/* My Saved Views (NextAuth only) */}
         {!isGuest && !isSupabaseUser && (
           <div className="mb-8">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-pager-fg">My Saved Views</h2>
+            <h2 className="font-pixel text-[10px] sm:text-xs text-terminus-fg mb-4">{'> SAVED VIEWS'}</h2>
             {savedViews.length === 0 ? (
-              <p className="text-pager-fg-faint">No saved views yet. Save views from the calendar sidebar.</p>
+              <p className="text-terminus-fg-faint">No saved views yet. Save views from the calendar sidebar.</p>
             ) : (
               <div className="space-y-2">
                 {savedViews.map((v) => (
                   <div
                     key={v.id}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-none bg-pager-elevated border border-pager-border hover:border-pager-border transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 terminus-panel hover:bg-terminus-muted transition-colors"
                   >
-                    <Link href={`/calendar?viewId=${v.id}`} className="font-medium text-indigo-400 hover:text-indigo-300">
+                    <Link href={`/calendar?viewId=${v.id}`} className="font-medium terminus-link">
                       {v.name}
                     </Link>
                     {v.is_public && v.share_slug && (
-                      <Link href={`/v/${v.share_slug}`} className="text-xs text-pager-fg-muted hover:text-indigo-400">
+                      <Link href={`/v/${v.share_slug}`} className="text-xs text-terminus-fg-muted hover:text-terminus-fg">
                         Share link
                       </Link>
                     )}
@@ -525,9 +524,9 @@ export default function ProfilePage() {
         {/* Follows Section (NextAuth) */}
         {!isSupabaseUser && (
         <div className="mb-8">
-          <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-pager-fg">Follows</h2>
+          <h2 className="font-pixel text-[10px] sm:text-xs text-terminus-fg mb-4">{'> FOLLOWS'}</h2>
           {follows.length === 0 ? (
-            <p className="text-pager-fg-faint">
+            <p className="text-terminus-fg-faint">
               No follows yet. Follow venues from event cards or venue pages, and follow tags from event details.
             </p>
           ) : (
@@ -535,17 +534,17 @@ export default function ProfilePage() {
               {follows.map((follow) => (
                 <div
                   key={follow.id}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-none bg-pager-elevated border border-pager-border"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 terminus-panel"
                 >
                   <div>
-                    <span className="text-xs text-pager-fg-faint uppercase">{follow.type}</span>
-                    <div className="font-medium text-pager-fg">{follow.displayValue}</div>
-                    <div className="text-sm text-pager-fg-faint">{follow.normalizedValue}</div>
+                    <span className="text-xs text-terminus-fg-faint uppercase">{follow.type}</span>
+                    <div className="font-medium text-terminus-fg">{follow.displayValue}</div>
+                    <div className="text-sm text-terminus-fg-faint">{follow.normalizedValue}</div>
                   </div>
                   {!isGuest && (
                     <button
                       onClick={() => handleDeleteFollow(follow.id)}
-                      className="min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1 text-sm text-red-400 hover:bg-red-900/30 rounded-none transition-colors self-start sm:self-center"
+                      className="min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1 text-sm text-terminus-fg-muted hover:bg-terminus-muted rounded-none transition-colors self-start sm:self-center"
                     >
                       Unfollow
                     </button>
@@ -560,25 +559,25 @@ export default function ProfilePage() {
         {/* Notification Settings (NextAuth only) */}
         {!isGuest && !isSupabaseUser && (
           <div className="mb-8">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-5 text-pager-fg">Notification Settings</h2>
+            <h2 className="font-pixel text-[10px] sm:text-xs text-terminus-fg mb-5">{'> NOTIFICATIONS'}</h2>
             {settings && (
-              <div className="space-y-5 p-4 sm:p-6 rounded-none bg-pager-elevated border border-pager-border">
-                <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-none hover:bg-pager-muted transition-colors">
+              <div className="space-y-5 p-4 sm:p-6 terminus-panel">
+                <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-none hover:bg-terminus-muted transition-colors">
                   <input
                     type="checkbox"
                     checked={settings.emailEnabled}
                     onChange={(e) => handleUpdateSettings({ emailEnabled: e.target.checked })}
-                    className="rounded border-pager-border text-indigo-600 focus:ring-2 focus:ring-indigo-500/50 w-5 h-5 cursor-pointer bg-pager-bg"
+                    className="rounded-none border-terminus-strong text-terminus-accent focus:ring-2 focus:ring-terminus-accent w-5 h-5 cursor-pointer bg-terminus-bg"
                   />
-                  <span className="text-pager-fg group-hover:text-white font-medium">Enable email notifications</span>
+                  <span className="text-terminus-fg group-hover:text-terminus-fg font-medium">Enable email notifications</span>
                 </label>
 
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-pager-fg-muted">Digest Frequency</label>
+                  <label className="block mb-2 text-sm font-medium text-terminus-fg-muted">Digest Frequency</label>
                   <select
                     value={settings.digestFrequency}
                     onChange={(e) => handleUpdateSettings({ digestFrequency: e.target.value as 'daily' | 'weekly' | 'never' })}
-                    className="border border-pager-border rounded-none px-4 py-2.5 bg-pager-bg/80 text-pager-fg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-full"
+                    className="terminus-input"
                   >
                     <option value="daily">Daily</option>
                     <option value="weekly">Weekly</option>
@@ -587,16 +586,16 @@ export default function ProfilePage() {
                 </div>
 
                 <label className="flex items-center gap-3 cursor-not-allowed p-3 rounded-none opacity-60">
-                  <input type="checkbox" checked={settings.instantEnabled} disabled className="rounded border-pager-border w-5 h-5" />
-                  <span className="text-pager-fg-faint">Instant notifications (coming soon)</span>
+                  <input type="checkbox" checked={settings.instantEnabled} disabled className="rounded-none border-terminus-strong w-5 h-5" />
+                  <span className="text-terminus-fg-faint">Instant notifications (coming soon)</span>
                 </label>
 
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-pager-fg-muted">Timezone</label>
+                  <label className="block mb-2 text-sm font-medium text-terminus-fg-muted">Timezone</label>
                   <select
                     value={settings.timezone}
                     onChange={(e) => handleUpdateSettings({ timezone: e.target.value })}
-                    className="border border-pager-border rounded-none px-4 py-2.5 bg-pager-bg/80 text-pager-fg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-full"
+                    className="terminus-input"
                   >
                     <option value="Europe/Lisbon">Europe/Lisbon</option>
                     <option value="UTC">UTC</option>

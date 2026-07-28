@@ -88,10 +88,10 @@ export default function VenueDetailPage() {
 
   if (!venue && upcomingEvents.length === 0 && !loading) {
     return (
-      <div className="min-h-screen bg-pager-bg text-pager-fg flex items-center justify-center">
+      <div className="min-h-screen bg-terminus-bg text-terminus-fg flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-xl font-bold mb-4">Venue not found</h1>
-          <Link href="/venues" className="pager-link">
+          <Link href="/venues" className="terminus-link">
             ← Back to Venues
           </Link>
         </div>
@@ -103,14 +103,14 @@ export default function VenueDetailPage() {
     new Intl.DateTimeFormat('en-GB', { dateStyle: 'full', timeStyle: 'short', timeZone: 'Europe/Lisbon' }).format(d)
 
   return (
-    <div className="min-h-screen bg-pager-bg text-pager-fg">
+    <div className="min-h-screen bg-terminus-bg text-terminus-fg">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <Link href="/venues" className="inline-flex items-center gap-2 pager-link mb-6">
+        <Link href="/venues" className="inline-flex items-center gap-2 terminus-link mb-6">
           ← Back to Venues
         </Link>
 
-        <div className="mb-6 sm:mb-8 border-2 border-pager-strong bg-pager-elevated overflow-hidden">
-          <div className="aspect-[16/10] sm:aspect-[21/9] bg-pager-muted flex-shrink-0">
+        <div className="mb-6 sm:mb-8 border-2 border-terminus-strong bg-terminus-elevated overflow-hidden">
+          <div className="aspect-[16/10] sm:aspect-[21/9] bg-terminus-muted flex-shrink-0">
             <img
               src={heroSrc}
               alt=""
@@ -123,7 +123,7 @@ export default function VenueDetailPage() {
           </div>
           <div className="p-4 sm:p-6">
             <div className="flex items-center gap-3 flex-wrap mb-2">
-              <h1 className="text-2xl font-bold pager-heading">{displayName}</h1>
+              <h1 className="text-2xl font-bold terminus-heading">{displayName}</h1>
               <FollowVenueButton
                 venueId={(venue?.venue_id || venue?.slug || slug).toString()}
                 displayName={displayName}
@@ -132,12 +132,12 @@ export default function VenueDetailPage() {
               />
             </div>
             {(venue?.neighborhood || venue?.venue_address) && (
-              <p className="text-pager-fg-muted">
+              <p className="text-terminus-fg-muted">
                 {[venue?.neighborhood, venue?.venue_address].filter(Boolean).join(' · ')}
               </p>
             )}
             {venue?.description_short && (
-              <p className="text-pager-fg-muted mt-3">{venue.description_short}</p>
+              <p className="text-terminus-fg-muted mt-3">{venue.description_short}</p>
             )}
             <div className="flex flex-wrap gap-4 mt-4">
               {venue?.website_url && (
@@ -145,7 +145,7 @@ export default function VenueDetailPage() {
                   href={venue.website_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="pager-link text-sm font-medium"
+                  className="terminus-link text-sm font-medium"
                 >
                   Website
                 </a>
@@ -155,7 +155,7 @@ export default function VenueDetailPage() {
                   href={`https://instagram.com/${venue.instagram_handle.replace(/^@/, '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="pager-link text-sm font-medium"
+                  className="terminus-link text-sm font-medium"
                 >
                   Instagram
                 </a>
@@ -167,9 +167,9 @@ export default function VenueDetailPage() {
         <h2 className="text-lg font-semibold mb-4">Upcoming events</h2>
 
         {loading ? (
-          <div className="text-pager-fg-muted">Loading events...</div>
+          <div className="text-terminus-fg-muted">Loading events...</div>
         ) : upcomingEvents.length === 0 ? (
-          <p className="text-pager-fg-muted">No upcoming events at this venue.</p>
+          <p className="text-terminus-fg-muted">No upcoming events at this venue.</p>
         ) : (
           <ul className="space-y-4">
             {upcomingEvents.map((event) => {
@@ -184,23 +184,23 @@ export default function VenueDetailPage() {
                     logActivity('view_event_modal', 'event', event.id, { title: event.title })
                   }}
                   onKeyDown={(e) => e.key === 'Enter' && setSelectedEvent(event)}
-                  className="border-2 border-pager-border bg-pager-elevated overflow-hidden cursor-pointer hover:bg-pager-muted transition-colors"
+                  className="border-2 border-terminus-border bg-terminus-elevated overflow-hidden cursor-pointer hover:bg-terminus-muted transition-colors"
                 >
                   <div className="p-4 flex flex-col sm:flex-row gap-4">
                     <EventImageThumb
                       imageUrl={event.extendedProps.imageUrl}
                       imageUrls={event.extendedProps.imageUrls}
                       alt={event.title}
-                      className="w-full sm:w-24 h-40 sm:h-24 flex-shrink-0 border border-pager-border"
+                      className="w-full sm:w-24 h-40 sm:h-24 flex-shrink-0 border border-terminus-border"
                     />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-lg">{event.title}</h3>
-                      <p className="text-pager-fg-muted text-sm mt-1">
+                      <p className="text-terminus-fg-muted text-sm mt-1">
                         {formatDate(new Date(event.start))}
                         {event.end && ` – ${formatDate(new Date(event.end))}`}
                       </p>
                       {event.extendedProps.descriptionShort && (
-                        <p className="text-pager-fg-muted text-sm mt-2 line-clamp-2">
+                        <p className="text-terminus-fg-muted text-sm mt-2 line-clamp-2">
                           {event.extendedProps.descriptionShort}
                         </p>
                       )}

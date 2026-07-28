@@ -63,6 +63,7 @@ export default function ProfileFriendsSection({
   const [searchResults, setSearchResults] = useState<FriendUser[]>([])
   const [searching, setSearching] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
+  const [listPrivate, setListPrivate] = useState(false)
   type FriendStatus = 'friends' | 'pending_sent' | 'pending_received' | null
   const [addTabStatusMap, setAddTabStatusMap] = useState<Record<string, FriendStatus>>({})
   const [addTabStatusIdsKey, setAddTabStatusIdsKey] = useState('')
@@ -95,6 +96,13 @@ export default function ProfileFriendsSection({
         const headers = await getAuthHeaders()
         const res = await fetch(`/api/users/${userId}/friends`, { cache: 'no-store', headers })
         const data = await res.json().catch(() => ({}))
+        if (res.status === 403) {
+          setListPrivate(true)
+          setFriendsList([])
+          onFriendsCountChangeRef.current?.(0)
+          return
+        }
+        setListPrivate(false)
         const list = res.ok && Array.isArray(data.friends) ? data.friends : []
         setFriendsList(list)
         onFriendsCountChangeRef.current?.(list.length)
@@ -234,8 +242,8 @@ export default function ProfileFriendsSection({
           href={`/u/${id}`}
           className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-90"
         >
-          <div className="relative w-10 h-10 rounded-full flex-shrink-0 overflow-hidden bg-slate-600">
-            <div className="absolute inset-0 flex items-center justify-center text-slate-300 text-sm font-medium">
+          <div className="relative w-10 h-10 rounded-none flex-shrink-0 overflow-hidden bg-terminus-muted border-2 border-terminus-strong">
+            <div className="absolute inset-0 flex items-center justify-center text-terminus-fg-muted text-sm font-medium">
               {(dn[0] || '?').toUpperCase()}
             </div>
             {user.avatarUrl && (
@@ -248,8 +256,8 @@ export default function ProfileFriendsSection({
             )}
           </div>
           <div className="min-w-0">
-            <span className="font-medium text-slate-200 truncate block">{dn}</span>
-            {user.username && <span className="text-xs text-slate-500">@{user.username}</span>}
+            <span className="font-medium text-terminus-fg truncate block">{dn}</span>
+            {user.username && <span className="text-xs text-terminus-fg-faint">@{user.username}</span>}
           </div>
         </Link>
         {action}
@@ -268,17 +276,25 @@ export default function ProfileFriendsSection({
     { key: 'add', label: 'Add Friend', show: isOwnProfile },
   ]
 
+  if (listPrivate && !isOwnProfile) {
+    return (
+      <div className="terminus-panel overflow-hidden p-4">
+        <p className="text-terminus-fg-muted text-sm">This friends list is private.</p>
+      </div>
+    )
+  }
+
   return (
-    <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden">
-      <div className="flex flex-wrap border-b border-slate-700/50 overflow-x-auto">
+    <div className="terminus-panel overflow-hidden">
+      <div className="flex flex-wrap border-b-2 border-terminus-border overflow-x-auto">
         {tabs.filter((t) => t.show).map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex-shrink-0 min-w-[80px] px-3 py-3 text-sm font-medium transition-colors ${
+            className={`flex-shrink-0 min-w-[80px] px-3 py-3 text-xs uppercase tracking-wider font-medium transition-colors ${
               tab === t.key
-                ? 'text-indigo-400 border-b-2 border-indigo-500 bg-slate-800/80'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'text-terminus-fg border-b-2 border-terminus-accent bg-terminus-muted'
+                : 'text-terminus-fg-muted hover:text-terminus-fg'
             }`}
           >
             {t.label}
@@ -295,23 +311,23 @@ export default function ProfileFriendsSection({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Search by username or display name..."
-                className="flex-1 border border-slate-600/50 rounded-lg px-4 py-2 bg-slate-900/80 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm"
+                className="terminus-input flex-1 text-sm"
               />
               <button
                 onClick={handleSearch}
                 disabled={searching || searchQuery.trim().length < 1}
-                className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 text-sm font-medium"
+                className="terminus-btn terminus-btn-primary px-4 py-2 text-xs uppercase tracking-wider disabled:opacity-50"
               >
                 {searching ? 'Searching...' : 'Search'}
               </button>
             </div>
             {searchQuery.trim().length < 1 ? (
-              <p className="text-slate-500 text-sm">Type a name or username to search. Results update as you type.</p>
+              <p className="text-terminus-fg-faint text-sm">Type a name or username to search. Results update as you type.</p>
             ) : (
               <>
-                {searching && <p className="text-slate-500 text-sm">Searching...</p>}
+                {searching && <p className="text-terminus-fg-faint text-sm">Searching...</p>}
                 {!searching && searchResults.length === 0 && (
-                  <p className="text-slate-500 text-sm">No users found starting with &quot;{searchQuery.trim()}&quot;. Try different letters.</p>
+                  <p className="text-terminus-fg-faint text-sm">No users found starting with &quot;{searchQuery.trim()}&quot;. Try different letters.</p>
                 )}
                 {!searching && searchResults.length > 0 && (
                   <ul className="space-y-2">
@@ -322,7 +338,7 @@ export default function ProfileFriendsSection({
                         action={
                           supabaseConfigured ? (
                             addTabStatusIdsKey !== addTabIdsKeySorted ? (
-                              <span className="text-slate-500 text-sm">...</span>
+                              <span className="text-terminus-fg-faint text-sm">...</span>
                             ) : (
                               <AddFriendButton
                                 targetUserId={u.id}
@@ -345,14 +361,14 @@ export default function ProfileFriendsSection({
           </div>
         ) : tab === 'requests' && isOwnProfile ? (
           loading ? (
-            <p className="text-slate-500 text-sm">Loading...</p>
+            <p className="text-terminus-fg-faint text-sm">Loading...</p>
           ) : incomingRequests.length === 0 && outgoingRequests.length === 0 ? (
-            <p className="text-slate-500 text-sm">No friend requests.</p>
+            <p className="text-terminus-fg-faint text-sm">No friend requests.</p>
           ) : (
             <div className="space-y-4">
               {incomingRequests.length > 0 && (
                 <div>
-                  <p className="text-xs text-slate-500 uppercase mb-2">Incoming</p>
+                  <p className="text-xs text-terminus-fg-faint uppercase mb-2">Incoming</p>
                   <ul className="space-y-2">
                     {incomingRequests.map((r) => (
                       <UserRow
@@ -392,7 +408,7 @@ export default function ProfileFriendsSection({
               )}
               {outgoingRequests.length > 0 && (
                 <div>
-                  <p className="text-xs text-slate-500 uppercase mb-2">Outgoing</p>
+                  <p className="text-xs text-terminus-fg-faint uppercase mb-2">Outgoing</p>
                   <ul className="space-y-2">
                     {outgoingRequests.map((r) => (
                       <UserRow
@@ -419,9 +435,9 @@ export default function ProfileFriendsSection({
           )
         ) : tab === 'friends' ? (
           loading ? (
-            <p className="text-slate-500 text-sm">Loading...</p>
+            <p className="text-terminus-fg-faint text-sm">Loading...</p>
           ) : friendsList.length === 0 ? (
-            <p className="text-slate-500 text-sm">No friends yet.</p>
+            <p className="text-terminus-fg-faint text-sm">No friends yet.</p>
           ) : (
             <ul className="space-y-2">
               {friendsList.map((u) => (

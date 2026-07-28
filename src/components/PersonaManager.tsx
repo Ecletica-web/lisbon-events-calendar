@@ -40,19 +40,50 @@ const emptyForm: PersonaFormData = {
   freeOnly: false,
 }
 
+const TOTAL_STEPS = 4
+
+const STEP_PROMPTS = [
+  'Name this persona',
+  'Pick tags to include',
+  'Categories, venues & free',
+  'Preview & confirm',
+] as const
+
 interface OptionItem {
   value: string
   label: string
 }
 
-function FilterMultiSelect({
+function ChipToggle({
   label,
+  selected,
+  onToggle,
+}: {
+  label: string
+  selected: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`px-2.5 py-1.5 text-xs border-2 border-terminus-strong transition-none ${
+        selected
+          ? 'bg-terminus-accent text-terminus-accent-fg'
+          : 'bg-terminus-muted text-terminus-fg hover:bg-terminus-elevated'
+      }`}
+    >
+      {label}
+    </button>
+  )
+}
+
+function FilterChipSelect({
   options,
   selected,
   onChange,
   placeholder = 'Search...',
 }: {
-  label: string
   options: string[] | { key: string; name: string }[]
   selected: string[]
   onChange: (vals: string[]) => void
@@ -77,38 +108,54 @@ function FilterMultiSelect({
   }
 
   return (
-    <div>
-      <label className="block text-sm font-medium text-pager-fg-muted mb-1">{label}</label>
+    <div className="space-y-2">
       <input
         type="text"
         placeholder={placeholder}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="pager-input text-sm mb-2"
+        className="terminus-input text-sm"
       />
-      <div className="max-h-32 overflow-y-auto border-2 border-pager-strong bg-pager-muted p-2 space-y-1">
+      <div className="max-h-40 overflow-y-auto border-2 border-terminus-strong bg-terminus-muted p-2 flex flex-wrap gap-1.5">
         {filtered.length === 0 ? (
-          <p className="text-pager-fg-faint text-sm py-2">No matches</p>
+          <p className="text-terminus-fg-faint text-sm py-2 w-full">No matches</p>
         ) : (
           filtered.map((item) => (
-            <label
+            <ChipToggle
               key={item.value}
-              className="flex items-center gap-2 py-1.5 px-2 hover:bg-pager-muted cursor-pointer text-sm text-pager-fg"
-            >
-              <input
-                type="checkbox"
-                checked={selected.includes(item.value)}
-                onChange={() => toggle(item.value)}
-                className="border-pager-strong text-pager-fg focus:ring-pager-accent"
-              />
-              {item.label}
-            </label>
+              label={item.label}
+              selected={selected.includes(item.value)}
+              onToggle={() => toggle(item.value)}
+            />
           ))
         )}
       </div>
       {selected.length > 0 && (
-        <p className="text-xs text-pager-fg-muted mt-1">{selected.length} selected</p>
+        <p className="text-xs text-terminus-fg-muted">{selected.length} selected</p>
       )}
+    </div>
+  )
+}
+
+function WizardStepHeader({ step }: { step: number }) {
+  return (
+    <div className="space-y-2 mb-4">
+      <p className="font-pixel text-[10px] sm:text-xs text-terminus-fg-muted uppercase tracking-wider">
+        STEP {step}/{TOTAL_STEPS}
+      </p>
+      <h3 className="font-pixel text-[10px] sm:text-xs text-terminus-fg">
+        <span className="text-terminus-fg-muted mr-2">&gt;</span>
+        {STEP_PROMPTS[step - 1]}
+      </h3>
+    </div>
+  )
+}
+
+function PreviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2 text-sm border-b border-terminus-border py-2 last:border-0">
+      <span className="text-terminus-fg-muted shrink-0 w-24">{label}</span>
+      <span className="text-terminus-fg break-words">{value}</span>
     </div>
   )
 }
@@ -120,6 +167,7 @@ export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps =
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<PersonaFormData>(emptyForm)
+  const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -171,6 +219,7 @@ export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps =
   const openCreate = () => {
     setEditingId(null)
     setForm(emptyForm)
+    setStep(1)
     setError(null)
     setShowModal(true)
   }
@@ -188,6 +237,7 @@ export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps =
       includeVenues: rules.includeVenues || [],
       freeOnly: !!rules.freeOnly,
     })
+    setStep(1)
     setError(null)
     setShowModal(true)
   }
@@ -196,14 +246,34 @@ export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps =
     setShowModal(false)
     setEditingId(null)
     setForm(emptyForm)
+    setStep(1)
     setError(null)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const canAdvance = (): boolean => {
+    if (step === 1) return form.title.trim().length > 0
+    return true
+  }
+
+  const goNext = () => {
+    setError(null)
+    if (step === 1 && !form.title.trim()) {
+      setError('Name is required')
+      return
+    }
+    if (step < TOTAL_STEPS) setStep((s) => s + 1)
+  }
+
+  const goBack = () => {
+    setError(null)
+    if (step > 1) setStep((s) => s - 1)
+  }
+
+  const handleSave = async () => {
     setError(null)
     if (!form.title.trim()) {
       setError('Name is required')
+      setStep(1)
       return
     }
 
@@ -264,46 +334,49 @@ export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps =
     }
   }
 
+  const venueLabel = (key: string) =>
+    filterOptions?.venues.find((v) => v.key === key)?.name || key
+
   if (loading) {
-    return <p className="text-pager-fg-faint">Loading personas...</p>
+    return <p className="text-terminus-fg-faint">Loading personas...</p>
   }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl sm:text-2xl font-semibold text-pager-fg">My Personas</h2>
+        <h2 className="font-pixel text-[10px] sm:text-xs text-terminus-fg">{'> PERSONAS'}</h2>
         <button
           onClick={openCreate}
-          className="pager-btn pager-btn-primary px-4 py-2 text-sm"
+          className="terminus-btn terminus-btn-primary px-4 py-2 text-sm"
         >
           + Create Persona
         </button>
       </div>
 
-      <p className="text-pager-fg-muted text-sm">
+      <p className="text-terminus-fg-muted text-sm">
         Personas are custom views that apply your chosen filters (tags, categories, venues) to the calendar.
       </p>
 
       {personas.length === 0 ? (
-        <p className="text-pager-fg-faint py-4">No personas yet. Create one to get started.</p>
+        <p className="text-terminus-fg-faint py-4">No personas yet. Create one to get started.</p>
       ) : (
         <div className="space-y-2">
           {personas.map((p) => (
             <div
               key={p.id}
-              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-pager-muted border-2 border-pager-strong hover:border-pager-strong transition-colors"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-terminus-muted border-2 border-terminus-strong hover:border-terminus-strong transition-colors"
             >
               <div className="flex flex-wrap items-center gap-2">
                 <Link
                   href={`/calendar?personaId=${p.id}`}
-                  className="font-medium pager-link"
+                  className="font-medium terminus-link"
                 >
                   {p.title}
                 </Link>
                 {p.is_public && p.share_slug && (
                   <Link
                     href={`/p/${p.share_slug}`}
-                    className="text-xs text-pager-fg-muted hover:text-pager-fg"
+                    className="text-xs text-terminus-fg-muted hover:text-terminus-fg"
                   >
                     Share
                   </Link>
@@ -312,13 +385,13 @@ export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps =
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => openEdit(p)}
-                  className="px-3 py-1.5 text-sm text-pager-fg-muted hover:text-pager-fg hover:bg-pager-muted transition-colors"
+                  className="px-3 py-1.5 text-sm text-terminus-fg-muted hover:text-terminus-fg hover:bg-terminus-muted transition-colors"
                 >
                   Edit filters
                 </button>
                 <button
                   onClick={() => handleDelete(p.id)}
-                  className="px-3 py-1.5 text-sm text-pager-fg hover:bg-pager-muted transition-colors"
+                  className="px-3 py-1.5 text-sm text-terminus-fg hover:bg-terminus-muted transition-colors"
                 >
                   Delete
                 </button>
@@ -336,79 +409,187 @@ export default function PersonaManager({ getAuthHeaders }: PersonaManagerProps =
           aria-modal="true"
         >
           <div
-            className="pager-panel w-full max-w-lg max-h-[90vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]"
+            className="terminus-panel w-full max-w-lg max-h-[90vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-4 sm:p-6">
-              <h3 className="text-lg font-semibold text-pager-fg mb-4">
-                {editingId ? 'Edit Persona' : 'Create Persona'}
-              </h3>
+              <div className="flex items-start justify-between gap-3 mb-1">
+                <p className="font-pixel text-[10px] sm:text-xs text-terminus-fg">
+                  {editingId ? '> EDIT PERSONA' : '> CREATE PERSONA'}
+                </p>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="terminus-btn terminus-btn-ghost text-xs px-2 py-1"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-pager-fg-muted mb-1">Name</label>
-                  <input
-                    type="text"
-                    value={form.title}
-                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                    placeholder="e.g. Jazz nights"
-                    className="pager-input"
-                    autoFocus
-                  />
-                </div>
+              <WizardStepHeader step={step} />
 
-                {filterOptions && (
-                  <>
-                    <FilterMultiSelect
-                      label="Include tags (any match)"
-                      options={filterOptions.tags}
-                      selected={form.includeTags}
-                      onChange={(v) => setForm((f) => ({ ...f, includeTags: v }))}
+              <div className="space-y-4 min-h-[180px]">
+                {step === 1 && (
+                  <div>
+                    <label className="block text-sm text-terminus-fg-muted mb-1">
+                      <span className="text-terminus-fg-muted mr-1">&gt;</span>
+                      name
+                    </label>
+                    <input
+                      type="text"
+                      value={form.title}
+                      onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          goNext()
+                        }
+                      }}
+                      placeholder="e.g. Jazz nights"
+                      className="terminus-input"
+                      autoFocus
                     />
-                    <FilterMultiSelect
-                      label="Include categories"
-                      options={filterOptions.categories}
-                      selected={form.includeCategories}
-                      onChange={(v) => setForm((f) => ({ ...f, includeCategories: v }))}
-                    />
-                    <FilterMultiSelect
-                      label="Include venues"
-                      options={filterOptions.venues}
-                      selected={form.includeVenues}
-                      onChange={(v) => setForm((f) => ({ ...f, includeVenues: v }))}
-                    />
-                  </>
+                  </div>
                 )}
 
-                <label className="flex items-center gap-3 cursor-pointer p-3 hover:bg-pager-muted transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={form.freeOnly}
-                    onChange={(e) => setForm((f) => ({ ...f, freeOnly: e.target.checked }))}
-                    className="border-pager-strong text-pager-fg focus:ring-pager-accent"
-                  />
-                  <span className="text-pager-fg">Free events only</span>
-                </label>
+                {step === 2 && (
+                  <div>
+                    <label className="block text-sm text-terminus-fg-muted mb-2">
+                      <span className="text-terminus-fg-muted mr-1">&gt;</span>
+                      tags (any match)
+                    </label>
+                    {filterOptions ? (
+                      <FilterChipSelect
+                        options={filterOptions.tags}
+                        selected={form.includeTags}
+                        onChange={(v) => setForm((f) => ({ ...f, includeTags: v }))}
+                        placeholder="Search tags..."
+                      />
+                    ) : (
+                      <p className="text-terminus-fg-faint text-sm">Loading options...</p>
+                    )}
+                  </div>
+                )}
 
-                {error && <p className="text-pager-fg-muted text-sm">{error}</p>}
+                {step === 3 && (
+                  <div className="space-y-4">
+                    {filterOptions ? (
+                      <>
+                        <div>
+                          <label className="block text-sm text-terminus-fg-muted mb-2">
+                            <span className="text-terminus-fg-muted mr-1">&gt;</span>
+                            categories
+                          </label>
+                          <FilterChipSelect
+                            options={filterOptions.categories}
+                            selected={form.includeCategories}
+                            onChange={(v) => setForm((f) => ({ ...f, includeCategories: v }))}
+                            placeholder="Search categories..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-terminus-fg-muted mb-2">
+                            <span className="text-terminus-fg-muted mr-1">&gt;</span>
+                            venues
+                          </label>
+                          <FilterChipSelect
+                            options={filterOptions.venues}
+                            selected={form.includeVenues}
+                            onChange={(v) => setForm((f) => ({ ...f, includeVenues: v }))}
+                            placeholder="Search venues..."
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-terminus-fg-faint text-sm">Loading options...</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, freeOnly: !f.freeOnly }))}
+                      className={`w-full flex items-center gap-3 p-3 border-2 border-terminus-strong text-left transition-none ${
+                        form.freeOnly
+                          ? 'bg-terminus-accent text-terminus-accent-fg'
+                          : 'bg-terminus-muted text-terminus-fg hover:bg-terminus-elevated'
+                      }`}
+                    >
+                      <span className="font-pixel text-[10px]">{form.freeOnly ? '[x]' : '[ ]'}</span>
+                      <span className="text-sm">Free events only</span>
+                    </button>
+                  </div>
+                )}
 
-                <div className="flex gap-3 pt-2">
+                {step === 4 && (
+                  <div className="border-2 border-terminus-strong bg-terminus-muted p-3">
+                    <PreviewRow label="> name" value={form.title.trim() || '—'} />
+                    <PreviewRow
+                      label="> tags"
+                      value={form.includeTags.length ? form.includeTags.join(', ') : '(any)'}
+                    />
+                    <PreviewRow
+                      label="> cats"
+                      value={
+                        form.includeCategories.length
+                          ? form.includeCategories.join(', ')
+                          : '(any)'
+                      }
+                    />
+                    <PreviewRow
+                      label="> venues"
+                      value={
+                        form.includeVenues.length
+                          ? form.includeVenues.map(venueLabel).join(', ')
+                          : '(any)'
+                      }
+                    />
+                    <PreviewRow label="> free" value={form.freeOnly ? 'yes' : 'no'} />
+                  </div>
+                )}
+              </div>
+
+              {error && <p className="text-terminus-fg-muted text-sm mt-3">{error}</p>}
+
+              <div className="flex flex-wrap gap-2 pt-5">
+                {step > 1 ? (
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={goBack}
+                    className="terminus-btn px-4 py-2 text-sm"
                     disabled={saving}
-                    className="px-4 py-2 pager-btn pager-btn-primary disabled:opacity-50 transition-colors"
                   >
-                    {saving ? 'Saving...' : editingId ? 'Update' : 'Create'}
+                    Back
                   </button>
+                ) : (
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="px-4 py-2 pager-btn transition-colors"
+                    className="terminus-btn px-4 py-2 text-sm"
+                    disabled={saving}
                   >
                     Cancel
                   </button>
-                </div>
-              </form>
+                )}
+                <div className="flex-1" />
+                {step < TOTAL_STEPS ? (
+                  <button
+                    type="button"
+                    onClick={goNext}
+                    disabled={!canAdvance()}
+                    className="terminus-btn terminus-btn-primary px-4 py-2 text-sm disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="terminus-btn terminus-btn-primary px-4 py-2 text-sm disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : editingId ? 'Update' : 'Create'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>,

@@ -39,7 +39,11 @@ export default function AdminPromotersPage() {
       return
     }
     setRows(json.promoters || [])
-    setMessage(null)
+    setMessage(
+      json.warning
+        ? `${json.warning}${json.source === 'sheets' ? ` (source: Sheets/CSV, ${json.total ?? 0} rows)` : ''}`
+        : null
+    )
   }, [getAuthHeaders])
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import {
-  loadCatalogPromoters,
+  loadCatalogPromotersWithFallback,
   upsertPromoter,
   setPromoterActive,
   type PromoterUpsertInput,
@@ -15,8 +15,10 @@ export async function GET(request: NextRequest) {
   if (!auth.ok) return auth.response
   try {
     const includeInactive = request.nextUrl.searchParams.get('all') === '1'
-    const promoters = await loadCatalogPromoters({ activeOnly: !includeInactive })
-    return NextResponse.json({ promoters, total: promoters.length })
+    const { rows: promoters, source, warning } = await loadCatalogPromotersWithFallback({
+      activeOnly: !includeInactive,
+    })
+    return NextResponse.json({ promoters, total: promoters.length, source, warning })
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed', promoters: [] },

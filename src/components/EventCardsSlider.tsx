@@ -277,7 +277,7 @@ export default function EventCardsSlider({
       {showFullHeader && (
         <div className="flex items-center justify-between mb-4 px-4 md:px-6 flex-wrap gap-3">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
-            <div className="flex border-2 border-pager-strong flex-wrap overflow-x-auto scrollbar-hide max-w-full">
+            <div className="flex border-2 border-terminus-strong flex-wrap overflow-x-auto scrollbar-hide max-w-full">
               {(['all', 'today', 'tomorrow', 'week', 'month', 'nextMonth'] as const).map((r) => (
                 <button
                   key={r}
@@ -285,8 +285,8 @@ export default function EventCardsSlider({
                   onClick={() => setTimeRange(r)}
                   className={`px-2 sm:px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 text-xs md:text-sm font-medium whitespace-nowrap touch-manipulation ${
                     timeRange === r
-                      ? 'bg-pager-accent text-pager-accent-fg'
-                      : 'text-pager-fg-muted hover:text-pager-fg hover:bg-pager-muted'
+                      ? 'bg-terminus-accent text-terminus-accent-fg'
+                      : 'text-terminus-fg-muted hover:text-terminus-fg hover:bg-terminus-muted'
                   }`}
                 >
                   {r === 'all' ? 'All' : r === 'today' ? 'Today' : r === 'tomorrow' ? 'Tomorrow' : r === 'week' ? 'This week' : r === 'month' ? 'This month' : 'Next month'}
@@ -294,18 +294,18 @@ export default function EventCardsSlider({
               ))}
             </div>
             <label className="flex items-center gap-2 cursor-pointer shrink-0">
-              <span className="text-xs text-pager-fg-muted">Near me</span>
+              <span className="text-xs text-terminus-fg-muted">Near me</span>
               <button
                 onClick={() => {
                   if (!nearMeEnabled && !userPos) requestLocation()
                   setNearMeEnabled((prev) => !prev)
                 }}
-                className={`relative w-10 h-5 border-2 border-pager-strong transition-colors ${nearMeEnabled ? 'bg-pager-accent' : 'bg-pager-bg'}`}
+                className={`relative w-10 h-5 border-2 border-terminus-strong transition-colors ${nearMeEnabled ? 'bg-terminus-accent' : 'bg-terminus-bg'}`}
                 aria-label="Toggle near me filter"
               >
                 <span
                   className={`absolute top-0.5 w-3.5 h-3.5 transition-transform ${
-                    nearMeEnabled ? 'left-5 bg-pager-accent-fg' : 'left-0.5 bg-pager-fg'
+                    nearMeEnabled ? 'left-5 bg-terminus-accent-fg' : 'left-0.5 bg-terminus-fg'
                   }`}
                 />
               </button>
@@ -313,7 +313,7 @@ export default function EventCardsSlider({
                 <select
                   value={radiusKm}
                   onChange={(e) => setRadiusKm(Number(e.target.value))}
-                  className="text-xs pager-input py-1 min-h-[36px] w-auto touch-manipulation"
+                  className="text-xs terminus-input py-1 min-h-[36px] w-auto touch-manipulation"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {RADIUS_OPTIONS_KM.map((r) => (
@@ -323,13 +323,13 @@ export default function EventCardsSlider({
                   ))}
                 </select>
               )}
-              {locLoading && <span className="text-xs text-pager-fg-faint">Getting location...</span>}
-              {locError && nearMeEnabled && <span className="text-xs text-pager-fg-muted">{locError}</span>}
+              {locLoading && <span className="text-xs text-terminus-fg-faint">Getting location...</span>}
+              {locError && nearMeEnabled && <span className="text-xs text-terminus-fg-muted">{locError}</span>}
             </label>
             {selectedTags.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
                 {selectedTags.map((tag) => (
-                  <span key={tag} className="pager-pill inline-flex items-center gap-1.5">
+                  <span key={tag} className="terminus-pill inline-flex items-center gap-1.5">
                     {tag}
                     <button onClick={() => handleRemoveTag(tag)} className="hover:opacity-70 p-0.5" aria-label={`Remove ${tag}`}>
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -339,7 +339,7 @@ export default function EventCardsSlider({
               </div>
             )}
           </div>
-          <span className="text-xs sm:text-sm text-pager-fg-muted shrink-0">
+          <span className="text-xs sm:text-sm text-terminus-fg-muted shrink-0">
             {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} match
             {nearMeEnabled && userPos && ` within ${radiusKm} km`}
           </span>
@@ -350,10 +350,10 @@ export default function EventCardsSlider({
         <div className="relative overflow-hidden">
           {mode === 'slider' && (
             <>
-              <button onClick={scrollLeftBtn} className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pager-btn p-2 hidden md:block" aria-label="Scroll left">
+              <button onClick={scrollLeftBtn} className="absolute left-2 top-1/2 -translate-y-1/2 z-10 terminus-btn p-2 hidden md:block" aria-label="Scroll left">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </button>
-              <button onClick={scrollRightBtn} className="absolute right-2 top-1/2 -translate-y-1/2 z-10 pager-btn p-2 hidden md:block" aria-label="Scroll right">
+              <button onClick={scrollRightBtn} className="absolute right-2 top-1/2 -translate-y-1/2 z-10 terminus-btn p-2 hidden md:block" aria-label="Scroll right">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               </button>
             </>
@@ -386,13 +386,13 @@ export default function EventCardsSlider({
         </div>
       ) : (
         <div className="text-center py-8 px-4 md:px-6">
-          <div className="text-pager-fg text-base font-medium mb-2">
+          <div className="text-terminus-fg text-base font-medium mb-2">
             No events found for {timeRangeLabel}
             {nearMeEnabled && userPos && ' near you'}
           </div>
-          <div className="text-pager-fg-muted text-sm">Try broadening your search or adjusting your filters</div>
+          <div className="text-terminus-fg-muted text-sm">Try broadening your search or adjusting your filters</div>
           {nearMeEnabled && userPos && (
-            <button onClick={() => setNearMeEnabled(false)} className="mt-2 text-xs pager-link">
+            <button onClick={() => setNearMeEnabled(false)} className="mt-2 text-xs terminus-link">
               Turn off Near me
             </button>
           )}
@@ -446,34 +446,34 @@ function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: {
   return (
     <div
       onClick={onClick}
-      className={`border-2 border-pager-strong bg-pager-bg p-4 cursor-pointer transition-colors hover:bg-pager-muted touch-manipulation ${mode === 'slider' ? 'min-w-[260px] sm:min-w-[280px] md:min-w-[320px]' : ''}`}
+      className={`border-2 border-terminus-strong bg-terminus-bg p-4 cursor-pointer transition-colors hover:bg-terminus-muted touch-manipulation ${mode === 'slider' ? 'min-w-[260px] sm:min-w-[280px] md:min-w-[320px]' : ''}`}
     >
       <div className="flex gap-3">
         <EventImageThumb
           imageUrl={props.imageUrl}
           imageUrls={props.imageUrls}
           alt={event.title}
-          className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20 border border-pager-border"
+          className="flex-shrink-0 w-24 h-24 md:w-20 md:h-20 border border-terminus-border"
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1.5">
-            <h3 className="text-lg font-semibold text-pager-fg line-clamp-2">{event.title}</h3>
-            {formatPrice() && <span className="flex-shrink-0 text-sm font-semibold tabular-nums text-pager-fg-muted">{formatPrice()}</span>}
+            <h3 className="text-lg font-semibold text-terminus-fg line-clamp-2">{event.title}</h3>
+            {formatPrice() && <span className="flex-shrink-0 text-sm font-semibold tabular-nums text-terminus-fg-muted">{formatPrice()}</span>}
           </div>
           {reasons.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-1.5">
               {reasons.slice(0, 3).map((r) => (
-                <span key={r} className="pager-pill">
+                <span key={r} className="terminus-pill">
                   {r}
                 </span>
               ))}
             </div>
           )}
-          <div className="text-sm font-medium text-pager-fg-muted tabular-nums mb-1.5">
+          <div className="text-sm font-medium text-terminus-fg-muted tabular-nums mb-1.5">
             {formatDate()} · {formatTime()}
           </div>
           {distanceKm !== undefined && (
-            <div className="flex items-center gap-2 text-xs text-pager-fg-muted mb-1">
+            <div className="flex items-center gap-2 text-xs text-terminus-fg-muted mb-1">
               <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -485,7 +485,7 @@ function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: {
             <div className="flex items-center gap-2 flex-wrap mb-2" onClick={(e) => e.stopPropagation()}>
               <Link
                 href={venueLink}
-                className="text-base font-semibold pager-link line-clamp-1"
+                className="text-base font-semibold terminus-link line-clamp-1"
               >
                 {props.venueName}
               </Link>
@@ -498,9 +498,9 @@ function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: {
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            {props.category && <span className="pager-pill pager-pill-active">{props.category}</span>}
+            {props.category && <span className="terminus-pill terminus-pill-active">{props.category}</span>}
             {displayTags.map((tag) => (
-              <span key={tag} className="pager-pill">{tag}</span>
+              <span key={tag} className="terminus-pill">{tag}</span>
             ))}
           </div>
           <div className="flex items-center gap-3 flex-wrap" onClick={(e) => e.stopPropagation()}>
@@ -510,13 +510,13 @@ function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: {
             <FriendAvatars eventId={event.id} maxDisplay={3} className="cursor-pointer" />
           </div>
           {(props.venueInstagram || props.venueWebsite || props.promoterInstagram || props.promoterWebsite) && (
-            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-pager-border" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-terminus-border" onClick={(e) => e.stopPropagation()}>
               {props.venueInstagram && (
                 <a
                   href={`https://instagram.com/${props.venueInstagram.replace(/^@/, '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-pager-fg-faint hover:text-pager-fg transition-colors"
+                  className="text-terminus-fg-faint hover:text-terminus-fg transition-colors"
                   title={`Venue Instagram: @${props.venueInstagram}`}
                 >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
@@ -527,7 +527,7 @@ function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: {
                   href={props.venueWebsite}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-pager-fg-faint hover:text-pager-fg transition-colors"
+                  className="text-terminus-fg-faint hover:text-terminus-fg transition-colors"
                   title="Venue website"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
@@ -538,7 +538,7 @@ function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: {
                   href={`https://instagram.com/${props.promoterInstagram.replace(/^@/, '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-pager-fg-faint hover:text-pager-fg transition-colors"
+                  className="text-terminus-fg-faint hover:text-terminus-fg transition-colors"
                   title={`Promoter Instagram: @${props.promoterInstagram}`}
                 >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
@@ -549,7 +549,7 @@ function EventCard({ event, onClick, mode, distanceKm, reasons: reasonsProp }: {
                   href={props.promoterWebsite}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-pager-fg-faint hover:text-pager-fg transition-colors"
+                  className="text-terminus-fg-faint hover:text-terminus-fg transition-colors"
                   title="Promoter website"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
