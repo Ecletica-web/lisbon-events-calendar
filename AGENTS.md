@@ -206,3 +206,30 @@ Full checklist: `docs/replication/05-guia-replicacao.md` (and its PDF).
 | `docs/VENUES.md` | Venue identity / index |
 | `docs/MASTER_TASK_LIST_ARCHITECTURE.md` | Roadmap (mix of done + planned) |
 | `docs/replication/*` | Shareable replication pack (MD + PDF) |
+
+---
+
+## Cursor Cloud specific instructions
+
+Scope note: environment setup here targets the **web app** (root package). The `pipeline/`
+package is a separate npm package that also needs its own `cd pipeline && npm install` and
+external API keys (Apify/OpenAI/etc.) to actually run — not required to run/lint/test the web app.
+
+- **Boot with zero external services.** `npm install` then `npm run dev` (http://localhost:3000)
+  is enough to start. Supabase/NextAuth/Google-Sheets clients are all null-safe, so no env var is
+  required just to boot. See `src/lib/supabase/{client,server}.ts` and `src/lib/eventsAdapter.ts`.
+- **Events need a CSV URL.** Set `NEXT_PUBLIC_EVENTS_CSV_URL` in `.env.local` to a *published*
+  Google Sheets CSV (File → Share → Publish to web → CSV — not the `/edit` link). Without it the
+  app still runs but `/calendar` is empty (`fetchEventsFromSource` warns and returns `[]`).
+  For local dev without the live sheet you can drop a CSV in `public/` and point the env var at
+  `http://localhost:3000/<file>.csv`.
+- **Events are cached via `unstable_cache` (300s) and persist to `.next/cache` across restarts.**
+  After changing the events source/CSV, run `rm -rf .next/cache` and restart `npm run dev`, or the
+  API keeps serving the stale (possibly empty) result even after a restart.
+- **`next lint` needs an ESLint config.** `.eslintrc.json` (`next/core-web-vitals`) is committed so
+  `npm run lint` runs non-interactively; without it `next lint` prompts for first-time setup and hangs.
+- **The repo's `Testing - *.csv` files are pipeline staging format** (they include `_raw_model_text`
+  with unescaped quotes/newlines) and do **not** parse cleanly as the app's clean events feed — don't
+  use them directly as `NEXT_PUBLIC_EVENTS_CSV_URL`.
+- Standard commands: `npm run dev` / `npm run lint` / `npm test` (vitest) / `npm run build`
+  (see root `package.json`).
