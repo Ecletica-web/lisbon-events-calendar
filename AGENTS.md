@@ -210,3 +210,16 @@ Full checklist: `docs/replication/05-guia-replicacao.md` (and its PDF).
 | `docs/VENUES.md` | Venue identity / index |
 | `docs/MASTER_TASK_LIST_ARCHITECTURE.md` | Roadmap (mix of done + planned) |
 | `docs/replication/*` | Shareable replication pack (MD + PDF) |
+
+---
+
+## Cursor Cloud specific instructions
+
+Two independent npm packages: the web app at repo root and the CLI pipeline in `pipeline/`. Each has its own `package-lock.json` and must be installed separately (`npm install` in both). Node 22 works fine; there is no `engines` pin or `.nvmrc`. The startup update script already runs both installs.
+
+- **Web app (primary dev service):** `npm run dev` (root) → http://localhost:3000. It boots and renders every route with **no secrets**. Without CSV/Supabase env, the calendar/venues/promoters just render empty (graceful, no crash, no mock data). `NEXT_PUBLIC_*` changes require restarting `npm run dev`.
+- **Seeing events without Google Sheets:** point `NEXT_PUBLIC_EVENTS_CSV_URL` (in a gitignored `.env.local`) at any CSV served over HTTP whose header matches the columns in `src/data/schema/eventColumns.ts` (min: `event_id,title,start_datetime`). The server-side loader (`src/data/loaders/eventsLoader.ts`) fetches it, so a local static file server works. Events surface via `GET /api/events` and the `/calendar` UI.
+- **Auth / social / `/admin` / pipeline** require real secrets (Supabase, Google Sheets service account, Apify, OpenAI) — not needed to run or test the web UI. See `docs/SETUP.md` and `pipeline/.env.example`.
+- **Lint gotcha:** `npm run lint` (`next lint`) has no committed ESLint config, so it drops into an **interactive setup prompt** and hangs in a non-TTY. Treat lint as not-configured; do not add a config unless asked.
+- **Pipeline checks:** the canonical smoke test is `cd pipeline && npm run test:gates` (passes). `npm run typecheck` currently has pre-existing type errors and `scripts/apply-catalog-migrations.ts` imports `pg` (not a declared dep) — these are pre-existing, unrelated to environment setup.
+- **Root unit tests:** `npm test` (vitest) runs with no secrets and passes.
