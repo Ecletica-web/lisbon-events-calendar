@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useRef, useState, Suspense, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ONBOARDING_TAG_GROUPS } from '@/data/onboardingTagGroups'
@@ -12,6 +12,7 @@ import {
   loadOnboardingFromStorage,
   type OnboardingPrefs,
 } from '@/lib/onboarding'
+import { playTypingBeep, unlockTypingAudio } from '@/lib/typingBeep'
 import { supabase } from '@/lib/supabase/client'
 import { useSupabaseAuth } from '@/lib/auth/supabaseAuth'
 
@@ -36,63 +37,108 @@ function displayStep(step: number): number | null {
   return null
 }
 
-const INTRO_PHASES: { text: string; displayMs: number; isFinal?: boolean }[] = [
-  { text: 'Hey', displayMs: 1000 },
-  { text: 'Welcome to Terminus.', displayMs: 1500 },
-  { text: "We're happy you're here!", displayMs: 1200 },
-  { text: 'We collect a lot of Lisbon events.', displayMs: 1500 },
-  { text: 'Like...', displayMs: 1200 },
-  { text: 'A LOT', displayMs: 1000 },
-  { text: "Maybe we've missed your family lunch…", displayMs: 1500 },
-  { text: "but we've got most of the rest.", displayMs: 1500 },
-  { text: 'Let us know what you like so we can pick what suits you.', displayMs: 2500, isFinal: true },
+const INTRO_PHASES: { text: string; holdMs: number; isFinal?: boolean }[] = [
+  { text: 'Hey', holdMs: 500 },
+  { text: 'Welcome to Terminus.', holdMs: 700 },
+  { text: "We're happy you're here!", holdMs: 700 },
+  { text: 'We collect a lot of Lisbon events.', holdMs: 700 },
+  { text: 'Like...', holdMs: 500 },
+  { text: 'A LOT', holdMs: 600 },
+  { text: "Maybe we've missed your family lunch…", holdMs: 800 },
+  { text: "but we've got most of the rest.", holdMs: 800 },
+  { text: 'Let us know what you like so we can pick what suits you.', holdMs: 1200, isFinal: true },
 ]
+
+const CHAR_MS = 42
 
 function IntroSequence({ onComplete }: { onComplete: () => void }) {
   const [phaseIndex, setPhaseIndex] = useState(0)
-  const [visible, setVisible] = useState(true)
+  const [charCount, setCharCount] = useState(0)
+  const [lineDone, setLineDone] = useState(false)
+  const advancingRef = useRef(false)
   const phase = INTRO_PHASES[phaseIndex]
-  const isFinal = phase?.isFinal
+  const fullText = phase?.text ?? ''
+  const shown = fullText.slice(0, charCount)
+  const typing = Boolean(phase) && charCount < fullText.length
 
   useEffect(() => {
-    if (!phase) return
-    const showTimer = setTimeout(() => {
-      if (isFinal) {
-        onComplete()
-        return
-      }
-      setVisible(false)
-    }, phase.displayMs)
-    return () => clearTimeout(showTimer)
-  }, [phaseIndex, phase?.displayMs, isFinal, onComplete])
+    void unlockTypingAudio()
+  }, [])
 
-  useEffect(() => {
-    if (!visible && !isFinal) {
-      const hideTimer = setTimeout(() => {
-        setPhaseIndex((i) => i + 1)
-        setVisible(true)
-      }, 300)
-      return () => clearTimeout(hideTimer)
+  const advance = useCallback(() => {
+    if (advancingRef.current || !phase) return
+    advancingRef.current = true
+    if (phase.isFinal) {
+      onComplete()
+      return
     }
-  }, [visible, isFinal])
+    setTimeout(() => {
+      setPhaseIndex((i) => i + 1)
+      setCharCount(0)
+      setLineDone(false)
+      advancingRef.current = false
+    }, 180)
+  }, [phase, onComplete])
+
+  // Type one character at a time + Pokemon-style blip
+  useEffect(() => {
+    if (!phase || lineDone) return
+    if (charCount >= fullText.length) {
+      setLineDone(true)
+      return
+    }
+    const t = setTimeout(() => {
+      const next = charCount + 1
+      const ch = fullText[charCount]
+      if (ch && ch !== ' ') {
+        // Slight pitch wobble so it feels less flat
+        playTypingBeep({ pitch: 860 + (next % 3) * 40 })
+      }
+      setCharCount(next)
+    }, CHAR_MS)
+    return () => clearTimeout(t)
+  }, [phase, phaseIndex, charCount, fullText, lineDone])
+
+  // Hold after line completes, then advance
+  useEffect(() => {
+    if (!lineDone || !phase) return
+    const t = setTimeout(() => advance(), phase.holdMs)
+    return () => clearTimeout(t)
+  }, [lineDone, phase, advance])
+
+  const handleTap = async () => {
+    await unlockTypingAudio()
+    if (!phase) return
+    if (typing) {
+      setCharCount(fullText.length)
+      setLineDone(true)
+      return
+    }
+    advance()
+  }
 
   if (!phase) return null
 
   return (
-    <div className="text-center px-4 sm:px-6 md:px-8 w-full min-h-[50vh] flex flex-col items-center justify-center">
-      <img
-        src="/lisboa.png"
-        alt="Terminus"
-        className="w-full max-w-md sm:max-w-lg mx-auto rounded-none object-contain mb-8 sm:mb-10 border-2 border-terminus-border"
-      />
-      <p
-        className={`font-pixel text-sm sm:text-base md:text-lg text-terminus-fg leading-relaxed transition-opacity duration-300 w-full max-w-3xl mx-auto ${
-          visible ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-        {phase.text}
-      </p>
-    </div>
+    <button
+      type="button"
+      onClick={() => void handleTap()}
+      className="text-left px-4 sm:px-6 md:px-8 w-full min-h-[50vh] flex flex-col items-center justify-center bg-transparent border-0 cursor-pointer"
+      aria-label="Advance intro dialogue"
+    >
+      <div className="terminus-panel w-full max-w-3xl mx-auto p-5 sm:p-8 min-h-[9rem] sm:min-h-[10rem]">
+        <p className="font-pixel text-[10px] text-terminus-fg-muted mb-4 uppercase tracking-wider">
+          &gt; terminus_boot
+        </p>
+        <p className="font-pixel text-sm sm:text-base md:text-lg text-terminus-fg leading-relaxed w-full">
+          {shown}
+          <span className="terminus-cursor" aria-hidden />
+        </p>
+        <p className="mt-6 text-[10px] uppercase tracking-wider text-terminus-fg-faint">
+          {typing ? 'tap to skip line' : 'tap to continue'}
+        </p>
+      </div>
+    </button>
   )
 }
 
